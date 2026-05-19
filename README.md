@@ -101,7 +101,7 @@
 
 ## 📋 요구사항 명세서
 
-> 추후 업데이트 예정 (Google Spreadsheet 링크 추가 예정)
+> [요구사항 명세서](https://docs.google.com/spreadsheets/d/12-2jKy9jEzSq1YM0xmzFc1EF5N1-gAC9O7Z6JvjYeJ0/edit?hl=ko&gid=1907448249#gid=1907448249)
 
 ---
 
