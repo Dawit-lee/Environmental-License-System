@@ -1,4 +1,4 @@
-# 🌿 환경기초시설 인허가 관리 시스템
+<img width="208" height="150" alt="system_architecture" src="https://github.com/user-attachments/assets/90468020-9d02-444a-a58f-f3b9a6f6315f" /># 🌿 환경기초시설 인허가 관리 시스템
 
 ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F?logo=springboot&logoColor=white)
@@ -95,7 +95,7 @@
 
 ## 🔧 시스템 아키텍처
 
-> 추후 업데이트 예정
+> <img width="1360" height="980" alt="system_architecture (2)" src="https://github.com/user-attachments/assets/f201d416-23d4-4b76-a97e-1b4865ca6268" />
 
 ---
 
