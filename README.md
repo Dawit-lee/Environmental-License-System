@@ -95,7 +95,7 @@
 
 ## 🔧 시스템 아키텍처
 
-> <img width="1360" height="980" alt="system_architecture (2)" src="https://github.com/user-attachments/assets/f201d416-23d4-4b76-a97e-1b4865ca6268" />
+> [시스템 아키텍처](https://github.com/user-attachments/assets/f201d416-23d4-4b76-a97e-1b4865ca6268)
 
 ---
 
