@@ -44,6 +44,12 @@ public class SuggestionEvent {
         this.data = data;
     }
 
+    /** PAGE_VIEWED of that page, by that user (null = anyone). */
+    boolean isPageView(int pageNo, Long userId) {
+        return type == Type.PAGE_VIEWED && data != null && data.path("page_no").asInt() == pageNo
+                && (userId == null || userId.equals(actorId));
+    }
+
     public Long getId() { return id; }
     public Long getActorId() { return actorId; }
     public Instant getAt() { return at; }

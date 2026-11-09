@@ -163,6 +163,7 @@ public class Review {
         AiSuggestion s = version == null ? lock(id) : lock(id, version);
         ProjectMember m = access.member(s.getProjectId(), jwt);
         Status next = Transition.next(s.getStatus(), Action.ACCEPT, m.canSelfApprove(), s.getEditedPayload() != null);
+        requirePageViewed(s);
         SuggestionApplier applier = applier(s.getKind());
         JsonNode payload = s.effectivePayload();
         applier.validate(payload);
@@ -234,6 +235,36 @@ public class Review {
         access.member(s.getProjectId(), actorId);
         requirePending(s);
         return close(s, Status.REJECTED, actorId, how.reason);
+    }
+
+    /** The review screen opened page pageNo of the source document. Once per user and page (design D7). */
+    @Transactional
+    public void pageViewed(long id, Jwt jwt, int pageNo) {
+        AiSuggestion s = suggestions.findById(id).orElseThrow(Review::notFound);
+        long userId = access.member(s.getProjectId(), jwt).getUserId();
+        if (events.findBySuggestionIdOrderById(id).stream().noneMatch(e -> e.isPageView(pageNo, userId))) {
+            event(s, userId, Type.PAGE_VIEWED, json.createObjectNode().put("page_no", pageNo));
+        }
+    }
+
+    /** The run a suggestion came from, for members of its project (source document lookup). */
+    public AiRun runOf(long id, Jwt jwt) {
+        AiSuggestion s = suggestions.findById(id).orElseThrow(Review::notFound);
+        access.member(s.getProjectId(), jwt);
+        return runs.findById(s.getRunId()).orElseThrow();
+    }
+
+    /** D7: a scan can't be checked by machine, so someone must have opened its page. Rejecting is not gated. */
+    private void requirePageViewed(AiSuggestion s) {
+        JsonNode p = s.effectivePayload();
+        if (!"UNVERIFIABLE".equals(p.path("quote_check").asText())) {
+            return;
+        }
+        int page = p.path("page_no").asInt();
+        if (events.findBySuggestionIdOrderById(s.getId()).stream().noneMatch(e -> e.isPageView(page, null))) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                    "원문 미열람 스캔본: " + page + "쪽 원문을 열어 본 뒤 승인할 수 있습니다.");
+        }
     }
 
     private AiSuggestion close(AiSuggestion s, Status next, Long actorId, String reason) {

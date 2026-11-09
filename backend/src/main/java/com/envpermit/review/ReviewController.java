@@ -8,6 +8,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -55,6 +56,9 @@ class ReviewController {
     }
 
     record VersionRequest(@NotNull Long version) {
+    }
+
+    record PageViewRequest(@NotNull @Positive Integer pageNo) {
     }
 
     record BulkRequest(@NotEmpty @Size(max = 200) List<Long> ids) {
@@ -132,6 +136,13 @@ class ReviewController {
     SuggestionView reopen(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
                           @Valid @RequestBody VersionRequest req) {
         return SuggestionView.of(review.reopen(id, jwt, req.version()));
+    }
+
+    @PostMapping("/api/suggestions/{id}/page-views")
+    ResponseEntity<Void> pageViewed(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
+                                    @Valid @RequestBody PageViewRequest req) {
+        review.pageViewed(id, jwt, req.pageNo());
+        return ResponseEntity.noContent().build();
     }
 
     /** One transaction per item (review.accept is transactional); partial success allowed. No first due date. */

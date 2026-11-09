@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import { api, sessionUserId } from '../api/client';
 import {
-  acceptSuggestion, addSuggestion, bulkAccept, editSuggestion, effective, listSuggestions, rejectSuggestion,
-  reopenSuggestion, returnSuggestion, submitSuggestion, suggestionEvents,
+  acceptSuggestion, addSuggestion, bulkAccept, editSuggestion, effective, listSuggestions, pageImage, recordPageView,
+  rejectSuggestion, reopenSuggestion, returnSuggestion, submitSuggestion, suggestionEvents,
   type Frequency, type ObligationPayload, type QuoteCheck, type Suggestion, type SuggestionEvent, type SuggestionStatus,
 } from '../api/review';
 import type { PermitItem, Project } from '../types';
@@ -17,7 +17,7 @@ interface Member { userId: number; canSelfApprove: boolean; canBulkApprove: bool
 
 const QC: Record<QuoteCheck, { label: string; cls: string }> = {
   MISMATCH: { label: '원문 불일치', cls: 'bg-red-100 text-[#991B1B]' },
-  UNVERIFIABLE: { label: '확인 불가 (스캔본)', cls: 'bg-amber-100 text-[#B45309]' },
+  UNVERIFIABLE: { label: '원문 대조 필요', cls: 'bg-gray-200 text-gray-700' },
   VERIFIED: { label: '원문 확인됨', cls: 'bg-emerald-100 text-[#0F6E56]' },
 };
 const MANUAL_BADGE = { label: '직접 추가', cls: 'bg-gray-100 text-gray-600' };
@@ -71,6 +71,7 @@ export default function ReviewQueuePage() {
   const [filter, setFilter] = useState<'ALL' | SuggestionStatus>('ALL');
   const [mode, setMode] = useState<'view' | 'edit' | 'add'>('view');
   const [toast, setToast] = useState('');
+  const [bulkResults, setBulkResults] = useState<{ id: number; ok: boolean; reason: string | null }[] | null>(null);
   const [error, setError] = useState('');
 
   const notify = (m: string) => {
@@ -136,8 +137,9 @@ export default function ReviewQueuePage() {
     try {
       const res = await bulkAccept(ids);
       const failed = res.filter((r) => !r.ok);
-      notify(`${res.length - failed.length}건 승인${failed.length ? ` · ${failed.length}건 실패 (${failed[0].reason})` : ''}`);
-      setChecked(new Set());
+      notify(`${res.length - failed.length}건 승인${failed.length ? ` · ${failed.length}건 제외` : ''}`);
+      setBulkResults(res);
+      setChecked(new Set(failed.map((r) => r.id))); // keep the excluded ones checked for a retry
     } catch (e) {
       notify((e as Error).message);
     }
@@ -202,6 +204,27 @@ export default function ReviewQueuePage() {
                 )}
               </div>
             </div>
+            {bulkResults && (
+              <div role="status" className="border-b border-[#E5E3DC] bg-[#F8F7F2] px-4 py-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <b className="text-gray-800">일괄 승인 결과: {bulkResults.filter((r) => r.ok).length}건 승인 · {bulkResults.filter((r) => !r.ok).length}건 제외</b>
+                  <button type="button" onClick={() => setBulkResults(null)} className="text-xs text-gray-500 hover:underline">닫기</button>
+                </div>
+                <ul className="mt-2 space-y-1">
+                  {bulkResults.map((r) => {
+                    const it = items.find((s) => s.id === r.id);
+                    const label = it ? (effective(it).citation_key || effective(it).summary) : `#${r.id}`;
+                    return (
+                      <li key={r.id} className="flex gap-2">
+                        <span className={`shrink-0 ${r.ok ? 'text-[#0F6E56]' : 'text-[#991B1B]'}`}>{r.ok ? '✓ 승인' : '✕ 제외'}</span>
+                        <span className="font-mono text-xs leading-5">{label}</span>
+                        {!r.ok && <span className="text-gray-600">— {r.reason}</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs text-gray-500">
@@ -322,6 +345,9 @@ function Detail({ s, lead, permitName, onEdit, run }: {
     return r || null;
   };
   const decidable = s.status === 'PENDING' || s.status === 'SUBMITTED';
+  // D7: a scan can only be approved after someone opened its page (the server refuses otherwise)
+  const unviewedScan = p.quote_check === 'UNVERIFIABLE'
+    && !events.some((e) => e.type === 'PAGE_VIEWED' && e.data?.page_no === p.page_no);
 
   return (
     <>
@@ -336,6 +362,9 @@ function Detail({ s, lead, permitName, onEdit, run }: {
         {p.quote_check === 'MISMATCH' && (
           <Callout tone="red" title="환각 의심">AI 인용문이 원문과 다릅니다. 원문과 대조해 수정하거나 거절하세요.</Callout>
         )}
+        {unviewedScan && decidable && (
+          <Callout tone="amber" title="원문 미열람 스캔본">아래 원문 페이지를 열어 확인해야 승인할 수 있습니다.</Callout>
+        )}
         {s.status === 'SUBMITTED' && (
           <Callout tone="sky" title={s.proposedDecision === 'REJECT' ? '거절 요청됨' : '승인 요청됨'}>
             혼자 승인 권한이 있는 사람이 최종 확정합니다.
@@ -347,6 +376,11 @@ function Detail({ s, lead, permitName, onEdit, run }: {
           <p className="mb-1 text-xs font-semibold text-gray-500">{p.source_quote ? `원문 인용 (${p.page_no ?? '?'}쪽)` : '조건 전문'}</p>
           <blockquote className="rounded-r-lg border-l-4 border-[#1F4E79] bg-[#F8F7F2] px-3 py-2 text-sm">{p.source_quote || p.requirement_text}</blockquote>
         </div>
+
+        {s.origin === 'AI' && p.page_no && (
+          <PageViewer id={s.id} pageNo={p.page_no}
+            onViewed={() => suggestionEvents(s.id).then(setEvents, () => undefined)} />
+        )}
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Info label="인허가 항목" value={permitName} />
@@ -365,7 +399,8 @@ function Detail({ s, lead, permitName, onEdit, run }: {
         <div className="flex flex-wrap gap-2">
           {lead && decidable && (
             <>
-              <button type="button" className={btnPrimary}
+              <button type="button" className={btnPrimary} disabled={unviewedScan}
+                title={unviewedScan ? '원문 페이지를 연 뒤 승인할 수 있습니다' : undefined}
                 onClick={() => run(() => acceptSuggestion(s, firstDue || null),
                   s.editedPayload ? '수정 내용으로 승인했습니다. 수정 기록이 남습니다.' : '승인했습니다. 인허가 대장과 기한 알림에 등록됩니다.')}>
                 {s.editedPayload ? '수정 후 승인' : '승인'}
@@ -398,6 +433,33 @@ function Detail({ s, lead, permitName, onEdit, run }: {
         </p>
       </div>
     </>
+  );
+}
+
+/** The suggestion's source page, rendered by the server. Showing it records PAGE_VIEWED (design D7). */
+function PageViewer({ id, pageNo, onViewed }: { id: number; pageNo: number; onViewed: () => void }) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState('');
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    setUrl(null);
+    setError('');
+    pageImage(id, pageNo).then((b) => { objectUrl = URL.createObjectURL(b); setUrl(objectUrl); },
+      (e: Error) => setError(e.message));
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+  }, [id, pageNo]);
+  return (
+    <div>
+      <p className="mb-1 text-xs font-semibold text-gray-500">원문 {pageNo}쪽</p>
+      <div className="max-h-[480px] overflow-auto rounded-lg border border-[#E5E3DC] bg-gray-50">
+        {url ? (
+          <img src={url} alt={`원문 ${pageNo}쪽`} className="w-full"
+            onLoad={() => recordPageView(id, pageNo).then(onViewed, () => undefined)} />
+        ) : (
+          <p className="px-3 py-8 text-center text-sm text-gray-400">{error || '원문 페이지를 불러오는 중…'}</p>
+        )}
+      </div>
+    </div>
   );
 }
 

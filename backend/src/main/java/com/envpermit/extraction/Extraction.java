@@ -28,6 +28,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import javax.imageio.ImageIO;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.rendering.PDFRenderer;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -259,6 +265,25 @@ public class Extraction {
 
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s;
+    }
+
+    /** Page of the suggestion's source PDF as PNG for the review screen's viewer (design §4.1). */
+    public byte[] renderPage(long suggestionId, int pageNo, Jwt jwt) {
+        JsonNode ref = review.runOf(suggestionId, jwt).getInputRef();
+        Document doc = documents.findById(ref == null ? -1 : ref.path("document_id").asLong())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "원문 문서가 없습니다."));
+        // shortcut: renders on every request, no cache; add one if viewers get slow on big scans
+        try (InputStream in = storage.open(doc.getStorageKey());
+             PDDocument pdf = Loader.loadPDF(in.readAllBytes());
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            if (pageNo < 1 || pageNo > pdf.getNumberOfPages()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "페이지가 없습니다.");
+            }
+            ImageIO.write(new PDFRenderer(pdf).renderImageWithDPI(pageNo - 1, 110), "png", out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "PDF를 읽을 수 없습니다.");
+        }
     }
 
     /** After a restart nothing is working on RUNNING rows any more (design §3.9). */
