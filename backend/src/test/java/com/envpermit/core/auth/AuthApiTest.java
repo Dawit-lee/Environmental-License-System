@@ -24,7 +24,7 @@ class AuthApiTest extends IntegrationTest {
 
     @BeforeEach
     void seedUser() {
-        users.deleteAll();
+        truncateAll();
         users.save(new User("kim@example.com", encoder.encode("correct-pw"), "김담당", User.Role.USER));
     }
 

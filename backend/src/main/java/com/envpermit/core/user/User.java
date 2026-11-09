@@ -25,14 +25,21 @@ public class User {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    private Long companyId;
+
     protected User() {
     }
 
     public User(String email, String passwordHash, String name, Role role) {
+        this(email, passwordHash, name, role, null);
+    }
+
+    public User(String email, String passwordHash, String name, Role role, Long companyId) {
         this.email = email;
         this.passwordHash = passwordHash;
         this.name = name;
         this.role = role;
+        this.companyId = companyId;
     }
 
     public Long getId() { return id; }
@@ -40,4 +47,5 @@ public class User {
     public String getPasswordHash() { return passwordHash; }
     public String getName() { return name; }
     public Role getRole() { return role; }
+    public Long getCompanyId() { return companyId; }
 }

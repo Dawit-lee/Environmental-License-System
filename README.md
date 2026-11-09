@@ -240,7 +240,10 @@ docker compose up -d --build
 ```
 - PostgreSQL 16(`localhost:5432`)과 API(`localhost:8080`)가 뜹니다. Flyway가 스키마를 만듭니다.
 - 포트가 이미 쓰이고 있으면 바꿔서 띄웁니다: `DB_PORT=15432 API_PORT=18080 docker compose up -d --build`
-- `SPRING_PROFILES_ACTIVE=dev`(기본값)이면 개발용 계정이 생깁니다: **dev@envpermit.local / dev1234!** (로컬 전용, 운영 프로필에서는 만들어지지 않음)
+- `SPRING_PROFILES_ACTIVE=dev`(기본값)이면 개발용 계정과 가상의 예시 데이터(회사·프로젝트·인허가)가 생깁니다. 로컬 전용, 운영 프로필에서는 만들어지지 않습니다. 비밀번호는 모두 `dev1234!`
+  - **dev@envpermit.local** — A사, 예시 프로젝트 4개의 생성자(어드민)
+  - kim@envpermit.local — A사, 프로젝트 1의 일반 멤버(승인 권한 없음)
+  - other@envpermit.local — B사. A사 프로젝트에 들어가면 403
 
 ### 3. 프론트엔드 실행
 ```bash
@@ -249,7 +252,7 @@ npm install
 npm run dev
 ```
 `/api` 요청은 Vite가 `http://localhost:8080`으로 넘깁니다. API 포트를 바꿨다면 `API_URL=http://localhost:18080 npm run dev`.
-로그인 화면에서 위 개발용 계정으로 로그인합니다. 로그인 외 화면은 아직 mock 데이터입니다.
+로그인 화면에서 위 개발용 계정으로 로그인합니다. 로그인, 프로젝트 목록(`/projects`), 프로젝트 상세(`/projects/:id`)는 실제 API를 쓰고, 나머지 화면은 아직 mock 데이터입니다.
 
 ### 백엔드만 Docker 없이 실행
 DB는 `docker compose up -d db`로 띄우고:

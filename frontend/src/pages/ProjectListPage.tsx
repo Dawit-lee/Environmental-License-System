@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import type { FacilityType, Project, ProjectStatus } from '../types';
+import { api } from '../api/client';
 
 // ---------------------------------------------------------------------------
 // ProjectListPage — searchable, filterable card grid of all projects.
@@ -35,71 +36,21 @@ const STATUS_BADGE: Record<ProjectStatus, string> = {
   ON_HOLD: 'bg-gray-200 text-gray-600',
 };
 
-// TODO: replace with GET /api/projects.
-const PROJECTS: (Project & { acquiredCount: number })[] = [
-  {
-    id: 1,
-    name: '부산 하수처리장 증설공사',
-    facilityType: 'SEWAGE',
-    location: '부산광역시 강서구 명지동 1234',
-    capacity: 150,
-    capacityUnit: '톤/일',
-    startDate: '2026-03-15',
-    status: 'IN_PROGRESS',
-    permitCount: 20,
-    nearExpiryCount: 3,
-    acquiredCount: 12,
-  },
-  {
-    id: 2,
-    name: '청주 자원회수시설 신설',
-    facilityType: 'INCINERATION',
-    location: '충청북도 청주시 흥덕구 송정동 88',
-    capacity: 220,
-    capacityUnit: '톤/일',
-    startDate: '2026-01-10',
-    status: 'IN_PROGRESS',
-    permitCount: 18,
-    nearExpiryCount: 1,
-    acquiredCount: 7,
-  },
-  {
-    id: 3,
-    name: '광주 통합바이오가스화시설',
-    facilityType: 'BIOGAS',
-    location: '광주광역시 광산구 본덕동 55-1',
-    capacity: 100,
-    capacityUnit: '톤/일',
-    startDate: '2025-09-01',
-    status: 'COMPLETED',
-    permitCount: 15,
-    nearExpiryCount: 0,
-    acquiredCount: 15,
-  },
-  {
-    id: 4,
-    name: '안산 산업단지 폐수처리장',
-    facilityType: 'WASTEWATER',
-    location: '경기도 안산시 단원구 성곡동 700',
-    capacity: 80,
-    capacityUnit: '톤/일',
-    startDate: '2026-05-02',
-    status: 'ON_HOLD',
-    permitCount: 12,
-    nearExpiryCount: 0,
-    acquiredCount: 2,
-  },
-];
-
 export default function ProjectListPage() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [facilityFilter, setFacilityFilter] = useState<'ALL' | FacilityType>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | ProjectStatus>('ALL');
+  const [projects, setProjects] = useState<Project[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api<Project[]>('/api/projects').then(setProjects, (e: Error) => setError(e.message));
+  }, []);
 
   const filtered = useMemo(
     () =>
-      PROJECTS.filter((p) => {
+      (projects ?? []).filter((p) => {
         const matchesQuery =
           query.trim() === '' ||
           p.name.toLowerCase().includes(query.toLowerCase()) ||
@@ -108,7 +59,7 @@ export default function ProjectListPage() {
         const matchesStatus = statusFilter === 'ALL' || p.status === statusFilter;
         return matchesQuery && matchesFacility && matchesStatus;
       }),
-    [query, facilityFilter, statusFilter],
+    [projects, query, facilityFilter, statusFilter],
   );
 
   const selectClasses =
@@ -165,7 +116,11 @@ export default function ProjectListPage() {
         </div>
 
         {/* Grid or empty state */}
-        {filtered.length === 0 ? (
+        {error ? (
+          <p className="mt-16 text-center text-sm text-[#991B1B]">{error}</p>
+        ) : projects === null ? (
+          <p className="mt-16 text-center text-sm text-gray-400">불러오는 중…</p>
+        ) : filtered.length === 0 ? (
           <div className="mt-16 flex flex-col items-center justify-center text-center">
             <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#E5E3DC] text-4xl">
               📁
@@ -182,7 +137,7 @@ export default function ProjectListPage() {
         ) : (
           <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((p) => {
-              const progress = Math.round((p.acquiredCount / p.permitCount) * 100);
+              const progress = p.permitCount ? Math.round((p.acquiredCount / p.permitCount) * 100) : 0;
               return (
                 <button
                   key={p.id}
