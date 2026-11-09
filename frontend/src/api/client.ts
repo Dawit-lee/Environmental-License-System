@@ -30,12 +30,15 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+// Sends with the bearer token; on 401 refreshes once, then gives up and goes to /login.
+async function authFetch(path: string, init: RequestInit = {}): Promise<Response> {
   let s = session();
+  // FormData sets its own multipart Content-Type (with boundary)
+  const type: Record<string, string> = init.body instanceof FormData ? {} : { 'Content-Type': 'application/json' };
   const send = (token?: string) =>
     fetch(path, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...init.headers, Authorization: `Bearer ${token}` },
+      headers: { ...type, ...init.headers, Authorization: `Bearer ${token}` },
     });
 
   let res = await send(s?.accessToken).catch(() => {
@@ -49,11 +52,25 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     localStorage.removeItem(STORAGE_KEY);
     window.location.href = '/login';
   }
+  return res;
+}
+
+function failure(status: number, body: { message?: string } | null): ApiError {
+  const message =
+    status === 403 ? '이 프로젝트에 접근할 권한이 없습니다.' : body?.message ?? `요청에 실패했습니다. (${status})`;
+  return new ApiError(status, message);
+}
+
+export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await authFetch(path, init);
   const body = await res.json().catch(() => null);
-  if (!res.ok) {
-    const message =
-      res.status === 403 ? '이 프로젝트에 접근할 권한이 없습니다.' : body?.message ?? `요청에 실패했습니다. (${res.status})`;
-    throw new ApiError(res.status, message);
-  }
+  if (!res.ok) throw failure(res.status, body);
   return body as T;
+}
+
+/** For file downloads. */
+export async function apiBlob(path: string): Promise<Blob> {
+  const res = await authFetch(path);
+  if (!res.ok) throw failure(res.status, await res.json().catch(() => null));
+  return res.blob();
 }
