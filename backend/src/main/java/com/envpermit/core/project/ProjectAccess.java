@@ -23,7 +23,11 @@ public class ProjectAccess {
     }
 
     public ProjectMember member(long projectId, Jwt jwt) {
-        return members.findById(new ProjectMember.Key(projectId, userId(jwt)))
+        return member(projectId, userId(jwt));
+    }
+
+    public ProjectMember member(long projectId, long userId) {
+        return members.findById(new ProjectMember.Key(projectId, userId))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
     }
 
