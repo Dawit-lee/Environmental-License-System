@@ -1,5 +1,6 @@
 package com.envpermit.support;
 
+import com.envpermit.core.document.DocumentStorage;
 import com.envpermit.law.LawApiClient;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -13,14 +14,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.bean.override.convention.TestBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
- * Base for API tests: real PostgreSQL 16 (Testcontainers, shared across tests) + fixed clock.
+ * Base for API tests: real PostgreSQL 16 (Testcontainers, shared across tests) + fixed clock
+ * + in-memory document storage (replaces S3, so tests need no MinIO).
  * Each test starts at {@link #START}; move time with {@code clock.advance(...)}.
  */
-@SpringBootTest(properties = "app.jwt.secret=test-secret-test-secret-test-secret-0123456789")
+@SpringBootTest(properties = {"app.jwt.secret=test-secret-test-secret-test-secret-0123456789",
+        "app.scheduling=false"}) // tests run jobs by hand
 @AutoConfigureMockMvc
 @Import(IntegrationTest.Config.class)
 public abstract class IntegrationTest {
@@ -38,6 +42,12 @@ public abstract class IntegrationTest {
     @Autowired protected MockMvc mvc;
     @Autowired protected TestClock clock;
     @Autowired protected JdbcTemplate jdbc;
+    @TestBean(methodName = "com.envpermit.support.IntegrationTest#memoryStorage")
+    protected DocumentStorage storage;
+
+    static DocumentStorage memoryStorage() {
+        return new InMemoryDocumentStorage();
+    }
 
     @BeforeEach
     void resetClock() {
@@ -63,6 +73,12 @@ public abstract class IntegrationTest {
         @Primary
         TestClock testClock() {
             return new TestClock(START, ZoneId.of("Asia/Seoul"));
+        }
+
+        @Bean
+        @Primary
+        InMemoryMailer inMemoryMailer() {
+            return new InMemoryMailer();
         }
 
         @Bean

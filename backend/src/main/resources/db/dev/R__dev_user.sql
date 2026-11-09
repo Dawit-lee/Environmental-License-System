@@ -96,3 +96,8 @@ BEGIN
     SELECT id, 'NOT_APPLIED', 'IN_PROGRESS', u_kim, now() - interval '3 days'
     FROM permit_item WHERE project_id = p1 AND name = '건축허가';
 END $$;
+
+-- deadline events for the seeded permits (V20 backfills only permits that existed before it ran)
+INSERT INTO deadline_event (kind, target_id, project_id, title, due_date)
+SELECT 'PERMIT_EXPIRY', id, project_id, name || ' 만료', expiry_date FROM permit_item WHERE expiry_date IS NOT NULL
+ON CONFLICT (kind, target_id) DO NOTHING;

@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import type { PermitStatus } from '../types';
+import { getDeadlines, ymd, type Deadline } from '../api/notifications';
 
 // ---------------------------------------------------------------------------
 // DashboardPage — portfolio-wide overview: summary cards, near-expiry table,
@@ -13,25 +14,6 @@ function dDayClasses(dDay: number): string {
   if (dDay <= 60) return 'text-amber-500 font-medium';
   return 'text-gray-500';
 }
-
-interface NearExpiryRow {
-  id: number;
-  projectId: number;
-  projectName: string;
-  permitName: string;
-  expiryDate: string;
-  dDay: number;
-  authority: string;
-  authorityUrl: string;
-}
-
-// TODO: replace with GET /api/dashboard/near-expiry?within=30
-const NEAR_EXPIRY: NearExpiryRow[] = [
-  { id: 105, projectId: 1, projectName: '부산 하수처리장 증설공사', permitName: '전기사업 공사계획 신고', expiryDate: '2026-06-25', dDay: 5, authority: '한국전기안전공사', authorityUrl: 'https://www.kesco.or.kr' },
-  { id: 108, projectId: 1, projectName: '부산 하수처리장 증설공사', permitName: '구조안전 확인', expiryDate: '2026-06-18', dDay: 20, authority: '세움터', authorityUrl: 'https://www.eais.go.kr' },
-  { id: 102, projectId: 1, projectName: '부산 하수처리장 증설공사', permitName: '건축허가', expiryDate: '2026-06-20', dDay: 22, authority: '세움터', authorityUrl: 'https://www.eais.go.kr' },
-  { id: 201, projectId: 2, projectName: '청주 자원회수시설 신설', permitName: '대기배출시설 설치허가', expiryDate: '2026-06-26', dDay: 28, authority: '금강유역환경청', authorityUrl: 'https://www.me.go.kr' },
-];
 
 interface StatusSlice {
   status: PermitStatus;
@@ -57,7 +39,15 @@ const ACTIVITY = [
 ];
 
 export default function DashboardPage() {
-  const sorted = useMemo(() => [...NEAR_EXPIRY].sort((a, b) => a.dDay - b.dDay), []);
+  // Deadlines due within 30 days (API returns them sorted by date).
+  const [nearExpiry, setNearExpiry] = useState<Deadline[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    const today = new Date();
+    const to = new Date(today);
+    to.setDate(to.getDate() + 30);
+    getDeadlines(ymd(today), ymd(to)).then(setNearExpiry, (e: Error) => setError(e.message));
+  }, []);
 
   const total = STATUS_SLICES.reduce((sum, s) => sum + s.value, 0);
 
@@ -82,44 +72,41 @@ export default function DashboardPage() {
         <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <SummaryCard label="전체 프로젝트" value={4} tone="text-[#1F4E79]" />
           <SummaryCard label="전체 인허가" value={total} tone="text-gray-800" />
-          <SummaryCard label="만료임박 (D-30 이내)" value={NEAR_EXPIRY.length} tone="text-[#B45309]" />
+          <SummaryCard label="만료임박 (D-30 이내)" value={nearExpiry.length} tone="text-[#B45309]" />
           <SummaryCard label="미신청" value={9} tone="text-[#991B1B]" />
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Near-expiry table */}
           <section className="lg:col-span-2 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">만료임박 인허가</h2>
+            <h2 className="text-lg font-semibold text-gray-900">기한 임박 (D-30 이내)</h2>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[480px] text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
                   <tr>
                     <th className="px-3 py-2.5 font-medium">프로젝트명</th>
-                    <th className="px-3 py-2.5 font-medium">인허가명</th>
-                    <th className="px-3 py-2.5 font-medium">만료일</th>
+                    <th className="px-3 py-2.5 font-medium">항목</th>
+                    <th className="px-3 py-2.5 font-medium">기한</th>
                     <th className="px-3 py-2.5 font-medium">D-day</th>
-                    <th className="px-3 py-2.5 font-medium">신청기관</th>
-                    <th className="px-3 py-2.5 text-right font-medium">액션</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E3DC]">
-                  {sorted.map((row) => (
+                  {error && (
+                    <tr><td colSpan={4} className="px-3 py-6 text-center text-[#991B1B]">{error}</td></tr>
+                  )}
+                  {!error && nearExpiry.length === 0 && (
+                    <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">30일 안에 다가오는 기한이 없습니다.</td></tr>
+                  )}
+                  {nearExpiry.map((row) => (
                     <tr key={row.id} className="transition hover:bg-[#F8F7F2]">
                       <td className="px-3 py-2.5">
                         <Link to={`/projects/${row.projectId}`} className="text-gray-700 transition hover:text-[#1F4E79] hover:underline">
                           {row.projectName}
                         </Link>
                       </td>
-                      <td className="px-3 py-2.5 font-medium text-gray-800">{row.permitName}</td>
-                      <td className="px-3 py-2.5 text-gray-600">{row.expiryDate}</td>
-                      <td className={`px-3 py-2.5 ${dDayClasses(row.dDay)}`}>D-{row.dDay}</td>
-                      <td className="px-3 py-2.5 text-gray-600">{row.authority}</td>
-                      <td className="px-3 py-2.5 text-right">
-                        <a href={row.authorityUrl} target="_blank" rel="noreferrer"
-                          className="text-xs font-medium text-[#1F4E79] transition hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30">
-                          신청기관 바로가기 →
-                        </a>
-                      </td>
+                      <td className="px-3 py-2.5 font-medium text-gray-800">{row.title}</td>
+                      <td className="px-3 py-2.5 text-gray-600">{row.dueDate}</td>
+                      <td className={`px-3 py-2.5 ${dDayClasses(row.dDay)}`}>{row.dDay === 0 ? 'D-day' : `D-${row.dDay}`}</td>
                     </tr>
                   ))}
                 </tbody>

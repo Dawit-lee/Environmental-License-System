@@ -1,18 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router';
+import { getDeadlines, ymd, type Deadline } from '../api/notifications';
 
 // ---------------------------------------------------------------------------
 // CalendarPage — month grid of permit due-dates with color-coded dot badges
 // and a click-to-open day popover. Pure React + Tailwind, no chart/date libs.
 // ---------------------------------------------------------------------------
 
-type DotTone = 'red' | 'orange' | 'yellow' | 'green';
+type DotTone = 'red' | 'orange' | 'yellow' | 'green' | 'gray';
 
-interface CalendarPermit {
-  id: number;
-  date: string; // YYYY-MM-DD
-  projectName: string;
-  permitName: string;
-  tone: DotTone; // red: D-7, orange: D-30, yellow: D-60, green: 취득완료
+function tone(dDay: number): DotTone {
+  if (dDay < 0) return 'gray';
+  if (dDay <= 7) return 'red';
+  if (dDay <= 30) return 'orange';
+  if (dDay <= 60) return 'yellow';
+  return 'green';
 }
 
 const TONE_DOT: Record<DotTone, string> = {
@@ -20,42 +22,39 @@ const TONE_DOT: Record<DotTone, string> = {
   orange: 'bg-[#B45309]',
   yellow: 'bg-amber-400',
   green: 'bg-[#0F6E56]',
+  gray: 'bg-gray-300',
 };
 
 const TONE_LABEL: Record<DotTone, string> = {
   red: 'D-7 이내',
   orange: 'D-30 이내',
   yellow: 'D-60 이내',
-  green: '취득완료',
+  green: '60일 넘게 남음',
+  gray: '지남',
 };
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
-// TODO: replace with GET /api/calendar?month=YYYY-MM
-const PERMITS: CalendarPermit[] = [
-  { id: 1, date: '2026-05-25', projectName: '부산 하수처리장 증설공사', permitName: '소방시설 착공신고', tone: 'orange' },
-  { id: 2, date: '2026-05-12', projectName: '광주 통합바이오가스화시설', permitName: '개발행위허가', tone: 'green' },
-  { id: 3, date: '2026-06-18', projectName: '부산 하수처리장 증설공사', permitName: '구조안전 확인', tone: 'orange' },
-  { id: 4, date: '2026-06-20', projectName: '부산 하수처리장 증설공사', permitName: '건축허가', tone: 'orange' },
-  { id: 5, date: '2026-06-25', projectName: '부산 하수처리장 증설공사', permitName: '전기사업 공사계획 신고', tone: 'red' },
-  { id: 6, date: '2026-06-25', projectName: '청주 자원회수시설 신설', permitName: '대기배출시설 설치허가', tone: 'red' },
-  { id: 7, date: '2026-07-15', projectName: '부산 하수처리장 증설공사', permitName: '소방시설 착공신고', tone: 'yellow' },
-  { id: 8, date: '2026-05-30', projectName: '안산 산업단지 폐수처리장', permitName: '수질오염물질 배출시설 설치허가', tone: 'yellow' },
-];
-
 export default function CalendarPage() {
-  // Default to the current project timeline month.
-  const [year, setYear] = useState(2026);
-  const [month, setMonth] = useState(5); // 1-based
+  const [year, setYear] = useState(() => new Date().getFullYear());
+  const [month, setMonth] = useState(() => new Date().getMonth() + 1); // 1-based
   const [openDay, setOpenDay] = useState<string | null>(null);
+  const [deadlines, setDeadlines] = useState<Deadline[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setError(null);
+    getDeadlines(ymd(new Date(year, month - 1, 1)), ymd(new Date(year, month, 0)))
+      .then(setDeadlines, (e: Error) => setError(e.message));
+  }, [year, month]);
 
   const byDate = useMemo(() => {
-    const map: Record<string, CalendarPermit[]> = {};
-    for (const p of PERMITS) {
-      (map[p.date] ??= []).push(p);
+    const map: Record<string, Deadline[]> = {};
+    for (const d of deadlines) {
+      (map[d.dueDate] ??= []).push(d);
     }
     return map;
-  }, []);
+  }, [deadlines]);
 
   // Build the grid cells (leading blanks + days of month).
   const cells = useMemo(() => {
@@ -119,6 +118,8 @@ export default function CalendarPage() {
           </button>
         </div>
 
+        {error && <p className="mt-4 text-center text-sm text-[#991B1B]">{error}</p>}
+
         {/* Calendar grid */}
         <div className="mt-4 overflow-hidden rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
           <div className="grid grid-cols-7 border-b border-[#E5E3DC] bg-[#F8F7F2] text-center text-xs font-medium text-gray-500">
@@ -152,7 +153,7 @@ export default function CalendarPage() {
                     {items.length > 0 && (
                       <span className="mt-1 flex flex-wrap gap-1">
                         {items.map((it) => (
-                          <span key={it.id} className={`h-2 w-2 rounded-full ${TONE_DOT[it.tone]}`} />
+                          <span key={it.id} className={`h-2 w-2 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
                         ))}
                       </span>
                     )}
@@ -174,12 +175,14 @@ export default function CalendarPage() {
                       </div>
                       <ul className="space-y-2">
                         {items.map((it) => (
-                          <li key={it.id} className="flex items-start gap-2 text-sm">
-                            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONE_DOT[it.tone]}`} />
-                            <div>
-                              <p className="font-medium text-gray-800">{it.permitName}</p>
-                              <p className="text-xs text-gray-500">{it.projectName}</p>
-                            </div>
+                          <li key={it.id}>
+                            <Link to={`/projects/${it.projectId}`} className="flex items-start gap-2 rounded text-sm hover:bg-[#F8F7F2]">
+                              <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
+                              <div>
+                                <p className="font-medium text-gray-800">{it.title}</p>
+                                <p className="text-xs text-gray-500">{it.projectName}</p>
+                              </div>
+                            </Link>
                           </li>
                         ))}
                       </ul>

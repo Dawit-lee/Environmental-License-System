@@ -59,6 +59,16 @@ export interface PermitItem {
   dDay: number | null;
 }
 
+export interface PermitDocument {
+  id: number;
+  fileName: string;
+  contentType: string;
+  size: number;
+  sha256: string;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
 export interface PermitHistory {
   id: number;
   fromStatus: PermitStatus | null; // null = created
