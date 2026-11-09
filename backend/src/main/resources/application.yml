@@ -31,3 +31,8 @@ app:
     bucket: ${S3_BUCKET:envpermit-documents}
     access-key: ${S3_ACCESS_KEY}
     secret-key: ${S3_SECRET_KEY}
+  # ① AI obligation extraction. The API key is read only from env var ANTHROPIC_API_KEY (never in config).
+  extraction:
+    model: ${EXTRACTION_MODEL:claude-sonnet-5-5}
+    preparer: ${EXTRACTION_PREPARER:CLAUDE_PDF_DIRECT} # swappable input step (design §3.2)
+    stale-after: 30m # RUNNING older than this at startup → FAILED("중단됨")

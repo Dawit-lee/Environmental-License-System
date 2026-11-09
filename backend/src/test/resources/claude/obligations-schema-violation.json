@@ -1,0 +1,27 @@
+{
+  "id": "msg_01FixtureSchemaViolation",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "EqQBCkYIBhgCKkB-hand-built-fixture-signature"
+    },
+    {
+      "type": "text",
+      "text": "{\"obligations\": [{\"citation_raw\": \"1\", \"requirement_text\": \"x\", \"type\": \"OTHER\", \"category\": \"OTHER\", \"responsible_party\": \"\", \"frequency\": \"WEEKLY\", \"frequency_text\": \"\", \"period_text\": \"\", \"legal_basis\": [], \"page_no\": 1, \"source_quote\": \"x\"}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 3120,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 200,
+    "service_tier": "standard"
+  }
+}

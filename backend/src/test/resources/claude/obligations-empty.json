@@ -1,0 +1,27 @@
+{
+  "id": "msg_01FixtureEmptyResult",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "EqQBCkYIBhgCKkB-hand-built-fixture-signature"
+    },
+    {
+      "type": "text",
+      "text": "{\"obligations\": []}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 1980,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 12,
+    "service_tier": "standard"
+  }
+}

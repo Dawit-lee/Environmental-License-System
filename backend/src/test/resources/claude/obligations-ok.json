@@ -1,0 +1,27 @@
+{
+  "id": "msg_01Fixture0kThreeObligations",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "EqQBCkYIBhgCKkB-hand-built-fixture-signature"
+    },
+    {
+      "type": "text",
+      "text": "{\"obligations\": [{\"citation_raw\": \"협의의견 3-2항\", \"requirement_text\": \"Measure noise and vibration once per quarter during construction and submit the results to the city.\", \"summary\": \"공사 중 소음·진동 분기 1회 측정·제출\", \"type\": \"MEASURE_SURVEY\", \"category\": \"NOISE_VIBRATION\", \"responsible_party\": \"사업자\", \"frequency\": \"QUARTERLY\", \"frequency_text\": \"once per quarter\", \"period_text\": \"during construction\", \"legal_basis\": [\"소음·진동관리법 제22조\"], \"page_no\": 1, \"source_quote\": \"Measure noise and vibration once per quarter during construction and submit the results\"}, {\"citation_raw\": \"허가조건 제5호\", \"requirement_text\": \"Keep TMS records for 10 years.\", \"summary\": \"TMS 기록 10년 보존\", \"type\": \"RECORD_KEEP\", \"category\": \"AIR_QUALITY\", \"responsible_party\": \"\", \"frequency\": \"OTHER\", \"frequency_text\": \"\", \"period_text\": \"\", \"legal_basis\": [], \"page_no\": 2, \"source_quote\": \"Keep TMS records for 10 years.\"}, {\"citation_raw\": \"\", \"requirement_text\": \"Keep TMS records for 5 years.\", \"summary\": \"TMS 기록 5년 보존\", \"type\": \"RECORD_KEEP\", \"category\": \"OTHER\", \"responsible_party\": \"\", \"frequency\": \"ONCE\", \"frequency_text\": \"\", \"period_text\": \"\", \"legal_basis\": [], \"page_no\": 2, \"source_quote\": \"Keep TMS records for 5 years.\"}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 3120,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 640,
+    "service_tier": "standard"
+  }
+}

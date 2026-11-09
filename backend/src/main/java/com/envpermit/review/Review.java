@@ -19,6 +19,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -97,9 +98,34 @@ public class Review {
         return s;
     }
 
-    public List<AiSuggestion> list(long projectId, Jwt jwt) {
+    /** AI output of a finished run: PENDING suggestions, CREATED by SYSTEM. Runs in the caller's transaction. */
+    @Transactional
+    public void addAi(AiRun run, long targetParentId, List<JsonNode> payloads) {
+        for (JsonNode payload : payloads) {
+            AiSuggestion s = suggestions.save(new AiSuggestion(run.getCompanyId(), run.getProjectId(), run.getId(),
+                    run.getKind(), targetParentId, Origin.AI, payload));
+            event(s, null, Type.CREATED, null);
+        }
+    }
+
+    /** Riskiest first (design §4.1): quote_check MISMATCH → UNVERIFIABLE → VERIFIED → none, then oldest first. */
+    public List<AiSuggestion> list(long projectId, Jwt jwt, Long runId, Status status) {
         access.member(projectId, jwt);
-        return suggestions.findByProjectIdOrderById(projectId);
+        return suggestions.findByProjectIdOrderById(projectId).stream()
+                .filter(s -> runId == null || runId.equals(s.getRunId()))
+                .filter(s -> status == null || status == s.getStatus())
+                .sorted(Comparator.comparingInt(Review::risk))
+                .toList();
+    }
+
+    private static int risk(AiSuggestion s) {
+        String qc = s.effectivePayload().path("quote_check").asText("");
+        return switch (qc) {
+            case "MISMATCH" -> 0;
+            case "UNVERIFIABLE" -> 1;
+            case "VERIFIED" -> 2;
+            default -> 3;
+        };
     }
 
     public List<SuggestionEvent> events(long id, Jwt jwt) {
