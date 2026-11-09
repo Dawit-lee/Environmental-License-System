@@ -1,0 +1,92 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1010" width="1400" height="1010" font-family="-apple-system, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', Arial, sans-serif">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10" fill="none" stroke="#7d7a73" stroke-width="1.6"/>
+    </marker>
+    <style>
+      .t{font-size:26px;font-weight:700;fill:#2b2b2b;text-anchor:middle}
+      .s{font-size:21px;fill:#5f5c56;text-anchor:middle}
+      .lbl{font-size:21px;fill:#8a877f}
+      .grp{font-size:22px;fill:#4d4a45}
+      .edge{font-size:19px;fill:#5f5c56}
+      .line{stroke:#7d7a73;stroke-width:2;fill:none}
+      .beige{fill:#f1eee7;stroke:#b9b5ab;stroke-width:1.2}
+      .teal{fill:#e2f3ee;stroke:#2f7d66;stroke-width:1.2}
+      .ai{fill:#fff4dd;stroke:#b7791f;stroke-width:1.2}
+      .blue{fill:#e6f0fa;stroke:#3b6fb6;stroke-width:1.2}
+      .ext{fill:#ffffff;stroke:#8a877f;stroke-width:1.2}
+      .dash{fill:none;stroke:#b9b5ab;stroke-width:1.6;stroke-dasharray:10 7}
+    </style>
+  </defs>
+  <rect width="1400" height="1010" fill="#ffffff"/>
+
+  <!-- tier labels -->
+  <circle cx="30" cy="108" r="3.5" fill="#c9c6bd"/><text x="42" y="115" class="lbl">Client</text>
+  <circle cx="30" cy="500" r="3.5" fill="#c9c6bd"/><text x="42" y="507" class="lbl">Server</text>
+  <circle cx="30" cy="900" r="3.5" fill="#c9c6bd"/><text x="42" y="907" class="lbl">Data</text>
+  <line x1="30" y1="175" x2="30" y2="820" stroke="#dcd9d1" stroke-width="1.5" stroke-dasharray="2 6"/>
+
+  <!-- client -->
+  <rect x="440" y="60" width="480" height="112" rx="14" class="beige"/>
+  <text x="680" y="110" class="t">Browser</text>
+  <text x="680" y="145" class="s">React 18 · TypeScript · Tailwind CSS</text>
+  <line x1="656" y1="224" x2="656" y2="174" class="line" marker-end="url(#ah)"/>
+  <line x1="680" y1="174" x2="680" y2="224" class="line" marker-end="url(#ah)"/>
+  <text x="704" y="207" class="edge">HTTP / REST · JWT</text>
+
+  <!-- server -->
+  <rect x="110" y="226" width="910" height="560" rx="24" class="dash"/>
+  <text x="146" y="266" class="grp">AWS EC2 · Docker</text>
+  <rect x="146" y="284" width="838" height="476" rx="14" class="beige"/>
+  <text x="565" y="326" class="t">Spring Boot API Server (Java 17)</text>
+
+  <rect x="176" y="350" width="246" height="104" rx="10" class="teal"/>
+  <text x="299" y="394" class="t">REST API</text><text x="299" y="428" class="s">프로젝트 · 인허가 CRUD</text>
+  <rect x="442" y="350" width="246" height="104" rx="10" class="teal"/>
+  <text x="565" y="394" class="t">JWT Auth</text><text x="565" y="428" class="s">멤버별 승인 권한</text>
+  <rect x="708" y="350" width="246" height="104" rx="10" class="teal"/>
+  <text x="831" y="394" class="t">Scheduler</text><text x="831" y="428" class="s">D-day 알림 · 06:00 배치</text>
+
+  <rect x="176" y="476" width="246" height="104" rx="10" class="ai"/>
+  <text x="299" y="520" class="t">허가조건 추출</text><text x="299" y="554" class="s">허가증 PDF → 의무사항</text>
+  <rect x="442" y="476" width="246" height="104" rx="10" class="ai"/>
+  <text x="565" y="520" class="t">자동 도출</text><text x="565" y="554" class="s">규칙표 판정 · 판정 보류</text>
+  <rect x="708" y="476" width="246" height="104" rx="10" class="teal"/>
+  <text x="831" y="520" class="t">법령 모니터링</text><text x="831" y="554" class="s">개정 감지 · 영향 판정</text>
+
+  <line x1="299" y1="582" x2="299" y2="632" class="line" marker-end="url(#ah)"/>
+  <line x1="565" y1="582" x2="565" y2="632" class="line" marker-end="url(#ah)"/>
+  <rect x="176" y="634" width="512" height="100" rx="10" class="ai"/>
+  <text x="432" y="676" class="t">검토 (Human-in-the-loop)</text>
+  <text x="432" y="710" class="s">AI 제안 → 사람 승인 → 대장·알림 반영</text>
+  <rect x="708" y="634" width="246" height="100" rx="10" class="teal"/>
+  <text x="831" y="676" class="t">알림</text><text x="831" y="710" class="s">앱 알림 · 이메일 요약</text>
+
+  <!-- external -->
+  <rect x="1060" y="284" width="300" height="476" rx="20" class="dash"/>
+  <text x="1086" y="324" class="grp">External</text>
+  <rect x="1086" y="350" width="248" height="104" rx="10" class="ext"/>
+  <text x="1210" y="394" class="t">Claude API</text><text x="1210" y="428" class="s">PDF 추출 · 규칙 초안</text>
+  <rect x="1086" y="476" width="248" height="104" rx="10" class="ext"/>
+  <text x="1210" y="520" class="t">법제처 Open API</text><text x="1210" y="554" class="s">법령 변경 목록 · 신구조문</text>
+  <rect x="1086" y="634" width="248" height="100" rx="10" class="ext"/>
+  <text x="1210" y="676" class="t">SMTP</text><text x="1210" y="710" class="s">알림 메일</text>
+  <line x1="984" y1="402" x2="1084" y2="402" class="line" marker-end="url(#ah)"/>
+  <line x1="956" y1="528" x2="1084" y2="528" class="line" marker-end="url(#ah)"/>
+  <line x1="956" y1="684" x2="1084" y2="684" class="line" marker-end="url(#ah)"/>
+
+  <!-- data -->
+  <line x1="410" y1="788" x2="410" y2="838" class="line" marker-end="url(#ah)"/>
+  <text x="424" y="820" class="edge">승인된 데이터만 반영</text>
+  <line x1="880" y1="788" x2="880" y2="838" class="line" marker-end="url(#ah)"/>
+  <rect x="176" y="840" width="468" height="120" rx="14" class="blue"/>
+  <text x="410" y="888" class="t">PostgreSQL 16</text>
+  <text x="410" y="924" class="s">인허가 · 의무사항 · AI 제안·감사 · 법령 · 규칙</text>
+  <rect x="700" y="840" width="360" height="120" rx="14" class="teal"/>
+  <text x="880" y="888" class="t">AWS S3</text>
+  <text x="880" y="924" class="s">허가 문서 · AI 원 응답</text>
+
+  <!-- legend -->
+  <rect x="1086" y="852" width="22" height="22" rx="4" class="ai"/><text x="1118" y="870" class="edge">AI 관련 모듈</text>
+  <rect x="1086" y="890" width="22" height="22" rx="4" class="teal"/><text x="1118" y="908" class="edge">일반 모듈</text>
+</svg>
