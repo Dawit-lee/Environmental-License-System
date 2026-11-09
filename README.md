@@ -232,13 +232,13 @@ Environmental-License-System/
 ```bash
 cp .env.example .env
 ```
-`.env`를 열어 `DB_PASSWORD`와 `JWT_SECRET`(32바이트 이상, 예: `openssl rand -base64 48` 결과)을 채웁니다.
+`.env`를 열어 `DB_PASSWORD`, `JWT_SECRET`(32바이트 이상, 예: `openssl rand -base64 48` 결과), `S3_SECRET_KEY`를 채웁니다.
 
 ### 2. DB + API 실행 (Docker)
 ```bash
 docker compose up -d --build
 ```
-- PostgreSQL 16(`localhost:5432`)과 API(`localhost:8080`)가 뜹니다. Flyway가 스키마를 만듭니다.
+- PostgreSQL 16(`localhost:5432`), 문서 저장소(S3 호환 SeaweedFS, `localhost:8333`), API(`localhost:8080`)가 뜹니다. Flyway가 스키마를 만들고, API가 시작할 때 버킷을 만듭니다.
 - 포트가 이미 쓰이고 있으면 바꿔서 띄웁니다: `DB_PORT=15432 API_PORT=18080 docker compose up -d --build`
 - `SPRING_PROFILES_ACTIVE=dev`(기본값)이면 개발용 계정과 가상의 예시 데이터(회사·프로젝트·인허가)가 생깁니다. 로컬 전용, 운영 프로필에서는 만들어지지 않습니다. 비밀번호는 모두 `dev1234!`
   - **dev@envpermit.local** — A사, 예시 프로젝트 4개의 생성자(어드민)
@@ -255,11 +255,11 @@ npm run dev
 로그인 화면에서 위 개발용 계정으로 로그인합니다. 로그인, 프로젝트 목록·상세, 대시보드의 기한 임박 목록, 캘린더(`/calendar`), 상단 알림 벨은 실제 API를 쓰고, 나머지는 아직 mock 데이터입니다.
 
 ### 백엔드만 Docker 없이 실행
-DB는 `docker compose up -d db`로 띄우고:
+DB와 문서 저장소는 `docker compose up -d db s3`로 띄우고:
 ```bash
 cd backend
 set -a; . ../.env; set +a
-./gradlew bootRun
+S3_ENDPOINT=http://localhost:8333 ./gradlew bootRun
 ```
 DB 포트를 바꿨다면 `DB_URL=jdbc:postgresql://localhost:15432/envpermit ./gradlew bootRun`.
 
@@ -268,7 +268,7 @@ DB 포트를 바꿨다면 `DB_URL=jdbc:postgresql://localhost:15432/envpermit ./
 cd backend
 ./gradlew test
 ```
-Docker가 켜져 있어야 합니다. Testcontainers가 PostgreSQL 16 컨테이너를 띄워 실제 DB 위에서 API를 검증합니다.
+Docker가 켜져 있어야 합니다. Testcontainers가 PostgreSQL 16 컨테이너를 띄워 실제 DB 위에서 API를 검증합니다. 문서 저장소는 테스트에서 메모리 가짜로 바꿉니다.
 
 ### 인증 API
 | 메서드 | 경로 | 설명 |
@@ -290,6 +290,16 @@ Access 토큰 30분, Refresh 토큰 14일.
 - 다른 모듈은 `Deadlines.register(kind, targetId, projectId, title, dueDate, assigneeId)`로 기한을 등록합니다. 인허가 만료일은 자동 등록됩니다(`PERMIT_EXPIRY`).
 - 매일 07:00(서버 시작 시에도 한 번) D-90/60/30/7 앱 알림을 만들고, 사용자별 이메일 요약을 1통 보냅니다. 같은 일정·D-day 알림은 다시 만들지 않습니다.
 - 메일은 아직 로그로만 남깁니다(`LogMailer`). SMTP는 나중에 `Mailer` 구현만 바꾸면 됩니다.
+
+### 문서 첨부 API
+프로젝트 멤버만 쓸 수 있습니다(아니면 403). 경로 앞부분은 `/api/projects/{projectId}/permits/{permitId}/documents`.
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `…/documents` | 목록 (최신순, SHA-256 해시 포함) |
+| POST | `…/documents` | `multipart/form-data`의 `file`. PDF/JPG/PNG/XLSX, 10MB 이하. 확장자와 파일 내용이 모두 맞아야 합니다. 아니면 400/413 `{message}` |
+| GET | `…/documents/{id}` | 내려받기 |
+| DELETE | `…/documents/{id}` | 삭제 (저장소의 파일도 지움) |
 
 ---
 
