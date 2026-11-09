@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
-import type { FacilityType, PermitCategory, PermitItem, PermitStatus } from '../types';
+import type { FacilityType, PermitCategory, PermitItem, PermitStatus, Project } from '../types';
+import { api } from '../api/client';
 import PermitDetailDrawer from '../components/PermitDetailDrawer';
 
 // ---------------------------------------------------------------------------
@@ -70,111 +71,6 @@ function dDayLabel(dDay: number | null): string {
   return dDay > 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`;
 }
 
-const PROJECT = {
-  id: 1,
-  name: '부산 하수처리장 증설공사',
-  facilityType: 'SEWAGE' as FacilityType,
-  location: '부산광역시 강서구 명지동 1234',
-  capacity: 150,
-  capacityUnit: '톤/일',
-  startDate: '2026-03-15',
-  expectedEndDate: '2027-12-31',
-};
-
-// TODO: replace with GET /api/projects/:id/permits.
-const PERMITS: PermitItem[] = [
-  {
-    id: 101, projectId: 1, name: '폐기물처리시설 설치승인', category: 'FACILITY',
-    regulation: '폐기물관리법 제29조', regulationUrl: 'https://www.law.go.kr/법령/폐기물관리법',
-    authority: '낙동강유역환경청', authorityUrl: 'https://www.me.go.kr',
-    reason: '시설용량 100톤/일 이상으로 폐기물관리법 제29조에 따른 설치승인 대상입니다.',
-    approvalDate: '착공 전', applicationDate: '2026-02-01', acquisitionDate: '2026-03-01',
-    expiryDate: '2031-03-01', status: 'COMPLETED', nextAction: '추가 조치가 필요하지 않습니다.',
-    nextActionUrl: 'https://www.me.go.kr', dDay: 640,
-  },
-  {
-    id: 102, projectId: 1, name: '건축허가', category: 'CONSTRUCTION',
-    regulation: '건축법 제11조', regulationUrl: 'https://www.law.go.kr/법령/건축법',
-    authority: '세움터', authorityUrl: 'https://www.eais.go.kr',
-    reason: '30일 이내에 세움터에 건축허가를 신청해야 합니다.',
-    approvalDate: '착공 30일 전', applicationDate: '2026-06-15', acquisitionDate: null,
-    expiryDate: '2026-06-20', status: 'IN_PROGRESS', nextAction: '30일 이내에 세움터에 건축허가를 신청해야 합니다.',
-    nextActionUrl: 'https://www.eais.go.kr', dDay: 22,
-  },
-  {
-    id: 103, projectId: 1, name: '개발행위허가', category: 'LOCATION',
-    regulation: '국토의 계획 및 이용에 관한 법률 제56조', regulationUrl: 'https://www.law.go.kr/법령/국토의계획및이용에관한법률',
-    authority: '부산광역시 강서구청', authorityUrl: 'https://www.gangseo.go.kr',
-    reason: '토지형질변경 면적 5,000㎡ 이상으로 개발행위허가 대상입니다.',
-    approvalDate: '착공 전', applicationDate: '2026-01-20', acquisitionDate: '2026-02-25',
-    expiryDate: '2028-02-25', status: 'COMPLETED', nextAction: '추가 조치가 필요하지 않습니다.',
-    nextActionUrl: 'https://www.gangseo.go.kr', dDay: 270,
-  },
-  {
-    id: 104, projectId: 1, name: '환경영향평가 협의', category: 'ENVIRONMENT',
-    regulation: '환경영향평가법 제22조', regulationUrl: 'https://www.law.go.kr/법령/환경영향평가법',
-    authority: '낙동강유역환경청', authorityUrl: 'https://www.me.go.kr',
-    reason: '처리용량 100톤/일 이상 시설로 환경영향평가 대상사업입니다.',
-    approvalDate: '인허가 신청 전', applicationDate: '2025-11-10', acquisitionDate: '2026-01-15',
-    expiryDate: null, status: 'COMPLETED', nextAction: '추가 조치가 필요하지 않습니다.',
-    nextActionUrl: 'https://www.me.go.kr', dDay: null,
-  },
-  {
-    id: 105, projectId: 1, name: '전기사업 공사계획 신고', category: 'ELECTRICAL',
-    regulation: '전기사업법 제61조', regulationUrl: 'https://www.law.go.kr/법령/전기사업법',
-    authority: '한국전기안전공사', authorityUrl: 'https://www.kesco.or.kr',
-    reason: '수전설비 용량 1,000kW 이상으로 공사계획 신고 대상입니다.',
-    approvalDate: '전기공사 착공 전', applicationDate: '2026-06-25', acquisitionDate: null,
-    expiryDate: '2026-06-25', status: 'NOT_APPLIED', nextAction: '전기공사 착공 전 공사계획을 신고해야 합니다.',
-    nextActionUrl: 'https://www.kesco.or.kr', dDay: 5,
-  },
-  {
-    id: 106, projectId: 1, name: '대기배출시설 설치허가', category: 'FACILITY',
-    regulation: '대기환경보전법 제23조', regulationUrl: 'https://www.law.go.kr/법령/대기환경보전법',
-    authority: '낙동강유역환경청', authorityUrl: 'https://www.me.go.kr',
-    reason: '특정대기유해물질 배출시설에 해당하여 설치허가가 필요합니다.',
-    approvalDate: '가동 전', applicationDate: '2026-07-01', acquisitionDate: null,
-    expiryDate: '2026-07-20', status: 'IN_PROGRESS', nextAction: '배출시설 설치명세서를 제출해야 합니다.',
-    nextActionUrl: 'https://www.me.go.kr', dDay: 50,
-  },
-  {
-    id: 107, projectId: 1, name: '수질오염물질 배출시설 설치허가', category: 'FACILITY',
-    regulation: '물환경보전법 제33조', regulationUrl: 'https://www.law.go.kr/법령/물환경보전법',
-    authority: '부산광역시청', authorityUrl: 'https://www.busan.go.kr',
-    reason: '폐수 배출시설 설치에 따른 허가 대상입니다.',
-    approvalDate: '가동 전', applicationDate: '2026-08-01', acquisitionDate: null,
-    expiryDate: '2026-08-10', status: 'NOT_APPLIED', nextAction: '배출시설 및 방지시설 설치계획을 제출해야 합니다.',
-    nextActionUrl: 'https://www.busan.go.kr', dDay: 73,
-  },
-  {
-    id: 108, projectId: 1, name: '구조안전 확인', category: 'CONSTRUCTION',
-    regulation: '건축법 제48조', regulationUrl: 'https://www.law.go.kr/법령/건축법',
-    authority: '세움터', authorityUrl: 'https://www.eais.go.kr',
-    reason: '지상 2층 이상 건축물로 구조안전 및 내진설계 확인 대상입니다.',
-    approvalDate: '건축허가 동시', applicationDate: '2026-06-15', acquisitionDate: null,
-    expiryDate: '2026-06-18', status: 'NOT_APPLIED', nextAction: '구조안전확인서를 건축허가와 함께 제출해야 합니다.',
-    nextActionUrl: 'https://www.eais.go.kr', dDay: 20,
-  },
-  {
-    id: 109, projectId: 1, name: '국토이용계획 변경', category: 'LOCATION',
-    regulation: '국토의 계획 및 이용에 관한 법률 제30조', regulationUrl: 'https://www.law.go.kr/법령/국토의계획및이용에관한법률',
-    authority: '부산광역시청', authorityUrl: 'https://www.busan.go.kr',
-    reason: '계획관리지역 내 환경기초시설 입지에 따른 용도 변경이 필요합니다.',
-    approvalDate: '설계 단계', applicationDate: '2025-10-05', acquisitionDate: '2025-12-20',
-    expiryDate: null, status: 'COMPLETED', nextAction: '추가 조치가 필요하지 않습니다.',
-    nextActionUrl: 'https://www.busan.go.kr', dDay: null,
-  },
-  {
-    id: 110, projectId: 1, name: '소방시설 착공신고', category: 'CONSTRUCTION',
-    regulation: '소방시설공사업법 제13조', regulationUrl: 'https://www.law.go.kr/법령/소방시설공사업법',
-    authority: '부산소방재난본부', authorityUrl: 'https://www.busan119.go.kr',
-    reason: '연면적 기준 초과로 소방시설 착공신고 대상입니다.',
-    approvalDate: '착공 전', applicationDate: '2026-05-25', acquisitionDate: null,
-    expiryDate: '2026-07-15', status: 'NEAR_EXPIRY', nextAction: '소방시설 착공신고서를 제출해야 합니다.',
-    nextActionUrl: 'https://www.busan119.go.kr', dDay: 47,
-  },
-];
-
 const CATEGORY_TAB_ORDER: PermitCategory[] = [
   'LOCATION', 'FACILITY', 'CONSTRUCTION', 'ELECTRICAL', 'ENVIRONMENT',
 ];
@@ -184,26 +80,55 @@ export default function ProjectDetailPage() {
   const [activeCategory, setActiveCategory] = useState<'ALL' | PermitCategory>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | PermitStatus>('ALL');
   const [selected, setSelected] = useState<PermitItem | null>(null);
+  const [project, setProject] = useState<Project | null>(null);
+  const [permits, setPermits] = useState<PermitItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setError(null);
+    Promise.all([api<Project>(`/api/projects/${id}`), api<PermitItem[]>(`/api/projects/${id}/permits`)]).then(
+      ([p, list]) => {
+        setProject(p);
+        setPermits(list);
+      },
+      (e: Error) => setError(e.message),
+    );
+  }, [id]);
 
   const stats = useMemo(() => {
-    const total = PERMITS.length;
-    const completed = PERMITS.filter((p) => p.status === 'COMPLETED').length;
-    const nearExpiry = PERMITS.filter(
+    const total = permits.length;
+    const completed = permits.filter((p) => p.status === 'COMPLETED').length;
+    const nearExpiry = permits.filter(
       (p) => p.status === 'NEAR_EXPIRY' || (p.dDay !== null && p.dDay <= 30 && p.status !== 'COMPLETED'),
     ).length;
-    const notApplied = PERMITS.filter((p) => p.status === 'NOT_APPLIED').length;
+    const notApplied = permits.filter((p) => p.status === 'NOT_APPLIED').length;
     return { total, completed, nearExpiry, notApplied };
-  }, []);
+  }, [permits]);
 
   const visible = useMemo(
     () =>
-      PERMITS.filter(
+      permits.filter(
         (p) =>
           (activeCategory === 'ALL' || p.category === activeCategory) &&
           (statusFilter === 'ALL' || p.status === statusFilter),
       ),
-    [activeCategory, statusFilter],
+    [permits, activeCategory, statusFilter],
   );
+
+  if (error || !project) {
+    return (
+      <div className="min-h-full bg-[#F8F7F2]">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+          <Link to="/projects" className="text-sm text-gray-500 transition hover:text-[#1F4E79] hover:underline">
+            ← 프로젝트 목록
+          </Link>
+          <p className={`mt-16 text-center text-sm ${error ? 'text-[#991B1B]' : 'text-gray-400'}`}>
+            {error ?? '불러오는 중…'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-full bg-[#F8F7F2]">
@@ -214,7 +139,7 @@ export default function ProjectDetailPage() {
             프로젝트 목록
           </Link>
           <span className="mx-2 text-gray-300">›</span>
-          <span className="text-gray-700">{PROJECT.name}</span>
+          <span className="text-gray-700">{project.name}</span>
         </nav>
 
         {/* Summary card */}
@@ -222,20 +147,20 @@ export default function ProjectDetailPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <span
-                className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${FACILITY_BADGE[PROJECT.facilityType]}`}
+                className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${FACILITY_BADGE[project.facilityType]}`}
               >
-                {FACILITY_LABEL[PROJECT.facilityType]}
+                {FACILITY_LABEL[project.facilityType]}
               </span>
-              <h1 className="mt-2 text-2xl font-bold text-gray-900">{PROJECT.name}</h1>
-              <p className="mt-1 text-sm text-gray-500">{PROJECT.location}</p>
+              <h1 className="mt-2 text-2xl font-bold text-gray-900">{project.name}</h1>
+              <p className="mt-1 text-sm text-gray-500">{project.location}</p>
             </div>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
               <dt className="text-gray-400">시설용량</dt>
-              <dd className="text-gray-700">{PROJECT.capacity} {PROJECT.capacityUnit}</dd>
+              <dd className="text-gray-700">{project.capacity ?? '—'} {project.capacityUnit}</dd>
               <dt className="text-gray-400">착공예정일</dt>
-              <dd className="text-gray-700">{PROJECT.startDate}</dd>
+              <dd className="text-gray-700">{project.startDate ?? '—'}</dd>
               <dt className="text-gray-400">준공예정일</dt>
-              <dd className="text-gray-700">{PROJECT.expectedEndDate}</dd>
+              <dd className="text-gray-700">{project.expectedEndDate ?? '—'}</dd>
             </dl>
           </div>
 
@@ -298,13 +223,13 @@ export default function ProjectDetailPage() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <a href={p.regulationUrl} target="_blank" rel="noreferrer"
+                    <a href={p.regulationUrl ?? undefined} target="_blank" rel="noreferrer"
                       className="inline-flex items-center gap-1 text-[#1F4E79] transition hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30">
                       {p.regulation}<span aria-hidden>↗</span>
                     </a>
                   </td>
                   <td className="px-4 py-3">
-                    <a href={p.authorityUrl} target="_blank" rel="noreferrer"
+                    <a href={p.authorityUrl ?? undefined} target="_blank" rel="noreferrer"
                       className="inline-flex items-center gap-1 text-gray-700 transition hover:text-[#1F4E79] hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30">
                       {p.authority}<span aria-hidden>↗</span>
                     </a>

@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react';
-import type { PermitCategory, PermitItem, PermitStatus } from '../types';
+import { useEffect, useState, type ReactNode } from 'react';
+import type { PermitCategory, PermitHistory, PermitItem, PermitStatus } from '../types';
+import { api } from '../api/client';
 
 // ---------------------------------------------------------------------------
 // PermitDetailDrawer — slide-in panel (480px) showing a single permit's
@@ -45,11 +46,11 @@ function dDayLabel(dDay: number | null): string {
   return dDay > 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`;
 }
 
-const MOCK_HISTORY = [
-  { date: '2026-05-10', text: '상태가 진행중으로 변경되었습니다.' },
-  { date: '2026-04-28', text: '신청서가 접수되었습니다.' },
-  { date: '2026-04-15', text: '인허가 항목이 자동 도출되었습니다.' },
-];
+function historyText(h: PermitHistory): string {
+  return h.fromStatus
+    ? `${h.changedBy}님이 상태를 ${STATUS_LABEL[h.fromStatus]} → ${STATUS_LABEL[h.toStatus]}(으)로 변경했습니다.`
+    : `${h.changedBy}님이 ${STATUS_LABEL[h.toStatus]} 상태로 등록했습니다.`;
+}
 
 export default function PermitDetailDrawer({
   permit,
@@ -59,6 +60,14 @@ export default function PermitDetailDrawer({
   onClose: () => void;
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [history, setHistory] = useState<PermitHistory[]>([]);
+
+  useEffect(() => {
+    setHistory([]);
+    if (permit) {
+      api<PermitHistory[]>(`/api/projects/${permit.projectId}/permits/${permit.id}/history`).then(setHistory, () => {});
+    }
+  }, [permit]);
 
   const open = permit !== null;
 
@@ -118,7 +127,7 @@ export default function PermitDetailDrawer({
               {/* 관련 법규 */}
               <Section title="관련 법규">
                 <a
-                  href={permit.regulationUrl}
+                  href={permit.regulationUrl ?? undefined}
                   target="_blank"
                   rel="noreferrer"
                   className="inline-flex items-center gap-1 text-sm font-medium text-[#1F4E79] underline-offset-2 transition hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
@@ -134,7 +143,7 @@ export default function PermitDetailDrawer({
                 <div className="flex items-center justify-between rounded-lg border border-[#E5E3DC] px-3 py-2.5">
                   <span className="text-sm text-gray-700">{permit.authority}</span>
                   <a
-                    href={permit.authorityUrl}
+                    href={permit.authorityUrl ?? undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="text-sm font-medium text-[#1F4E79] transition hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
@@ -170,7 +179,7 @@ export default function PermitDetailDrawer({
                 <div className="rounded-lg border border-[#B45309]/30 bg-[#B45309]/10 p-3">
                   <p className="text-sm text-[#B45309]">{permit.nextAction}</p>
                   <a
-                    href={permit.nextActionUrl}
+                    href={permit.nextActionUrl ?? undefined}
                     target="_blank"
                     rel="noreferrer"
                     className="mt-3 inline-flex rounded-lg bg-[#B45309] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#92400e] focus:outline-none focus:ring-2 focus:ring-[#B45309]/40"
@@ -194,17 +203,17 @@ export default function PermitDetailDrawer({
                   onClick={() => setHistoryOpen((v) => !v)}
                   className="flex w-full items-center justify-between rounded-lg border border-[#E5E3DC] px-3 py-2.5 text-sm text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20"
                 >
-                  <span>이력 {MOCK_HISTORY.length}건</span>
+                  <span>이력 {history.length}건</span>
                   <span aria-hidden className={`transition-transform ${historyOpen ? 'rotate-180' : ''}`}>
                     ▾
                   </span>
                 </button>
                 {historyOpen && (
                   <ul className="mt-2 space-y-2">
-                    {MOCK_HISTORY.map((h) => (
-                      <li key={h.date} className="flex gap-3 text-sm">
-                        <span className="shrink-0 text-gray-400">{h.date}</span>
-                        <span className="text-gray-700">{h.text}</span>
+                    {history.map((h) => (
+                      <li key={h.id} className="flex gap-3 text-sm">
+                        <span className="shrink-0 text-gray-400">{new Date(h.changedAt).toLocaleDateString('sv-SE')}</span>
+                        <span className="text-gray-700">{historyText(h)}</span>
                       </li>
                     ))}
                   </ul>

@@ -29,11 +29,13 @@ export interface Project {
   name: string;
   facilityType: FacilityType;
   location: string;
-  capacity: number;
-  capacityUnit: string;
-  startDate: string;
+  capacity: number | null;
+  capacityUnit: string | null;
+  startDate: string | null;
+  expectedEndDate: string | null;
   status: ProjectStatus;
   permitCount: number;
+  acquiredCount: number;
   nearExpiryCount: number;
 }
 
@@ -42,17 +44,25 @@ export interface PermitItem {
   projectId: number;
   name: string;
   category: PermitCategory;
-  regulation: string;
-  regulationUrl: string;
-  authority: string;
-  authorityUrl: string;
-  reason: string;
-  approvalDate: string;
-  applicationDate: string;
+  regulation: string | null;
+  regulationUrl: string | null;
+  authority: string | null;
+  authorityUrl: string | null;
+  reason: string | null;
+  approvalDate: string | null; // free-text timing, e.g. '착공 30일 전'
+  applicationDate: string | null;
   acquisitionDate: string | null;
   expiryDate: string | null;
   status: PermitStatus;
-  nextAction: string;
-  nextActionUrl: string;
+  nextAction: string | null;
+  nextActionUrl: string | null;
   dDay: number | null;
+}
+
+export interface PermitHistory {
+  id: number;
+  fromStatus: PermitStatus | null; // null = created
+  toStatus: PermitStatus;
+  changedBy: string;
+  changedAt: string;
 }

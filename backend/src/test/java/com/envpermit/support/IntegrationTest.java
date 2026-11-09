@@ -11,6 +11,7 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.testcontainers.containers.PostgreSQLContainer;
 
@@ -35,10 +36,19 @@ public abstract class IntegrationTest {
 
     @Autowired protected MockMvc mvc;
     @Autowired protected TestClock clock;
+    @Autowired protected JdbcTemplate jdbc;
 
     @BeforeEach
     void resetClock() {
         clock.set(START);
+    }
+
+    /** Empties every app table (keeps Flyway history). Call from a test's @BeforeEach. */
+    protected void truncateAll() {
+        String tables = String.join(",", jdbc.queryForList(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'",
+                String.class));
+        jdbc.execute("TRUNCATE " + tables + " RESTART IDENTITY CASCADE");
     }
 
     @TestConfiguration(proxyBeanMethods = false)
