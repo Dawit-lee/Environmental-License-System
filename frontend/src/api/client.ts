@@ -24,6 +24,9 @@ async function refresh(s: Session): Promise<Session | null> {
   return next;
 }
 
+/** Logged-in user's id (null when signed out). */
+export const sessionUserId = (): number | null => session()?.user.id ?? null;
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
