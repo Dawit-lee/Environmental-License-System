@@ -122,6 +122,10 @@ export default function ReviewQueuePage() {
   const rows = items
     .filter((s) => filter === 'ALL' || s.status === filter)
     .sort((a, b) => QC_ORDER[qc(a)] - QC_ORDER[qc(b)] || a.id - b.id);
+  // same citation_key twice in one run → warn on every such row (design §3.4 rule 6); saving is still allowed
+  const keyCount = new Map<string, number>();
+  items.forEach((s) => { const k = `${s.runId}:${effective(s).citation_key}`; if (effective(s).citation_key) keyCount.set(k, (keyCount.get(k) ?? 0) + 1); });
+  const dupKeys = new Set([...keyCount].filter(([, n]) => n > 1).map(([k]) => k));
   const sel = items.find((s) => s.id === selectedId) ?? rows[0] ?? null;
   const lead = !!me?.canSelfApprove;
   const project = projects.find((p) => p.id === projectId);
@@ -235,7 +239,11 @@ export default function ReviewQueuePage() {
                             />
                           </td>
                         )}
-                        <td className="px-3 py-2.5 font-mono text-xs">{p.citation_raw || '—'}</td>
+                        <td className="px-3 py-2.5 font-mono text-xs" title={p.citation_raw ?? undefined}>
+                          {p.citation_key || p.citation_raw || '—'}
+                          {p.citation_synthetic && <span className="ml-1 font-sans text-[#B45309]" title="문서에 번호가 없어 시스템이 만든 키">*</span>}
+                          {dupKeys.has(`${s.runId}:${p.citation_key}`) && <span className="ml-1 font-sans text-[#991B1B]" title="같은 문서 안에서 조건번호가 겹칩니다">중복</span>}
+                        </td>
                         <td className="px-3 py-2.5 text-gray-800">{p.summary}</td>
                         <td className="px-3 py-2.5 text-gray-600">{FREQ[p.frequency]}</td>
                         <td className="px-3 py-2.5"><Badge {...(p.quote_check ? QC[p.quote_check] : MANUAL_BADGE)} /></td>

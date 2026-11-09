@@ -1,8 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PermitDocument, PermitItem } from '../types';
-import { api, apiBlob } from '../api/client';
+import { Link } from 'react-router';
+import { api, apiBlob, isMaster, type ApiError } from '../api/client';
+import { getCompany, getRun, listRuns, setAiExtraction, startExtraction, type AiRun } from '../api/extraction';
+import { listSuggestions } from '../api/review';
 
-// Attached files of one permit: list, upload, download, delete. Lives in PermitDetailDrawer.
+// Attached files of one permit: list, upload, download, delete, and AI extraction of PDFs. Lives in PermitDetailDrawer.
+
+const TRANSFER_NOTICE = 'AI 추출을 실행하면 이 문서가 외부 AI 서비스(Anthropic)로 전송됩니다.';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.xlsx';
@@ -19,6 +24,67 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const [aiOn, setAiOn] = useState(false);
+  const [runs, setRuns] = useState<Record<number, AiRun>>({}); // latest run per document id
+  const [found, setFound] = useState<Record<number, number>>({}); // run id → suggestions extracted
+
+  useEffect(() => {
+    getCompany().then((c) => setAiOn(c.aiExtractionEnabled), () => setAiOn(false));
+    listRuns(permit.projectId).then((rs) => {
+      const latest: Record<number, AiRun> = {};
+      for (const r of rs) {
+        const d = r.inputRef?.document_id;
+        if (d != null && !(d in latest)) latest[d] = r; // newest first
+      }
+      setRuns(latest);
+    }, () => setRuns({}));
+  }, [permit.projectId]);
+
+  // poll running extractions every 2s; count the rows of finished ones
+  useEffect(() => {
+    const all = Object.values(runs);
+    all.filter((r) => r.status === 'SUCCEEDED' && !(r.id in found)).forEach((r) =>
+      listSuggestions(permit.projectId, r.id).then((s) => setFound((f) => ({ ...f, [r.id]: s.length })), () => {}));
+    const running = all.filter((r) => r.status === 'RUNNING');
+    if (!running.length) return;
+    const t = window.setTimeout(async () => {
+      const next = await Promise.all(running.map((r) => getRun(r.id).catch(() => r)));
+      setRuns((prev) => {
+        const m = { ...prev };
+        next.forEach((r) => { if (r.inputRef) m[r.inputRef.document_id] = r; });
+        return m;
+      });
+    }, 2000);
+    return () => window.clearTimeout(t);
+  }, [runs, found, permit.projectId]);
+
+  async function extract(doc: PermitDocument) {
+    if (!window.confirm(`${TRANSFER_NOTICE}\n\n'${doc.fileName}'에서 이행 의무를 추출할까요?`)) return;
+    setError(null);
+    try {
+      let res;
+      try {
+        res = await startExtraction(permit.projectId, permit.id, doc.id);
+      } catch (e) {
+        if ((e as ApiError).status !== 409) throw e;
+        if (!window.confirm(`${(e as Error).message}\n\n다시 추출할까요?`)) return;
+        res = await startExtraction(permit.projectId, permit.id, doc.id, true);
+      }
+      setRuns((r) => ({ ...r, [doc.id]: { id: res.runId, status: 'RUNNING', errorMessage: null, model: null,
+        inputRef: { document_id: doc.id, permit_item_id: permit.id, sha256: doc.sha256 }, startedAt: '', finishedAt: null } }));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  async function turnOnAi() {
+    if (!window.confirm(`회사 전체에서 AI 추출을 켭니다. ${TRANSFER_NOTICE} 켤까요?`)) return;
+    try {
+      setAiOn((await setAiExtraction(true)).aiExtractionEnabled);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
 
   useEffect(() => {
     setDocs([]);
@@ -91,7 +157,19 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                 <p className="text-xs text-gray-400">
                   {sizeLabel(d.size)} · {d.uploadedBy} · {new Date(d.uploadedAt).toLocaleDateString('sv-SE')}
                 </p>
+                {runs[d.id] && <RunStatus run={runs[d.id]} count={found[runs[d.id].id]} onRetry={() => extract(d)} />}
               </div>
+              {d.contentType === 'application/pdf' && (
+                <button
+                  type="button"
+                  onClick={() => extract(d)}
+                  disabled={!aiOn || runs[d.id]?.status === 'RUNNING'}
+                  title={aiOn ? TRANSFER_NOTICE : '회사 설정에서 AI 추출이 꺼져 있습니다'}
+                  className="whitespace-nowrap rounded-lg border border-[#E5E3DC] px-2 py-1 text-xs font-medium text-[#1F4E79] transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  AI 추출
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => remove(d)}
@@ -129,6 +207,40 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
         {busy ? '올리는 중…' : '문서 올리기'}
       </button>
       <p className="text-xs text-gray-400">PDF, JPG, PNG, XLSX · 파일당 10MB 이하</p>
+      {aiOn ? (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-[#B45309]">
+          PDF는 'AI 추출'로 이행 의무를 뽑아 검토 목록에 올릴 수 있습니다. {TRANSFER_NOTICE}
+        </p>
+      ) : (
+        <p className="flex flex-wrap items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
+          AI 추출이 회사 설정에서 꺼져 있습니다{isMaster() ? '.' : '. 회사 마스터가 켤 수 있습니다.'}
+          {isMaster() && (
+            <button type="button" onClick={turnOnAi} className="font-medium text-[#1F4E79] hover:underline">AI 추출 켜기</button>
+          )}
+        </p>
+      )}
     </div>
+  );
+}
+
+function RunStatus({ run, count, onRetry }: { run: AiRun; count?: number; onRetry: () => void }) {
+  if (run.status === 'RUNNING') return <p className="text-xs text-[#1F4E79]">AI 추출 중…</p>;
+  if (run.status === 'FAILED') {
+    return (
+      <p className="text-xs text-[#991B1B]">
+        추출 실패: {run.errorMessage}{' '}
+        <button type="button" onClick={onRetry} className="font-medium underline">다시 실행</button>
+      </p>
+    );
+  }
+  if (count === undefined) return null;
+  return count > 0 ? (
+    <p className="text-xs text-[#0F6E56]">
+      의무사항 {count}건 추출 · <Link to="/review" className="font-medium underline">검토하기</Link>
+    </p>
+  ) : (
+    <p className="text-xs text-gray-500">
+      추출된 의무사항 없음 · <Link to="/review" className="underline">검토 화면에서 직접 추가</Link>
+    </p>
   );
 }

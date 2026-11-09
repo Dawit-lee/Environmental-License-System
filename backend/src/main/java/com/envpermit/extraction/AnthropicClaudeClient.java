@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Real Messages API call: PDF document block + JSON-schema-constrained output (structured outputs).
- * The key comes only from env var ANTHROPIC_API_KEY (SDK fromEnv; ANTHROPIC_BASE_URL also honoured).
+ * The key comes only from env var ANTHROPIC_API_KEY (ANTHROPIC_BASE_URL is honoured for a local stub).
  * SDK retries are off: {@link Extraction} retries once, as design §3.9 says.
  */
 @Component
@@ -70,10 +70,17 @@ class AnthropicClaudeClient implements ClaudeClient {
         if (client == null) {
             synchronized (this) {
                 if (client == null) {
-                    if (System.getenv("ANTHROPIC_API_KEY") == null) {
+                    String key = System.getenv("ANTHROPIC_API_KEY");
+                    if (key == null || key.isBlank()) {
                         throw new IllegalStateException("서버에 ANTHROPIC_API_KEY가 설정되지 않았습니다.");
                     }
-                    client = AnthropicOkHttpClient.builder().fromEnv().maxRetries(0).build();
+                    // explicit key only: fromEnv() would also pick up auth tokens / CLI profiles on the host
+                    AnthropicOkHttpClient.Builder b = AnthropicOkHttpClient.builder().apiKey(key).maxRetries(0);
+                    String baseUrl = System.getenv("ANTHROPIC_BASE_URL"); // local stub / proxy only
+                    if (baseUrl != null && !baseUrl.isBlank()) {
+                        b.baseUrl(baseUrl);
+                    }
+                    client = b.build();
                 }
             }
         }

@@ -8,6 +8,9 @@ export type QuoteCheck = 'MISMATCH' | 'UNVERIFIABLE' | 'VERIFIED';
 /** OBLIGATION payload, snake_case like the AI output (design §3.3). */
 export interface ObligationPayload {
   citation_raw?: string | null;
+  citation_key?: string | null; // server-computed (design §3.4)
+  citation_synthetic?: boolean;
+  legal_basis?: string[];
   summary: string;
   requirement_text: string;
   type: string;
@@ -46,7 +49,8 @@ export const effective = (s: Suggestion) => s.editedPayload ?? s.payload;
 
 const post = <T>(path: string, body: unknown) => api<T>(path, { method: 'POST', body: JSON.stringify(body) });
 
-export const listSuggestions = (pid: number) => api<Suggestion[]>(`/api/projects/${pid}/suggestions`);
+export const listSuggestions = (pid: number, runId?: number) =>
+  api<Suggestion[]>(`/api/projects/${pid}/suggestions${runId ? `?runId=${runId}` : ''}`);
 export const suggestionEvents = (id: number) => api<SuggestionEvent[]>(`/api/suggestions/${id}/events`);
 export const addSuggestion = (pid: number, permitItemId: number, payload: ObligationPayload) =>
   post<Suggestion>(`/api/projects/${pid}/suggestions`, { permitItemId, payload });
