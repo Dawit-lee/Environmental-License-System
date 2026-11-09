@@ -42,4 +42,17 @@ class ArticleNoTest {
     void rejects_other_text(String raw) {
         assertThatThrownBy(() -> ArticleNo.normalize(raw)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            "10, 001000", // body form
+            "001000, 001000", // JO / history form
+            "제10조의2, 001002",
+            "제1234조, 123400",
+            "별표3, null", // not an article
+            "null, null",
+    }, nullValues = "null")
+    void jo_code_is_four_digit_article_and_two_digit_branch(String raw, String expected) {
+        assertThat(ArticleNo.joCode(raw)).isEqualTo(expected);
+    }
 }
