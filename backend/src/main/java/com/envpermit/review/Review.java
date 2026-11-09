@@ -97,6 +97,18 @@ public class Review {
         return s;
     }
 
+    /** A machine run and its suggestions (origin AI, PENDING, CREATED event by SYSTEM). */
+    @Transactional
+    public AiRun recordRun(AiRun run, List<JsonNode> payloads) {
+        runs.save(run);
+        for (JsonNode p : payloads) {
+            AiSuggestion s = suggestions.save(new AiSuggestion(run.getCompanyId(), run.getProjectId(), run.getId(),
+                    run.getKind(), null, Origin.AI, p));
+            event(s, null, Type.CREATED, null);
+        }
+        return run;
+    }
+
     public List<AiSuggestion> list(long projectId, Jwt jwt) {
         access.member(projectId, jwt);
         return suggestions.findByProjectIdOrderById(projectId);
