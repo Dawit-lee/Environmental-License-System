@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,26 +45,79 @@ public class LawApiClient {
         this.json = json;
     }
 
+    /** One article whose 조문변경여부 is Y in a law body. {@code changeType} is 조문제개정유형 (개정 / 신설 / ...). */
+    public record ChangedArticle(String articleNo, String joCode, String changeType, LocalDate enforcedOn) {
+    }
+
+    /** What the batch needs from lawService.do?target=law: changed articles and 제개정이유. */
+    public record LawBody(String reason, List<ChangedArticle> changed) {
+    }
+
+    @FunctionalInterface
+    interface Parser<T> {
+        T parse(ObjectMapper json, String body) throws Exception;
+    }
+
+    public boolean configured() {
+        return !oc.isBlank();
+    }
+
     /** lawSearch.do?target=law&query= — partial name match, so callers must filter (see LawCatalogService). */
     public List<LawRow> search(String query) {
-        String body = maskOc(fetchSearch(query));
+        return call("lawSearch.do", Map.of("target", "law", "display", "100", "query", query), LawApiClient::parse);
+    }
+
+    /** lsHstInf for one regDt, every page until totalCnt. Mixes 현행 and old 연혁 rows. */
+    public List<LawRow> changes(LocalDate regDt) {
+        List<LawRow> all = new ArrayList<>();
+        for (int page = 1; ; page++) {
+            int[] total = new int[1];
+            List<LawRow> rows = call("lawSearch.do", Map.of("target", "lsHstInf", "regDt", regDt.format(YMD),
+                    "display", "100", "page", String.valueOf(page)), (json, body) -> {
+                total[0] = json.readTree(body).path("LawSearch").path("totalCnt").asInt();
+                return parse(json, body);
+            });
+            all.addAll(rows);
+            if (rows.isEmpty() || all.size() >= total[0]) {
+                return all;
+            }
+        }
+    }
+
+    /** lawService.do?target=law&MST= */
+    public LawBody body(long mst) {
+        return call("lawService.do", Map.of("target", "law", "MST", String.valueOf(mst)), LawApiClient::parseBody);
+    }
+
+    /** lawService.do?target=oldAndNew&MST= as OC-masked JSON text. Fails unless it holds OldAndNewService. */
+    public String oldAndNew(long mst) {
+        return call("lawService.do", Map.of("target", "oldAndNew", "MST", String.valueOf(mst)), (json, body) -> {
+            if (!json.readTree(body).has("OldAndNewService")) {
+                throw new IllegalArgumentException("no OldAndNewService");
+            }
+            return body;
+        });
+    }
+
+    private <T> T call(String service, Map<String, String> params, Parser<T> parser) {
+        String body = maskOc(fetch(service, params));
         try {
-            return parse(json, body);
+            return parser.parse(json, body);
         } catch (Exception e) {
-            log.warn("법제처 응답 파싱 실패: {}", body);
+            log.warn("법제처 응답 파싱 실패 ({} {}): {}", service, params.get("target"), body);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "법제처 응답을 해석할 수 없습니다.");
         }
     }
 
     /** Raw response body. Overridden by the fixture fake in tests. */
-    protected String fetchSearch(String query) {
+    protected String fetch(String service, Map<String, String> params) {
         if (oc.isBlank()) {
             throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "법제처 API 키(LAW_API_OC)가 설정되지 않았습니다.");
         }
-        URI uri = UriComponentsBuilder.fromUriString("https://www.law.go.kr/DRF/lawSearch.do")
-                .queryParam("OC", oc).queryParam("target", "law").queryParam("type", "JSON")
-                .queryParam("display", 100).queryParam("query", query)
-                .encode(StandardCharsets.UTF_8).build().toUri();
+        UriComponentsBuilder b = UriComponentsBuilder.fromUriString("https://www.law.go.kr/DRF/" + service)
+                .queryParam("OC", oc).queryParam("type", "JSON");
+        params.forEach(b::queryParam);
+        URI uri = b.encode(StandardCharsets.UTF_8).build().toUri();
         throttle();
         try {
             return http.get().uri(uri).retrieve().body(String.class);
@@ -98,13 +152,38 @@ public class LawApiClient {
         }
         law = law.path("law");
         List<LawRow> rows = new ArrayList<>();
-        for (JsonNode n : law.isArray() ? law : law.isMissingNode() ? List.<JsonNode>of() : List.of(law)) {
+        for (JsonNode n : list(law)) {
             rows.add(new LawRow(n.path("법령ID").asText(), n.path("법령일련번호").asLong(), n.path("법령명한글").asText(),
                     n.path("법령구분명").asText(), blankToNull(n.path("법령약칭명").asText()),
                     date(n.path("공포일자").asText()), date(n.path("시행일자").asText()),
                     n.path("제개정구분명").asText(), n.path("현행연혁코드").asText()));
         }
         return rows;
+    }
+
+    /** Changed = 조문여부 조문 (not a chapter heading) with 조문변경여부 Y. 제개정이유 lines are joined. */
+    static LawBody parseBody(ObjectMapper json, String body) throws Exception {
+        JsonNode law = json.readTree(body).path("법령");
+        JsonNode units = law.path("조문").path("조문단위");
+        if (units.isMissingNode()) {
+            throw new IllegalArgumentException("no 조문단위");
+        }
+        List<ChangedArticle> changed = new ArrayList<>();
+        for (JsonNode a : list(units)) {
+            if ("조문".equals(a.path("조문여부").asText()) && "Y".equals(a.path("조문변경여부").asText())) {
+                String branch = a.path("조문가지번호").asText();
+                String jo = "%04d%02d".formatted(a.path("조문번호").asInt(), branch.isBlank() ? 0 : Integer.parseInt(branch));
+                changed.add(new ChangedArticle(ArticleNo.normalize(jo), jo,
+                        blankToNull(a.path("조문제개정유형").asText()), date(a.path("조문시행일자").asText())));
+            }
+        }
+        List<String> reason = new ArrayList<>();
+        law.path("제개정이유").path("제개정이유내용").forEach(group -> list(group).forEach(line -> reason.add(line.asText())));
+        return new LawBody(reason.isEmpty() ? null : String.join("\n", reason), changed);
+    }
+
+    private static Iterable<JsonNode> list(JsonNode n) {
+        return n.isArray() ? n : n.isMissingNode() ? List.of() : List.of(n);
     }
 
     private static LocalDate date(String ymd) {
