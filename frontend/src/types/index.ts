@@ -66,3 +66,43 @@ export interface PermitHistory {
   changedBy: string;
   changedAt: string;
 }
+
+// --- 법령 카탈로그 / 인허가↔법령 연결 (law-monitoring/01) ---
+
+export type LawKind = 'LAW' | 'DECREE' | 'RULE' | 'ORDINANCE';
+
+export interface LawCatalogItem {
+  id: number;
+  lawId: string; // 법제처 법령ID
+  name: string;
+  kind: LawKind;
+  shortName: string | null;
+  parentId: number | null;
+  lastPromulgatedOn: string | null; // 최근 개정(공포)일
+  lastEnforcedOn: string | null; // 시행일
+  source: 'SEED' | 'USER_SEARCH';
+}
+
+/** 법제처 검색 후보. catalogId가 있으면 이미 카탈로그에 있음. */
+export interface LawCandidate {
+  lawId: string;
+  name: string;
+  kind: LawKind;
+  promulgatedOn: string | null;
+  enforcedOn: string | null;
+  revisionType: string;
+  catalogId: number | null;
+}
+
+export interface PermitLawLink {
+  id: number;
+  lawCatalogId: number;
+  lawId: string;
+  name: string;
+  kind: LawKind;
+  articleNo: string | null;
+  source: 'MANUAL' | 'AI_EXTRACTED' | 'DERIVED';
+  lastPromulgatedOn: string | null;
+  lastEnforcedOn: string | null;
+  createdAt: string;
+}

@@ -233,6 +233,7 @@ Environmental-License-System/
 cp .env.example .env
 ```
 `.env`를 열어 `DB_PASSWORD`와 `JWT_SECRET`(32바이트 이상, 예: `openssl rand -base64 48` 결과)을 채웁니다.
+법제처 검색(관련 법령 추가)을 쓰려면 `LAW_API_OC`에 법제처 Open API OC를 넣습니다. 비워 두면 그 기능만 503을 돌려주고, 시드 법령 카탈로그와 연결은 그대로 동작합니다.
 
 ### 2. DB + API 실행 (Docker)
 ```bash
@@ -252,7 +253,7 @@ npm install
 npm run dev
 ```
 `/api` 요청은 Vite가 `http://localhost:8080`으로 넘깁니다. API 포트를 바꿨다면 `API_URL=http://localhost:18080 npm run dev`.
-로그인 화면에서 위 개발용 계정으로 로그인합니다. 로그인, 프로젝트 목록(`/projects`), 프로젝트 상세(`/projects/:id`)는 실제 API를 쓰고, 나머지 화면은 아직 mock 데이터입니다.
+로그인 화면에서 위 개발용 계정으로 로그인합니다. 로그인, 프로젝트 목록(`/projects`), 프로젝트 상세(`/projects/:id`)와 인허가 상세의 '관련 법령'은 실제 API를 쓰고, 나머지 화면은 아직 mock 데이터입니다.
 
 ### 백엔드만 Docker 없이 실행
 DB는 `docker compose up -d db`로 띄우고:

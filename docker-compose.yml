@@ -26,6 +26,7 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET:?set in .env}
+      LAW_API_OC: ${LAW_API_OC:-} # 법제처 OC; empty = law search returns 503, rest of the app works
     ports:
       - "${API_PORT:-8080}:8080"
 
