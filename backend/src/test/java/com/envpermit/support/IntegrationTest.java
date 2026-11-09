@@ -4,6 +4,7 @@ import com.envpermit.core.document.DocumentStorage;
 import com.envpermit.law.LawApiClient;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.concurrent.ExecutorService;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -13,6 +14,8 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.core.task.SyncTaskExecutor;
+import org.springframework.core.task.support.ExecutorServiceAdapter;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.convention.TestBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -20,7 +23,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Base for API tests: real PostgreSQL 16 (Testcontainers, shared across tests) + fixed clock
- * + in-memory document storage (replaces S3, so tests need no MinIO).
+ * + in-memory document storage (replaces S3, so tests need no MinIO) + Claude fixtures, extraction run inline.
  * Each test starts at {@link #START}; move time with {@code clock.advance(...)}.
  */
 @SpringBootTest(properties = {"app.jwt.secret=test-secret-test-secret-test-secret-0123456789",
@@ -45,13 +48,23 @@ public abstract class IntegrationTest {
     @TestBean(methodName = "com.envpermit.support.IntegrationTest#memoryStorage")
     protected DocumentStorage storage;
 
+    // extraction runs inline, so a test sees the finished run right after the 202
+    @TestBean(name = "extractionExecutor", methodName = "com.envpermit.support.IntegrationTest#inlineExecutor")
+    protected ExecutorService extractionExecutor;
+    @Autowired protected FixtureClaudeClient claude;
+
     static DocumentStorage memoryStorage() {
         return new InMemoryDocumentStorage();
+    }
+
+    static ExecutorService inlineExecutor() {
+        return new ExecutorServiceAdapter(new SyncTaskExecutor());
     }
 
     @BeforeEach
     void resetClock() {
         clock.set(START);
+        claude.reset();
     }
 
     /**
@@ -79,6 +92,12 @@ public abstract class IntegrationTest {
         @Primary
         InMemoryMailer inMemoryMailer() {
             return new InMemoryMailer();
+        }
+
+        @Bean
+        @Primary
+        FixtureClaudeClient fixtureClaude() {
+            return new FixtureClaudeClient();
         }
 
         @Bean
