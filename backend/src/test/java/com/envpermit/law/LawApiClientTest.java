@@ -60,10 +60,30 @@ class LawApiClientTest {
     }
 
     @Test
-    void recorded_fixtures_hold_no_key() {
-        for (String f : List.of("search-waste.json", "search-eia-rule.json", "search-sewerage.json")) {
-            String body = FixtureLawApi.read("/lawapi/" + f);
-            assertThat(body).contains("OC=***").doesNotContainPattern("OC=(?!\\*\\*\\*)");
+    void recorded_fixtures_hold_no_key() throws Exception {
+        try (var files = java.nio.file.Files.list(java.nio.file.Path.of(FixtureLawApi.class.getResource("/lawapi").toURI()))) {
+            assertThat(files).hasSizeGreaterThan(10).allSatisfy(f ->
+                    assertThat(java.nio.file.Files.readString(f)).doesNotContainPattern("OC=(?!\\*\\*\\*)"));
         }
+        assertThat(FixtureLawApi.read("/lawapi/hst-20261001-p1.json")).contains("OC=***"); // links were scrubbed, not dropped
+    }
+
+    @Test
+    void law_body_gives_the_changed_articles_and_the_reason() throws Exception {
+        LawApiClient.LawBody body = LawApiClient.parseBody(json, FixtureLawApi.read("/lawapi/law-290881.json"));
+
+        // 157 articles, only 제10조 has 조문변경여부=Y (matches lsJoHstInf 001000)
+        assertThat(body.changed()).containsExactly(
+                new LawApiClient.ChangedArticle("제10조", "001000", "개정", LocalDate.of(2026, 10, 2)));
+        assertThat(body.reason()).startsWith("[일부개정]").contains("공소청압수물사무규칙");
+    }
+
+    @Test
+    void change_list_rows_mix_current_and_history() throws Exception {
+        List<LawApiClient.LawRow> rows = LawApiClient.parse(json, FixtureLawApi.read("/lawapi/hst-20261002-p6.json"));
+
+        assertThat(rows).hasSize(100).extracting(LawApiClient.LawRow::status).contains("현행", "연혁");
+        assertThat(rows).filteredOn(r -> r.lawId().equals("008567")).singleElement()
+                .satisfies(r -> assertThat(r.mst()).isEqualTo(289271));
     }
 }

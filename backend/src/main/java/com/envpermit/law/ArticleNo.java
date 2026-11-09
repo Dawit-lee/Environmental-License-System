@@ -36,6 +36,14 @@ public final class ArticleNo {
         throw new IllegalArgumentException("조문 번호 형식이 아닙니다: " + raw);
     }
 
+    /** Any accepted spelling → 6-digit JO code ("10" / "제10조" → "001000", "제10조의2" → "001002"); 별표 or blank → null. */
+    public static String joCode(String raw) {
+        String n = normalize(raw);
+        Matcher m = n == null ? null : Pattern.compile("제(\\d+)조(?:의(\\d+))?").matcher(n);
+        return m == null || !m.matches() ? null
+                : "%04d%02d".formatted(Integer.parseInt(m.group(1)), m.group(2) == null ? 0 : Integer.parseInt(m.group(2)));
+    }
+
     private static String article(String no, String branch) {
         int n = Integer.parseInt(no);
         if (n == 0) {

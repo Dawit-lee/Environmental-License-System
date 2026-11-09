@@ -1,12 +1,12 @@
 package com.envpermit.review;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import com.fasterxml.jackson.databind.JsonNode;
 import java.time.Instant;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -16,6 +16,9 @@ import org.hibernate.type.SqlTypes;
 public class AiRun {
 
     public static final String MANUAL = "MANUAL";
+    public static final String RUNNING = "RUNNING";
+    public static final String SUCCEEDED = "SUCCEEDED";
+    public static final String FAILED = "FAILED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,15 +28,16 @@ public class AiRun {
     private Long projectId;
     @Enumerated(EnumType.STRING)
     private Kind kind;
-    private String model;
-    private String promptVersion;
     @JdbcTypeCode(SqlTypes.JSON)
     private JsonNode inputRef;
+    private String model;
+    private String promptVersion;
+    private String preparer;
     private String rawResponseKey;
     private Integer inputTokens;
     private Integer outputTokens;
-    private String preparer;
     private String status;
+    private String errorMessage;
     private Long startedBy;
     private Instant startedAt;
     private Instant finishedAt;
@@ -47,33 +51,52 @@ public class AiRun {
         r.projectId = projectId;
         r.kind = kind;
         r.preparer = MANUAL;
-        r.status = "SUCCEEDED";
+        r.status = SUCCEEDED;
         r.startedBy = userId;
         r.startedAt = r.finishedAt = now;
         return r;
     }
 
-    /** Deterministic rule-engine run (auto-derivation §4.1): no tokens, finished when created. */
-    public static AiRun ruleEngine(long companyId, long projectId, long userId, int rulesetVersion,
-                                   JsonNode attributes, String judgementKey, Instant now) {
+    public static AiRun start(long companyId, long projectId, Kind kind, JsonNode inputRef, String model,
+                              String promptVersion, String preparer, long userId, Instant now) {
         AiRun r = new AiRun();
         r.companyId = companyId;
         r.projectId = projectId;
-        r.kind = Kind.PERMIT_ITEM;
-        r.model = "rule-engine";
-        r.promptVersion = "ruleset-v" + rulesetVersion;
-        r.preparer = "RULE_ENGINE";
-        r.inputRef = attributes;
-        r.rawResponseKey = judgementKey;
-        r.inputTokens = r.outputTokens = 0;
-        r.status = "SUCCEEDED";
+        r.kind = kind;
+        r.inputRef = inputRef;
+        r.model = model;
+        r.promptVersion = promptVersion;
+        r.preparer = preparer;
+        r.status = RUNNING;
         r.startedBy = userId;
-        r.startedAt = r.finishedAt = now;
+        r.startedAt = now;
         return r;
+    }
+
+    /** Raw response and token counts are kept on failure too (cost and debugging). */
+    public void finish(String error, String rawResponseKey, Integer inputTokens, Integer outputTokens, Instant now) {
+        this.status = error == null ? SUCCEEDED : FAILED;
+        this.errorMessage = error;
+        this.rawResponseKey = rawResponseKey;
+        this.inputTokens = inputTokens;
+        this.outputTokens = outputTokens;
+        this.finishedAt = now;
     }
 
     public Long getId() { return id; }
     public Long getCompanyId() { return companyId; }
     public Long getProjectId() { return projectId; }
     public Kind getKind() { return kind; }
+    public JsonNode getInputRef() { return inputRef; }
+    public String getModel() { return model; }
+    public String getPromptVersion() { return promptVersion; }
+    public String getPreparer() { return preparer; }
+    public String getRawResponseKey() { return rawResponseKey; }
+    public Integer getInputTokens() { return inputTokens; }
+    public Integer getOutputTokens() { return outputTokens; }
+    public String getStatus() { return status; }
+    public String getErrorMessage() { return errorMessage; }
+    public Long getStartedBy() { return startedBy; }
+    public Instant getStartedAt() { return startedAt; }
+    public Instant getFinishedAt() { return finishedAt; }
 }

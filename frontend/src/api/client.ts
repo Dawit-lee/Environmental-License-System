@@ -26,6 +26,8 @@ async function refresh(s: Session): Promise<Session | null> {
 
 /** Logged-in user's id (null when signed out). */
 export const sessionUserId = (): number | null => session()?.user.id ?? null;
+/** Company master (ADMIN) may change company settings. */
+export const isMaster = (): boolean => session()?.user.role === 'ADMIN';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {

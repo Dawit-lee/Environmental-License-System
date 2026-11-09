@@ -11,6 +11,8 @@ import com.envpermit.derivation.Evaluator.Judgement;
 import com.envpermit.law.LawCatalog;
 import com.envpermit.law.LawCatalogRepository;
 import com.envpermit.review.AiRun;
+import com.envpermit.review.AiRunRepository;
+import com.envpermit.review.Kind;
 import com.envpermit.review.Review;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -62,19 +64,21 @@ class Derivation {
     private final DerivationRuleRepository rules;
     private final LawCatalogRepository laws;
     private final Review review;
+    private final AiRunRepository runs;
     private final DocumentStorage storage;
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
     private final Clock clock;
 
     Derivation(ProjectRepository projects, ProjectAccess access, DerivationRuleRepository rules,
-               LawCatalogRepository laws, Review review, DocumentStorage storage, JdbcTemplate jdbc,
+               LawCatalogRepository laws, Review review, AiRunRepository runs, DocumentStorage storage, JdbcTemplate jdbc,
                ObjectMapper json, Clock clock) {
         this.projects = projects;
         this.access = access;
         this.rules = rules;
         this.laws = laws;
         this.review = review;
+        this.runs = runs;
         this.storage = storage;
         this.jdbc = jdbc;
         this.json = json;
@@ -143,8 +147,10 @@ class Derivation {
         String key = "derivations/" + projectId + "/" + UUID.randomUUID() + ".json";
         byte[] bytes = bytes(record);
         storage.put(key, new ByteArrayInputStream(bytes), bytes.length, "application/json");
-        AiRun run = review.recordRun(AiRun.ruleEngine(project.getCompanyId(), projectId, userId(jwt), rulesetVersion,
-                snapshot, key, now), payloads);
+        AiRun run = runs.save(AiRun.start(project.getCompanyId(), projectId, Kind.PERMIT_ITEM, snapshot, "rule-engine",
+                "ruleset-v" + rulesetVersion, "RULE_ENGINE", userId(jwt), now));
+        review.addAi(run, null, payloads);
+        run.finish(null, key, 0, 0, now); // deterministic: no tokens
         return record.put("runId", run.getId());
     }
 
