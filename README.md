@@ -252,7 +252,7 @@ npm install
 npm run dev
 ```
 `/api` 요청은 Vite가 `http://localhost:8080`으로 넘깁니다. API 포트를 바꿨다면 `API_URL=http://localhost:18080 npm run dev`.
-로그인 화면에서 위 개발용 계정으로 로그인합니다. 로그인, 프로젝트 목록(`/projects`), 프로젝트 상세(`/projects/:id`)는 실제 API를 쓰고, 나머지 화면은 아직 mock 데이터입니다.
+로그인 화면에서 위 개발용 계정으로 로그인합니다. 로그인, 프로젝트 목록·상세, 대시보드의 기한 임박 목록, 캘린더(`/calendar`), 상단 알림 벨은 실제 API를 쓰고, 나머지는 아직 mock 데이터입니다.
 
 ### 백엔드만 Docker 없이 실행
 DB는 `docker compose up -d db`로 띄우고:
@@ -278,6 +278,18 @@ Docker가 켜져 있어야 합니다. Testcontainers가 PostgreSQL 16 컨테이�
 | GET | `/api/me` | `Authorization: Bearer <accessToken>` → 내 정보 |
 
 Access 토큰 30분, Refresh 토큰 14일.
+
+### 기한 알림 API
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| GET | `/api/deadlines?from=YYYY-MM-DD&to=YYYY-MM-DD` | 내가 속한 프로젝트의 기한 일정(최대 1년 범위) |
+| GET | `/api/notifications` | 내 알림 최신 50건 |
+| POST | `/api/notifications/{id}/read` | 읽음 처리 (남의 알림이면 404) |
+| POST | `/api/notifications/read-all` | 모두 읽음 |
+
+- 다른 모듈은 `Deadlines.register(kind, targetId, projectId, title, dueDate, assigneeId)`로 기한을 등록합니다. 인허가 만료일은 자동 등록됩니다(`PERMIT_EXPIRY`).
+- 매일 07:00(서버 시작 시에도 한 번) D-90/60/30/7 앱 알림을 만들고, 사용자별 이메일 요약을 1통 보냅니다. 같은 일정·D-day 알림은 다시 만들지 않습니다.
+- 메일은 아직 로그로만 남깁니다(`LogMailer`). SMTP는 나중에 `Mailer` 구현만 바꾸면 됩니다.
 
 ---
 

@@ -19,7 +19,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
  * Base for API tests: real PostgreSQL 16 (Testcontainers, shared across tests) + fixed clock.
  * Each test starts at {@link #START}; move time with {@code clock.advance(...)}.
  */
-@SpringBootTest(properties = "app.jwt.secret=test-secret-test-secret-test-secret-0123456789")
+@SpringBootTest(properties = {"app.jwt.secret=test-secret-test-secret-test-secret-0123456789",
+        "app.scheduling=false"}) // tests run jobs by hand
 @AutoConfigureMockMvc
 @Import(IntegrationTest.Config.class)
 public abstract class IntegrationTest {
@@ -57,6 +58,12 @@ public abstract class IntegrationTest {
         @Primary
         TestClock testClock() {
             return new TestClock(START, ZoneId.of("Asia/Seoul"));
+        }
+
+        @Bean
+        @Primary
+        InMemoryMailer inMemoryMailer() {
+            return new InMemoryMailer();
         }
     }
 }

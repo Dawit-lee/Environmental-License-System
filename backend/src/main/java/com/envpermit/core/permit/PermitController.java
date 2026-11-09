@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -39,14 +40,17 @@ public class PermitController {
     private final UserRepository users;
     private final ProjectAccess access;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     public PermitController(PermitItemRepository permits, PermitStatusHistoryRepository history,
-                            UserRepository users, ProjectAccess access, Clock clock) {
+                            UserRepository users, ProjectAccess access, Clock clock,
+                            ApplicationEventPublisher events) {
         this.permits = permits;
         this.history = history;
         this.users = users;
         this.access = access;
         this.clock = clock;
+        this.events = events;
     }
 
     record PermitRequest(@NotBlank @Size(max = 200) String name,
@@ -97,6 +101,7 @@ public class PermitController {
         p.apply(req);
         permits.save(p);
         history.save(new PermitStatusHistory(p.getId(), null, p.getStatus(), userId(jwt), clock.instant()));
+        events.publishEvent(new PermitChanged(p, false));
         return ResponseEntity.status(HttpStatus.CREATED).body(view(p));
     }
 
@@ -111,6 +116,7 @@ public class PermitController {
         if (before != p.getStatus()) {
             history.save(new PermitStatusHistory(id, before, p.getStatus(), userId(jwt), clock.instant()));
         }
+        events.publishEvent(new PermitChanged(p, false));
         return view(p);
     }
 
@@ -119,7 +125,9 @@ public class PermitController {
     ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                                 @PathVariable long id) {
         access.member(projectId, jwt);
-        permits.delete(find(projectId, id));
+        PermitItem p = find(projectId, id);
+        permits.delete(p);
+        events.publishEvent(new PermitChanged(p, true));
         return ResponseEntity.noContent().build();
     }
 
