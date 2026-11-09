@@ -30,3 +30,8 @@ dist/
 .DS_Store
 .vite/
 .env
+
+# Backend / Gradle
+.gradle/
+build/
+!backend/gradle/wrapper/gradle-wrapper.jar
