@@ -1,23 +1,29 @@
 import { useState, type FormEvent } from 'react';
+import { login, type Session } from '../api/auth';
 
 // ---------------------------------------------------------------------------
-// LoginPage — mock-only login. No API: any non-empty email/password passes.
-// The parent (PermitApp) persists the session in localStorage.
+// LoginPage — POST /api/auth/login. The parent (PermitApp) persists the session.
 // ---------------------------------------------------------------------------
 
-export default function LoginPage({ onLogin }: { onLogin: (email: string) => void }) {
+export default function LoginPage({ onLogin }: { onLogin: (session: Session) => void }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (email.trim() === '' || password.trim() === '') {
       setError('이메일과 비밀번호를 입력해주세요.');
       return;
     }
-    // TODO: replace with POST /auth/signin
-    onLogin(email.trim());
+    setSubmitting(true);
+    try {
+      onLogin(await login(email.trim(), password));
+    } catch (err) {
+      setError((err as Error).message);
+      setSubmitting(false);
+    }
   };
 
   const handleKakaoLogin = () => {
@@ -25,8 +31,7 @@ export default function LoginPage({ onLogin }: { onLogin: (email: string) => voi
     //   1) redirect to https://kauth.kakao.com/oauth/authorize
     //      ?client_id=${KAKAO_REST_API_KEY}&redirect_uri=${REDIRECT_URI}&response_type=code
     //   2) handle the code callback → exchange for token → fetch profile
-    // For now this is a mock that signs in with a placeholder Kakao account.
-    onLogin('kakao_user@kakao.com');
+    setError('카카오 로그인은 아직 준비 중입니다.');
   };
 
   const inputClasses =
@@ -64,13 +69,14 @@ export default function LoginPage({ onLogin }: { onLogin: (email: string) => voi
             className={inputClasses}
           />
 
-          {error && <p className="mt-3 text-sm text-[#991B1B]">{error}</p>}
+          {error && <p role="alert" className="mt-3 text-sm text-[#991B1B]">{error}</p>}
 
           <button
             type="submit"
-            className="mt-5 w-full rounded-lg bg-[#1F4E79] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40"
+            disabled={submitting}
+            className="mt-5 w-full rounded-lg bg-[#1F4E79] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40 disabled:opacity-60"
           >
-            로그인
+            {submitting ? '로그인 중…' : '로그인'}
           </button>
 
           {/* Divider */}
@@ -90,9 +96,6 @@ export default function LoginPage({ onLogin }: { onLogin: (email: string) => voi
             카카오 로그인
           </button>
 
-          <p className="mt-4 text-center text-xs text-gray-400">
-            데모 환경입니다 · 아무 이메일/비밀번호나 입력하면 로그인됩니다
-          </p>
         </form>
       </div>
     </div>

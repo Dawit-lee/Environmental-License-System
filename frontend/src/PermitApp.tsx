@@ -8,13 +8,22 @@ import CalendarPage from './pages/CalendarPage';
 import LoginPage from './pages/LoginPage';
 import ReviewQueuePage from './pages/ReviewQueuePage';
 import LawAmendmentsPage from './pages/LawAmendmentsPage';
+import type { Session } from './api/auth';
 
 // ---------------------------------------------------------------------------
-// PermitApp — standalone, mock-data-only shell for the permit management UI.
-// Mock auth (localStorage) gates the routed screens. No real API.
+// PermitApp — shell for the permit management UI. Login is real (JWT session in
+// localStorage); the routed screens still use mock data.
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = 'permit_user';
+const STORAGE_KEY = 'permit_session';
+
+function loadSession(): Session | null {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
+  } catch {
+    return null;
+  }
+}
 
 const NAV = [
   { to: '/dashboard', label: '대시보드', icon: '📊' },
@@ -25,16 +34,17 @@ const NAV = [
 ];
 
 export default function PermitApp() {
-  const [user, setUser] = useState<string | null>(() => localStorage.getItem(STORAGE_KEY));
+  const [session, setSession] = useState<Session | null>(loadSession);
+  const user = session?.user.email ?? null;
 
-  const handleLogin = (email: string) => {
-    localStorage.setItem(STORAGE_KEY, email);
-    setUser(email);
+  const handleLogin = (s: Session) => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
+    setSession(s);
   };
 
   const handleLogout = () => {
     localStorage.removeItem(STORAGE_KEY);
-    setUser(null);
+    setSession(null);
   };
 
   return (

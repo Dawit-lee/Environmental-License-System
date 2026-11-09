@@ -204,7 +204,7 @@ Environmental-License-System/
 │   │   ├── types/
 │   │   └── styles/
 │   └── package.json
-├── backend/                    # Spring Boot (예정)
+├── backend/                    # Spring Boot 3 + Flyway (현재 core: 인증)
 │   └── src/main/java/com/envpermit/
 │       ├── core/               # 회사·프로젝트·인허가·문서
 │       ├── review/             # AI 제안 검토·승인
@@ -223,30 +223,58 @@ Environmental-License-System/
 ## 🚀 로컬 실행 방법
 
 ### 사전 준비
-- Java 17+
-- Node.js 20+
 - Docker Desktop
-- PostgreSQL 16 (또는 Docker로 실행)
+- Node.js 20+
+- Java 17 (백엔드를 Docker 없이 실행하거나 테스트할 때)
 
-### 프론트엔드 실행 (지금 바로 가능)
+### 1. 환경변수 (`.env`)
+비밀값(DB 비밀번호, JWT 키, 외부 API 키)은 환경변수로만 받습니다. `.env`는 git에 올라가지 않습니다.
+```bash
+cp .env.example .env
+```
+`.env`를 열어 `DB_PASSWORD`와 `JWT_SECRET`(32바이트 이상, 예: `openssl rand -base64 48` 결과)을 채웁니다.
+
+### 2. DB + API 실행 (Docker)
+```bash
+docker compose up -d --build
+```
+- PostgreSQL 16(`localhost:5432`)과 API(`localhost:8080`)가 뜹니다. Flyway가 스키마를 만듭니다.
+- 포트가 이미 쓰이고 있으면 바꿔서 띄웁니다: `DB_PORT=15432 API_PORT=18080 docker compose up -d --build`
+- `SPRING_PROFILES_ACTIVE=dev`(기본값)이면 개발용 계정이 생깁니다: **dev@envpermit.local / dev1234!** (로컬 전용, 운영 프로필에서는 만들어지지 않음)
+
+### 3. 프론트엔드 실행
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-mock 데이터로 동작합니다. 로그인 화면에서 아무 이메일로나 들어갈 수 있습니다.
+`/api` 요청은 Vite가 `http://localhost:8080`으로 넘깁니다. API 포트를 바꿨다면 `API_URL=http://localhost:18080 npm run dev`.
+로그인 화면에서 위 개발용 계정으로 로그인합니다. 로그인 외 화면은 아직 mock 데이터입니다.
 
-### 백엔드 실행 (구현 예정)
+### 백엔드만 Docker 없이 실행
+DB는 `docker compose up -d db`로 띄우고:
 ```bash
 cd backend
+set -a; . ../.env; set +a
 ./gradlew bootRun
 ```
-외부 연동 키는 환경변수로만 넣습니다: `LAW_API_OC`(법제처 Open API), `ANTHROPIC_API_KEY`(Claude API).
+DB 포트를 바꿨다면 `DB_URL=jdbc:postgresql://localhost:15432/envpermit ./gradlew bootRun`.
 
-### Docker로 전체 실행 (구현 예정)
+### 테스트
 ```bash
-docker-compose up -d
+cd backend
+./gradlew test
 ```
+Docker가 켜져 있어야 합니다. Testcontainers가 PostgreSQL 16 컨테이너를 띄워 실제 DB 위에서 API를 검증합니다.
+
+### 인증 API
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/auth/login` | `{email, password}` → `{accessToken, refreshToken, user}`. 실패 시 401 `{message}` |
+| POST | `/api/auth/refresh` | `{refreshToken}` → 새 토큰 쌍 |
+| GET | `/api/me` | `Authorization: Bearer <accessToken>` → 내 정보 |
+
+Access 토큰 30분, Refresh 토큰 14일.
 
 ---
 
@@ -257,7 +285,7 @@ docker-compose up -d
 | 1 | 화면 설계 · mock 프론트엔드 (대시보드, 프로젝트, 캘린더, 검토, 법령 개정, 자동 도출) | ✅ 완료 |
 | 2 | 확장 기능 설계: 사람 검토 + 허가조건 추출, 법령 개정 모니터링 | ✅ 설계 승인 |
 | 3 | 확장 기능 설계: 인허가 자동 도출 엔진, 허가증 버전 비교 | ✅ 설계 승인 |
-| 4 | 앱 뼈대: 인증, 프로젝트·인허가 CRUD, 문서 첨부, 기한 알림 | ⏳ 예정 |
+| 4 | 앱 뼈대: 인증, 프로젝트·인허가 CRUD, 문서 첨부, 기한 알림 | 🚧 진행 중 (인증 완료) |
 | 5 | 사람 검토 + 허가조건 AI 추출 | ⏳ 예정 |
 | 6 | 법령 개정 모니터링 (법제처 Open API) | ⏳ 예정 |
 | 7 | 인허가 자동 도출 엔진 · 허가증 버전 비교 | ⏳ 예정 |
