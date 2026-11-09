@@ -96,6 +96,8 @@
 ## 🔧 시스템 아키텍처
 
 > [시스템 아키텍처](https://github.com/user-attachments/assets/f201d416-23d4-4b76-a97e-1b4865ca6268)
+>
+> 모듈 구성, 주요 흐름, 데이터 모델: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ---
 
