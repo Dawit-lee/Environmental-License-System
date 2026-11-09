@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { PermitCategory, PermitHistory, PermitItem, PermitStatus } from '../types';
 import { api } from '../api/client';
+import PermitDocuments from './PermitDocuments';
 
 // ---------------------------------------------------------------------------
 // PermitDetailDrawer — slide-in panel (480px) showing a single permit's
@@ -191,9 +192,7 @@ export default function PermitDetailDrawer({
 
               {/* 첨부 문서 */}
               <Section title="첨부 문서">
-                <div className="rounded-lg border border-dashed border-[#E5E3DC] p-4 text-center text-sm text-gray-400">
-                  첨부된 문서가 없습니다
-                </div>
+                <PermitDocuments permit={permit} />
               </Section>
 
               {/* 변경 이력 */}
