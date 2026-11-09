@@ -6,6 +6,8 @@ import NewProjectPage from './pages/NewProjectPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import CalendarPage from './pages/CalendarPage';
 import LoginPage from './pages/LoginPage';
+import ReviewQueuePage from './pages/ReviewQueuePage';
+import LawAmendmentsPage from './pages/LawAmendmentsPage';
 
 // ---------------------------------------------------------------------------
 // PermitApp — standalone, mock-data-only shell for the permit management UI.
@@ -18,6 +20,8 @@ const NAV = [
   { to: '/dashboard', label: '대시보드', icon: '📊' },
   { to: '/projects', label: '프로젝트', icon: '📁' },
   { to: '/calendar', label: '캘린더', icon: '🗓' },
+  { to: '/review', label: '허가조건 검토', icon: '✅' },
+  { to: '/laws', label: '법령 개정', icon: '⚖️' },
 ];
 
 export default function PermitApp() {
@@ -116,6 +120,8 @@ export default function PermitApp() {
                 <Route path="/projects/new" element={<NewProjectPage />} />
                 <Route path="/projects/:id" element={<ProjectDetailPage />} />
                 <Route path="/calendar" element={<CalendarPage />} />
+                <Route path="/review" element={<ReviewQueuePage />} />
+                <Route path="/laws" element={<LawAmendmentsPage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </main>

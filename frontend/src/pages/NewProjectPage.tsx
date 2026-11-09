@@ -35,91 +35,97 @@ const CATEGORY_BADGE: Record<PermitCategory, string> = {
   ENVIRONMENT: 'bg-rose-100 text-rose-800',
 };
 
+type Determination = 'APPLICABLE' | 'ON_HOLD';
+type ExtraKey = 'siteArea' | 'constructionCost' | 'airEmission';
+
 interface DerivedPermit {
-  id: number;
+  key: string;
   name: string;
   category: PermitCategory;
-  reason: string;
+  determination: Determination;
+  reason: string; // APPLICABLE: why it applies · ON_HOLD: the criterion it waits on
+  missing?: ExtraKey;
   regulation: string;
   regulationUrl: string;
   approvalTiming: string;
 }
 
-// TODO: replace with POST /api/projects/derive-permits using the form payload.
-const DERIVED_PERMITS: DerivedPermit[] = [
-  {
-    id: 1,
-    name: '폐기물처리시설 설치승인',
-    category: 'FACILITY',
-    reason: '시설용량 100톤/일 이상으로 설치승인 대상',
-    regulation: '폐기물관리법 제29조',
-    regulationUrl: 'https://www.law.go.kr/법령/폐기물관리법',
-    approvalTiming: '착공 전',
-  },
-  {
-    id: 2,
-    name: '국토이용계획 변경',
-    category: 'LOCATION',
-    reason: '계획관리지역 내 환경기초시설 입지에 따른 용도 변경 필요',
-    regulation: '국토의 계획 및 이용에 관한 법률 제30조',
-    regulationUrl: 'https://www.law.go.kr/법령/국토의계획및이용에관한법률',
-    approvalTiming: '설계 단계',
-  },
-  {
-    id: 3,
-    name: '개발행위허가',
-    category: 'LOCATION',
-    reason: '부지조성을 위한 토지형질변경 면적 5,000㎡ 이상',
-    regulation: '국토의 계획 및 이용에 관한 법률 제56조',
-    regulationUrl: 'https://www.law.go.kr/법령/국토의계획및이용에관한법률',
-    approvalTiming: '착공 전',
-  },
-  {
-    id: 4,
-    name: '환경영향평가 협의',
-    category: 'ENVIRONMENT',
-    reason: '소각용량 100톤/일 이상 시설로 환경영향평가 대상사업',
-    regulation: '환경영향평가법 제22조',
-    regulationUrl: 'https://www.law.go.kr/법령/환경영향평가법',
-    approvalTiming: '인허가 신청 전',
-  },
-  {
-    id: 5,
-    name: '건축허가',
-    category: 'CONSTRUCTION',
-    reason: '관리동·처리동 등 건축물 신축에 따른 허가 대상',
-    regulation: '건축법 제11조',
-    regulationUrl: 'https://www.law.go.kr/법령/건축법',
-    approvalTiming: '착공 30일 전',
-  },
-  {
-    id: 6,
-    name: '구조안전 확인',
-    category: 'CONSTRUCTION',
-    reason: '지상 2층 이상 건축물로 구조안전 및 내진설계 확인 대상',
-    regulation: '건축법 제48조',
-    regulationUrl: 'https://www.law.go.kr/법령/건축법',
-    approvalTiming: '건축허가 동시',
-  },
-  {
-    id: 7,
-    name: '전기사업 공사계획 신고',
-    category: 'ELECTRICAL',
-    reason: '수전설비 용량 1,000kW 이상 전기설비 설치',
-    regulation: '전기사업법 제61조',
-    regulationUrl: 'https://www.law.go.kr/법령/전기사업법',
-    approvalTiming: '전기공사 착공 전',
-  },
-  {
-    id: 8,
-    name: '대기배출시설 설치허가',
-    category: 'FACILITY',
-    reason: '소각 과정에서 발생하는 특정대기유해물질 배출시설 해당',
-    regulation: '대기환경보전법 제23조',
-    regulationUrl: 'https://www.law.go.kr/법령/대기환경보전법',
-    approvalTiming: '가동 전',
-  },
-];
+const EXTRA_FIELDS: Record<ExtraKey, { label: string; unit: string; placeholder: string }> = {
+  siteArea: { label: '부지면적', unit: '㎡', placeholder: '예: 42000' },
+  constructionCost: { label: '총공사비', unit: '억원', placeholder: '예: 1800' },
+  airEmission: { label: '대기오염물질 발생량', unit: '톤/년', placeholder: '예: 35' },
+};
+
+interface DeriveInput {
+  capacity: number;
+  location: string;
+  floorsAbove: number;
+  includesElectrical: boolean;
+  extra: Partial<Record<ExtraKey, number>>;
+}
+
+const law = (name: string) => `https://www.law.go.kr/법령/${name.replace(/\s/g, '')}`;
+
+// Mock rule table — thresholds follow the wiki's permit criteria pages; not legal advice.
+// A rule whose input is missing yields ON_HOLD (shows what is needed) instead of guessing.
+// TODO: replace with POST /api/projects/derive-permits (rule engine, see auto-derivation spec).
+function derivePermits(i: DeriveInput): DerivedPermit[] {
+  const out: DerivedPermit[] = [];
+  const yes = (p: Omit<DerivedPermit, 'determination'>) => out.push({ ...p, determination: 'APPLICABLE' });
+  const hold = (p: Omit<DerivedPermit, 'determination'>) => out.push({ ...p, determination: 'ON_HOLD' });
+  const gyeonggi = i.location.includes('경기');
+  const eiaThreshold = gyeonggi ? 50 : 100;
+
+  if (i.capacity >= 100) {
+    yes({ key: 'install', name: '폐기물처리시설 설치승인', category: 'FACILITY', reason: `시설용량 ${i.capacity}톤/일 ≥ 100톤/일`, regulation: '폐기물관리법', regulationUrl: law('폐기물관리법'), approvalTiming: '착공 전' });
+  } else {
+    yes({ key: 'install', name: '폐기물처리시설 설치신고', category: 'FACILITY', reason: `시설용량 ${i.capacity}톤/일 < 100톤/일`, regulation: '폐기물관리법', regulationUrl: law('폐기물관리법'), approvalTiming: '착공 전' });
+  }
+  if (i.capacity >= eiaThreshold) {
+    yes({ key: 'eia', name: '환경영향평가 협의', category: 'ENVIRONMENT', reason: `시설용량 ${i.capacity}톤/일 ≥ ${eiaThreshold}톤/일${gyeonggi ? ' (경기도 50% 기준)' : ''}`, regulation: '환경영향평가법', regulationUrl: law('환경영향평가법'), approvalTiming: '기본설계 단계' });
+  }
+
+  const area = i.extra.siteArea;
+  if (area === undefined) {
+    hold({ key: 'disaster', name: '재해영향평가 / 소규모재해영향평가', category: 'ENVIRONMENT', missing: 'siteArea', reason: '5천㎡ 이상 소규모, 5만㎡ 이상 재해영향평가', regulation: '자연재해대책법', regulationUrl: law('자연재해대책법'), approvalTiming: '기본설계 단계' });
+  } else if (area >= 5000) {
+    yes({ key: 'disaster', name: area >= 50000 ? '재해영향평가' : '소규모재해영향평가', category: 'ENVIRONMENT', reason: `부지면적 ${area.toLocaleString()}㎡ ${area >= 50000 ? '≥ 5만㎡' : '(5천~5만㎡)'}`, regulation: '자연재해대책법', regulationUrl: law('자연재해대책법'), approvalTiming: '기본설계 단계' });
+  }
+
+  const cost = i.extra.constructionCost;
+  if (cost === undefined) {
+    hold({ key: 've', name: '설계 VE (설계의 경제성 등 검토)', category: 'CONSTRUCTION', missing: 'constructionCost', reason: '총공사비 100억 이상', regulation: '건설기술 진흥법', regulationUrl: law('건설기술 진흥법'), approvalTiming: '실시설계 단계' });
+  } else if (cost >= 100) {
+    yes({ key: 've', name: '설계 VE (설계의 경제성 등 검토)', category: 'CONSTRUCTION', reason: `총공사비 ${cost}억 ≥ 100억`, regulation: '건설기술 진흥법', regulationUrl: law('건설기술 진흥법'), approvalTiming: '실시설계 단계' });
+  }
+
+  const air = i.extra.airEmission;
+  if (air === undefined) {
+    hold({ key: 'air', name: '통합환경허가', category: 'FACILITY', missing: 'airEmission', reason: '대기오염물질 발생량 연 20톤 이상', regulation: '환경오염시설의 통합관리에 관한 법률', regulationUrl: law('환경오염시설의 통합관리에 관한 법률'), approvalTiming: '착공 전' });
+  } else if (air >= 20) {
+    yes({ key: 'air', name: '통합환경허가', category: 'FACILITY', reason: `대기오염물질 ${air}톤/년 ≥ 20톤/년`, regulation: '환경오염시설의 통합관리에 관한 법률', regulationUrl: law('환경오염시설의 통합관리에 관한 법률'), approvalTiming: '착공 전' });
+  } else {
+    yes({ key: 'air', name: '대기배출시설 설치신고', category: 'FACILITY', reason: `대기오염물질 ${air}톤/년 < 20톤/년 (통합허가 비대상)`, regulation: '대기환경보전법', regulationUrl: law('대기환경보전법'), approvalTiming: '가동 전' });
+  }
+
+  yes({ key: 'building', name: '건축허가', category: 'CONSTRUCTION', reason: '관리동·처리동 등 건축물 신축', regulation: '건축법', regulationUrl: law('건축법'), approvalTiming: '착공 30일 전' });
+  if (i.floorsAbove >= 2) {
+    yes({ key: 'structure', name: '구조안전 확인', category: 'CONSTRUCTION', reason: `지상 ${i.floorsAbove}층 ≥ 2층`, regulation: '건축법', regulationUrl: law('건축법'), approvalTiming: '건축허가 동시' });
+  }
+  if (i.includesElectrical) {
+    yes({ key: 'electric', name: '전기사업 공사계획 신고', category: 'ELECTRICAL', reason: '전기공사 포함', regulation: '전기사업법', regulationUrl: law('전기사업법'), approvalTiming: '전기공사 착공 전' });
+  }
+  return out;
+}
+
+// Self-check of the threshold branches (runs once in dev; cheap).
+if (import.meta.env.DEV) {
+  const r = derivePermits({ capacity: 60, location: '경기도 광명시', floorsAbove: 0, includesElectrical: false, extra: { siteArea: 4000 } });
+  console.assert(r.some((p) => p.key === 'eia'), 'EIA should apply at 60t/d in 경기 (50t threshold)');
+  console.assert(r.find((p) => p.key === 'install')?.name.endsWith('설치신고'), '<100t/d should be 설치신고');
+  console.assert(!r.some((p) => p.key === 'disaster'), '4000㎡ is below the 5천㎡ threshold');
+  console.assert(r.find((p) => p.key === 've')?.determination === 'ON_HOLD', 'missing cost → ON_HOLD');
+}
 
 const CATEGORY_TAB_ORDER: PermitCategory[] = [
   'LOCATION',
@@ -146,9 +152,27 @@ export default function NewProjectPage() {
 
   // ---- Step 2 state ------------------------------------------------------
   const [activeCategory, setActiveCategory] = useState<'ALL' | PermitCategory>('ALL');
-  const [included, setIncluded] = useState<Record<number, boolean>>(
-    () => Object.fromEntries(DERIVED_PERMITS.map((p) => [p.id, true])),
+  const [included, setIncluded] = useState<Record<string, boolean>>({});
+  const [extra, setExtra] = useState<Partial<Record<ExtraKey, number>>>({});
+
+  const derived = useMemo(
+    () =>
+      derivePermits({
+        capacity: Number(capacity) || 0,
+        location,
+        floorsAbove: Number(floorsAbove) || 0,
+        includesElectrical,
+        extra,
+      }),
+    [capacity, location, floorsAbove, includesElectrical, extra],
   );
+  // ON_HOLD rows cannot be included until they are decided.
+  const isIncluded = (p: DerivedPermit) =>
+    p.determination === 'APPLICABLE' && (included[p.key] ?? true);
+  const waiting = derived.reduce<Partial<Record<ExtraKey, string[]>>>((acc, p) => {
+    if (p.missing) (acc[p.missing] ??= []).push(p.name);
+    return acc;
+  }, {});
 
   const canProceed = name.trim().length > 0;
 
@@ -159,18 +183,17 @@ export default function NewProjectPage() {
 
   const counts = useMemo(() => {
     const byCat = CATEGORY_TAB_ORDER.reduce<Record<string, number>>((acc, cat) => {
-      acc[cat] = DERIVED_PERMITS.filter((p) => p.category === cat).length;
+      acc[cat] = derived.filter((p) => p.category === cat).length;
       return acc;
     }, {});
-    return { all: DERIVED_PERMITS.length, ...byCat };
-  }, []);
+    return { all: derived.length, ...byCat };
+  }, [derived]);
 
   const visiblePermits =
-    activeCategory === 'ALL'
-      ? DERIVED_PERMITS
-      : DERIVED_PERMITS.filter((p) => p.category === activeCategory);
+    activeCategory === 'ALL' ? derived : derived.filter((p) => p.category === activeCategory);
 
-  const includedCount = Object.values(included).filter(Boolean).length;
+  const includedCount = derived.filter(isIncluded).length;
+  const holdCount = derived.filter((p) => p.determination === 'ON_HOLD').length;
 
   const handleCreate = () => {
     // TODO: POST /api/projects with form payload + selected permit ids.
@@ -343,12 +366,47 @@ export default function NewProjectPage() {
             {/* Summary bar */}
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#1F4E79]/5 px-4 py-3">
               <p className="text-sm font-semibold text-[#1F4E79]">
-                총 {counts.all}개 인허가가 도출되었습니다
+                해당 {counts.all - holdCount}개 · 판정 보류 {holdCount}개
               </p>
               <p className="text-sm text-gray-600">
                 포함 <span className="font-semibold text-[#0F6E56]">{includedCount}</span>개 선택됨
               </p>
             </div>
+
+            {/* Inputs the on-hold rows are waiting for */}
+            {Object.keys(waiting).length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm font-semibold text-gray-700">판정에 필요한 추가 정보</p>
+                {(Object.keys(waiting) as ExtraKey[]).map((k) => (
+                  <div
+                    key={k}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-dashed border-[#B45309]/50 bg-amber-50 px-3 py-2 text-sm"
+                  >
+                    <label htmlFor={`extra-${k}`} className="w-32 font-medium text-gray-800">
+                      {EXTRA_FIELDS[k].label}
+                    </label>
+                    <input
+                      id={`extra-${k}`}
+                      type="number"
+                      min={0}
+                      placeholder={EXTRA_FIELDS[k].placeholder}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') e.currentTarget.blur();
+                      }}
+                      onBlur={(e) => {
+                        const v = e.currentTarget.value.trim();
+                        if (v !== '') setExtra((prev) => ({ ...prev, [k]: Number(v) }));
+                      }}
+                      className="w-32 rounded-md border border-[#E5E3DC] bg-white px-2 py-1 text-sm"
+                    />
+                    <span className="text-gray-500">{EXTRA_FIELDS[k].unit}</span>
+                    <span className="text-gray-600">
+                      → {waiting[k]!.join(', ')} <b>{waiting[k]!.length}건</b> 판정 대기
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Category tabs */}
             <div className="mt-5 flex flex-wrap gap-2">
@@ -372,6 +430,7 @@ export default function NewProjectPage() {
               <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
                   <tr>
+                    <th className="px-4 py-3 font-medium">판정</th>
                     <th className="px-4 py-3 font-medium">인허가명</th>
                     <th className="px-4 py-3 font-medium">카테고리</th>
                     <th className="px-4 py-3 font-medium">해당 사유</th>
@@ -382,7 +441,18 @@ export default function NewProjectPage() {
                 </thead>
                 <tbody className="divide-y divide-[#E5E3DC]">
                   {visiblePermits.map((p) => (
-                    <tr key={p.id} className="transition hover:bg-[#F8F7F2]">
+                    <tr key={p.key} className="transition hover:bg-[#F8F7F2]">
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                            p.determination === 'ON_HOLD'
+                              ? 'bg-amber-100 text-[#B45309]'
+                              : 'bg-emerald-100 text-[#0F6E56]'
+                          }`}
+                        >
+                          {p.determination === 'ON_HOLD' ? '판정 보류' : '해당'}
+                        </span>
+                      </td>
                       <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
                       <td className="px-4 py-3">
                         <span
@@ -391,7 +461,15 @@ export default function NewProjectPage() {
                           {CATEGORY_LABEL[p.category]}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{p.reason}</td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {p.missing ? (
+                          <>
+                            <b className="text-[#B45309]">{EXTRA_FIELDS[p.missing].label} 필요</b> · {p.reason}
+                          </>
+                        ) : (
+                          p.reason
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <a
                           href={p.regulationUrl}
@@ -405,8 +483,9 @@ export default function NewProjectPage() {
                       <td className="px-4 py-3 text-gray-600">{p.approvalTiming}</td>
                       <td className="px-4 py-3 text-center">
                         <Toggle
-                          checked={included[p.id]}
-                          onChange={(v) => setIncluded((prev) => ({ ...prev, [p.id]: v }))}
+                          checked={isIncluded(p)}
+                          disabled={p.determination === 'ON_HOLD'}
+                          onChange={(v) => setIncluded((prev) => ({ ...prev, [p.key]: v }))}
                         />
                       </td>
                     </tr>
@@ -517,9 +596,11 @@ function CategoryTab({
 
 function Toggle({
   checked,
+  disabled,
   onChange,
 }: {
   checked: boolean;
+  disabled?: boolean;
   onChange: (value: boolean) => void;
 }) {
   return (
@@ -527,8 +608,9 @@ function Toggle({
       type="button"
       role="switch"
       aria-checked={checked}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40 ${
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40 disabled:cursor-not-allowed disabled:opacity-40 ${
         checked ? 'bg-[#1F4E79]' : 'bg-gray-300'
       }`}
     >
