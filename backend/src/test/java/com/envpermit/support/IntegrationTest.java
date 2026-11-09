@@ -1,6 +1,7 @@
 package com.envpermit.support;
 
 import com.envpermit.core.document.DocumentStorage;
+import com.envpermit.law.LawApiClient;
 import java.time.Instant;
 import java.time.ZoneId;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,12 +54,17 @@ public abstract class IntegrationTest {
         clock.set(START);
     }
 
-    /** Empties every app table (keeps Flyway history). Call from a test's @BeforeEach. */
+    /**
+     * Empties every app table. Keeps Flyway history and the migration-seeded law catalog
+     * (only laws added by search are removed). Call from a test's @BeforeEach.
+     */
     protected void truncateAll() {
         String tables = String.join(",", jdbc.queryForList(
-                "SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'flyway_schema_history'",
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
+                        + "AND tablename NOT IN ('flyway_schema_history', 'law_catalog')",
                 String.class));
         jdbc.execute("TRUNCATE " + tables + " RESTART IDENTITY CASCADE");
+        jdbc.update("DELETE FROM law_catalog WHERE source <> 'SEED'");
     }
 
     @TestConfiguration(proxyBeanMethods = false)
@@ -73,6 +79,12 @@ public abstract class IntegrationTest {
         @Primary
         InMemoryMailer inMemoryMailer() {
             return new InMemoryMailer();
+        }
+
+        @Bean
+        @Primary
+        LawApiClient fixtureLawApi() {
+            return new FixtureLawApi();
         }
     }
 }

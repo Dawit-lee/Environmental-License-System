@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { PermitCategory, PermitHistory, PermitItem, PermitStatus } from '../types';
 import { api } from '../api/client';
 import PermitDocuments from './PermitDocuments';
+import PermitLawLinks from './PermitLawLinks';
 
 // ---------------------------------------------------------------------------
 // PermitDetailDrawer — slide-in panel (480px) showing a single permit's
@@ -125,18 +126,22 @@ export default function PermitDetailDrawer({
                 </div>
               </Section>
 
-              {/* 관련 법규 */}
-              <Section title="관련 법규">
-                <a
-                  href={permit.regulationUrl ?? undefined}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-sm font-medium text-[#1F4E79] underline-offset-2 transition hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
-                >
-                  {permit.regulation}
-                  <span aria-hidden>↗</span>
-                </a>
-                <p className="mt-1 text-xs text-gray-400">국가법령정보센터에서 원문 확인</p>
+              {/* 관련 법령 */}
+              <Section title="관련 법령">
+                {permit.regulation && (
+                  <p className="mb-2 text-xs text-gray-500">
+                    등록 시 입력한 근거:{' '}
+                    <a
+                      href={permit.regulationUrl ?? undefined}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[#1F4E79] underline-offset-2 hover:underline"
+                    >
+                      {permit.regulation}
+                    </a>
+                  </p>
+                )}
+                <PermitLawLinks permitId={permit.id} />
               </Section>
 
               {/* 승인기관 */}
