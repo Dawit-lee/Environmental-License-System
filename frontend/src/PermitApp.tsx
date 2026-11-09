@@ -8,6 +8,7 @@ import CalendarPage from './pages/CalendarPage';
 import LoginPage from './pages/LoginPage';
 import ReviewQueuePage from './pages/ReviewQueuePage';
 import LawAmendmentsPage from './pages/LawAmendmentsPage';
+import NotificationBell from './components/NotificationBell';
 import type { Session } from './api/auth';
 
 // ---------------------------------------------------------------------------
@@ -107,8 +108,9 @@ export default function PermitApp() {
                 </nav>
               </div>
 
-              {/* Right: user + logout */}
+              {/* Right: bell + user + logout */}
               <div className="ml-auto flex items-center gap-3">
+                <NotificationBell />
                 <span className="hidden max-w-[180px] truncate text-sm text-gray-500 sm:inline" title={user}>
                   {user}
                 </span>
