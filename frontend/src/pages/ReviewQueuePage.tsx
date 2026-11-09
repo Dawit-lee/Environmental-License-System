@@ -1,100 +1,143 @@
-import { useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { api, sessionUserId } from '../api/client';
+import {
+  acceptSuggestion, addSuggestion, bulkAccept, editSuggestion, effective, listSuggestions, rejectSuggestion,
+  reopenSuggestion, returnSuggestion, submitSuggestion, suggestionEvents,
+  type Frequency, type ObligationPayload, type QuoteCheck, type Suggestion, type SuggestionEvent, type SuggestionStatus,
+} from '../api/review';
+import type { PermitItem, Project } from '../types';
 
 // ---------------------------------------------------------------------------
-// ReviewQueuePage — ③ human review of ① AI-extracted permit conditions.
-// AI output stays here until approved; nothing reaches the ledger or alerts
-// before that. Mock data only.
+// ReviewQueuePage — ③ human review of permit conditions (obligations).
+// Suggestions stay here until approved; nothing reaches the ledger or alerts
+// before that. Buttons follow the member's can_self_approve / can_bulk_approve.
 // ---------------------------------------------------------------------------
 
-type QuoteCheck = 'MISMATCH' | 'UNVERIFIABLE' | 'VERIFIED';
-type Status = 'PENDING' | 'SUBMITTED' | 'ACCEPTED' | 'EDITED_ACCEPTED' | 'REJECTED';
-type Role = 'lead' | 'staff';
-
-interface Suggestion {
-  id: number;
-  citation: string;
-  summary: string;
-  category: string;
-  frequency: string;
-  quoteCheck: QuoteCheck;
-  page: number;
-  quote: string;
-  pageText?: string;
-  mismatchNote?: string;
-  scanned?: boolean;
-  status: Status;
-  viewed: boolean;
-  checked: boolean;
-}
-
-// TODO: replace with GET /projects/{pid}/suggestions?runId=
-const SEED: Omit<Suggestion, 'status' | 'viewed' | 'checked'>[] = [
-  { id: 1, citation: '대기-2', summary: '굴뚝 자동측정기기(TMS) 부착·운영', category: '대기 › 대기질', frequency: '상시', quoteCheck: 'MISMATCH', page: 4,
-    quote: '소각로 굴뚝에는 굴뚝원격감시체계(TMS)를 부착하여 실시간으로 관리하고 결과를 매월 보고할 것',
-    pageText: '소각로 굴뚝에는 굴뚝원격감시체계(TMS)를 부착하여 실시간으로 관리할 것.',
-    mismatchNote: 'AI 인용문의 "결과를 매월 보고할 것"이 원문 4쪽에 없습니다.' },
-  { id: 2, citation: '사후-1', summary: '사후환경영향조사: 소음·진동 분기 1회', category: '생활 › 소음·진동', frequency: '분기', quoteCheck: 'UNVERIFIABLE', page: 7, scanned: true,
-    quote: '공사 및 운영 기간 중 부지경계 4개 지점에서 소음·진동을 분기 1회 이상 측정할 것' },
-  { id: 3, citation: '대기-5', summary: '다이옥신 배출농도 반기 1회 측정', category: '대기 › 대기질', frequency: '반기', quoteCheck: 'UNVERIFIABLE', page: 5, scanned: true,
-    quote: '다이옥신류 배출농도는 반기별 1회 이상 측정하고 그 결과를 관할 지자체에 제출할 것' },
-  { id: 4, citation: '악취-1', summary: '부지경계 복합악취 측정 연 2회', category: '대기 › 악취', frequency: '반기', quoteCheck: 'VERIFIED', page: 6,
-    quote: '부지경계선에서 복합악취를 연 2회(하절기 포함) 측정할 것' },
-  { id: 5, citation: '수-3', summary: '침출수 처리수 수질 월 1회 측정', category: '수 › 수질', frequency: '월', quoteCheck: 'VERIFIED', page: 8,
-    quote: '침출수 처리수의 수질을 월 1회 측정하여 기록·보존할 것' },
-  { id: 6, citation: '토지-2', summary: '공사 중 세륜시설 설치·운영', category: '토지 › 토양', frequency: '1회', quoteCheck: 'VERIFIED', page: 9,
-    quote: '공사차량 출입구에 세륜·세차시설을 설치하여 비산먼지 및 토사 유출을 방지할 것' },
-];
-const INITIAL: Suggestion[] = SEED.map((s) => ({ ...s, status: 'PENDING', viewed: false, checked: false }));
+interface Member { userId: number; canSelfApprove: boolean; canBulkApprove: boolean }
 
 const QC: Record<QuoteCheck, { label: string; cls: string }> = {
   MISMATCH: { label: '원문 불일치', cls: 'bg-red-100 text-[#991B1B]' },
   UNVERIFIABLE: { label: '확인 불가 (스캔본)', cls: 'bg-amber-100 text-[#B45309]' },
   VERIFIED: { label: '원문 확인됨', cls: 'bg-emerald-100 text-[#0F6E56]' },
 };
-const ST: Record<Status, { label: string; cls: string }> = {
+const MANUAL_BADGE = { label: '직접 추가', cls: 'bg-gray-100 text-gray-600' };
+const ST: Record<SuggestionStatus, { label: string; cls: string }> = {
   PENDING: { label: '검토 대기', cls: 'bg-gray-100 text-gray-600' },
   SUBMITTED: { label: '승인 요청됨', cls: 'bg-sky-100 text-sky-800' },
   ACCEPTED: { label: '승인', cls: 'bg-emerald-100 text-[#0F6E56]' },
   EDITED_ACCEPTED: { label: '수정 후 승인', cls: 'bg-emerald-100 text-[#0F6E56]' },
   REJECTED: { label: '거절', cls: 'bg-red-100 text-[#991B1B]' },
 };
-const QC_ORDER: Record<QuoteCheck, number> = { MISMATCH: 0, UNVERIFIABLE: 1, VERIFIED: 2 };
+const QC_ORDER: Record<QuoteCheck | 'NONE', number> = { MISMATCH: 0, UNVERIFIABLE: 1, VERIFIED: 2, NONE: 3 };
+const FREQ: Record<Frequency, string> = {
+  ONCE: '1회', MONTHLY: '월', QUARTERLY: '분기', SEMIANNUAL: '반기', ANNUAL: '연', OTHER: '기타',
+};
+const TYPE: Record<string, string> = {
+  MEASURE_SURVEY: '측정·조사', REPORT_SUBMIT: '보고·제출', FACILITY_OPERATION: '시설·운영기준', RECORD_KEEP: '기록·보존', OTHER: '기타',
+};
+// 환경영향평가 평가항목 (design §3.5): code → [분야, 항목]
+const CATEGORY: Record<string, [string, string]> = {
+  FLORA_FAUNA: ['자연생태', '동·식물상'], NATURAL_ASSET: ['자연생태', '자연환경자산'],
+  WEATHER: ['대기', '기상'], AIR_QUALITY: ['대기', '대기질'], ODOR: ['대기', '악취'], GHG: ['대기', '온실가스'],
+  WATER_QUALITY: ['수', '수질'], HYDROLOGY: ['수', '수리·수문'], MARINE: ['수', '해양환경'],
+  LAND_USE: ['토지', '토지이용'], SOIL: ['토지', '토양'], TOPOGRAPHY: ['토지', '지형·지질'],
+  RESOURCE_CIRCULATION: ['생활', '자원순환'], NOISE_VIBRATION: ['생활', '소음·진동'], RECREATION_LANDSCAPE: ['생활', '위락·경관'],
+  PUBLIC_HEALTH: ['생활', '위생·공중보건'], RADIO_INTERFERENCE: ['생활', '전파장해'], SUNLIGHT: ['생활', '일조장해'],
+  POPULATION: ['사회·경제', '인구'], HOUSING: ['사회·경제', '주거'], INDUSTRY: ['사회·경제', '산업'], OTHER: ['기타', '기타'],
+};
+const categoryLabel = (c: string) => (CATEGORY[c] ? `${CATEGORY[c][0]} › ${CATEGORY[c][1]}` : c);
+const EVENT: Record<SuggestionEvent['type'], string> = {
+  CREATED: '등록', EDITED: '수정', PAGE_VIEWED: '원문 열람', SUBMITTED: '승인 요청', RETURNED: '반려',
+  ACCEPTED: '승인', REJECTED: '거절', REOPENED: '재검토',
+};
 
-// Scanned rows need a recorded page view before they can be approved.
-const canApprove = (s: Suggestion) => !(s.quoteCheck === 'UNVERIFIABLE' && !s.viewed);
+const EMPTY: ObligationPayload = {
+  citation_raw: '', summary: '', requirement_text: '', type: 'MEASURE_SURVEY', category: 'AIR_QUALITY', frequency: 'MONTHLY',
+};
 
 const btn = 'rounded-lg px-3.5 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30 disabled:cursor-not-allowed disabled:opacity-40';
 const btnPrimary = `${btn} bg-[#1F4E79] text-white hover:bg-[#173a5c]`;
 const btnGhost = `${btn} border border-[#E5E3DC] text-gray-700 hover:bg-[#F8F7F2]`;
+const input = 'w-full rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-sm';
 
 export default function ReviewQueuePage() {
-  const [items, setItems] = useState(INITIAL);
-  const [selectedId, setSelectedId] = useState(1);
-  const [role, setRole] = useState<Role>('lead');
-  const [filter, setFilter] = useState<'ALL' | QuoteCheck>('ALL');
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [projectId, setProjectId] = useState<number | null>(null);
+  const [permits, setPermits] = useState<PermitItem[]>([]);
+  const [me, setMe] = useState<Member | null>(null);
+  const [items, setItems] = useState<Suggestion[]>([]);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
+  const [checked, setChecked] = useState<Set<number>>(new Set());
+  const [filter, setFilter] = useState<'ALL' | SuggestionStatus>('ALL');
+  const [mode, setMode] = useState<'view' | 'edit' | 'add'>('view');
   const [toast, setToast] = useState('');
+  const [error, setError] = useState('');
 
-  const update = (id: number, patch: Partial<Suggestion>) =>
-    setItems((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   const notify = (m: string) => {
     setToast(m);
     window.setTimeout(() => setToast(''), 2400);
   };
 
-  const rows = items
-    .filter((s) => filter === 'ALL' || s.quoteCheck === filter)
-    .sort((a, b) => QC_ORDER[a.quoteCheck] - QC_ORDER[b.quoteCheck]);
-  const sel = items.find((s) => s.id === selectedId)!;
-  const gated = !canApprove(sel);
-  const open = sel.status === 'PENDING' || (sel.status === 'SUBMITTED' && role === 'lead');
+  useEffect(() => {
+    api<Project[]>('/api/projects').then((ps) => {
+      setProjects(ps);
+      if (ps.length) setProjectId(ps[0].id);
+    }, (e: Error) => setError(e.message));
+  }, []);
 
-  const bulkApprove = () => {
-    const picked = items.filter((s) => s.checked && s.status === 'PENDING');
-    if (!picked.length) return notify('일괄 승인할 항목을 체크하세요.');
-    const ok = picked.filter(canApprove);
-    setItems((prev) => prev.map((s) => (ok.some((o) => o.id === s.id) ? { ...s, status: 'ACCEPTED', checked: false } : s)));
-    const skipped = picked.length - ok.length;
-    notify(`${ok.length}건 승인${skipped ? ` · ${skipped}건 제외 (원문 미열람 스캔본)` : ''}`);
+  const reload = useCallback(async () => {
+    if (projectId == null) return;
+    setItems(await listSuggestions(projectId));
+  }, [projectId]);
+
+  useEffect(() => {
+    if (projectId == null) return;
+    setSelectedId(null);
+    setChecked(new Set());
+    setMode('view');
+    Promise.all([
+      listSuggestions(projectId),
+      api<PermitItem[]>(`/api/projects/${projectId}/permits`),
+      api<Member[]>(`/api/projects/${projectId}/members`),
+    ]).then(([s, p, m]) => {
+      setItems(s);
+      setPermits(p);
+      setMe(m.find((x) => x.userId === sessionUserId()) ?? null);
+      setError('');
+    }, (e: Error) => setError(e.message));
+  }, [projectId]);
+
+  // Runs an action; on failure (403/409/422) shows the server's reason and refreshes to the latest version.
+  const run = async (action: () => Promise<unknown>, done: string) => {
+    try {
+      await action();
+      notify(done);
+    } catch (e) {
+      notify((e as Error).message);
+    }
+    await reload();
+  };
+
+  const qc = (s: Suggestion) => effective(s).quote_check ?? 'NONE';
+  const rows = items
+    .filter((s) => filter === 'ALL' || s.status === filter)
+    .sort((a, b) => QC_ORDER[qc(a)] - QC_ORDER[qc(b)] || a.id - b.id);
+  const sel = items.find((s) => s.id === selectedId) ?? rows[0] ?? null;
+  const lead = !!me?.canSelfApprove;
+  const project = projects.find((p) => p.id === projectId);
+
+  const bulk = async () => {
+    const ids = items.filter((s) => checked.has(s.id) && s.status === 'PENDING').map((s) => s.id);
+    if (!ids.length) return notify('일괄 승인할 항목을 체크하세요.');
+    try {
+      const res = await bulkAccept(ids);
+      const failed = res.filter((r) => !r.ok);
+      notify(`${res.length - failed.length}건 승인${failed.length ? ` · ${failed.length}건 실패 (${failed[0].reason})` : ''}`);
+      setChecked(new Set());
+    } catch (e) {
+      notify((e as Error).message);
+    }
+    await reload();
   };
 
   return (
@@ -102,34 +145,42 @@ export default function ReviewQueuePage() {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold tracking-wide text-gray-500">AI 추출 결과 검토 · 광명 자원회수시설</p>
-            <h1 className="mt-1 text-2xl font-bold text-[#1F4E79]">환경영향평가 협의의견서 검토</h1>
+            <p className="text-xs font-semibold tracking-wide text-gray-500">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>
+            <h1 className="mt-1 text-2xl font-bold text-[#1F4E79]">의무사항 검토</h1>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
-              AI가 뽑은 이행조건은 승인 전까지 인허가 대장과 알림에 들어가지 않습니다. 원문과 다른 항목이 맨 위에 옵니다.
+              검토 중인 조건은 승인 전까지 인허가 대장과 기한 알림에 들어가지 않습니다. 원문과 다른 항목이 맨 위에 옵니다.
             </p>
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-600">
-            보기 권한
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className="rounded-lg border border-[#E5E3DC] bg-white px-2.5 py-1.5 text-sm"
-            >
-              <option value="lead">과장 (혼자 승인 · 일괄 승인)</option>
-              <option value="staff">대리 (승인 요청만)</option>
-            </select>
-          </label>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-600">
+              프로젝트
+              <select
+                value={projectId ?? ''}
+                onChange={(e) => setProjectId(Number(e.target.value))}
+                className="rounded-lg border border-[#E5E3DC] bg-white px-2.5 py-1.5 text-sm"
+              >
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </label>
+            {me && (
+              <span className="text-xs text-gray-500">
+                내 권한: {lead ? '혼자 승인' : '승인 요청만'}{me.canBulkApprove && ' · 일괄 승인'}
+              </span>
+            )}
+          </div>
         </div>
 
+        {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+
         <div className="mt-5 flex flex-wrap gap-2">
-          {(['ALL', 'MISMATCH', 'UNVERIFIABLE', 'VERIFIED'] as const).map((f) => (
+          {(['ALL', 'PENDING', 'SUBMITTED', 'ACCEPTED', 'REJECTED'] as const).map((f) => (
             <button
               key={f}
               type="button"
               onClick={() => setFilter(f)}
               className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === f ? 'bg-[#1F4E79] text-white' : 'bg-white text-gray-600 hover:bg-[#E5E3DC]'}`}
             >
-              {f === 'ALL' ? '전체' : QC[f].label} ({f === 'ALL' ? items.length : items.filter((s) => s.quoteCheck === f).length})
+              {f === 'ALL' ? '전체' : ST[f].label} ({f === 'ALL' ? items.length : items.filter((s) => s.status === f).length})
             </button>
           ))}
         </div>
@@ -137,17 +188,21 @@ export default function ReviewQueuePage() {
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* List */}
           <section className="min-w-0 rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-[#E5E3DC] px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-800">추출된 조건 {rows.length}건</h2>
-              {role === 'lead' && (
-                <button type="button" onClick={bulkApprove} className={btnGhost}>선택 항목 일괄 승인</button>
-              )}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E3DC] px-4 py-3">
+              <h2 className="text-sm font-semibold text-gray-800">검토 대상 조건 {rows.length}건</h2>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setMode('add')} disabled={!permits.length} className={btnGhost}
+                  title={permits.length ? undefined : '인허가 항목을 먼저 등록하세요'}>+ 직접 추가</button>
+                {me?.canBulkApprove && (
+                  <button type="button" onClick={bulk} className={btnGhost}>선택 항목 일괄 승인</button>
+                )}
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs text-gray-500">
                   <tr>
-                    <th className="px-3 py-2.5" />
+                    {me?.canBulkApprove && <th className="px-3 py-2.5" />}
                     <th className="px-3 py-2.5 font-medium">조건번호</th>
                     <th className="px-3 py-2.5 font-medium">요약</th>
                     <th className="px-3 py-2.5 font-medium">주기</th>
@@ -156,29 +211,41 @@ export default function ReviewQueuePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E3DC]">
-                  {rows.map((s) => (
-                    <tr
-                      key={s.id}
-                      onClick={() => setSelectedId(s.id)}
-                      className={`cursor-pointer transition ${s.id === selectedId ? 'bg-[#1F4E79]/5' : 'hover:bg-[#F8F7F2]'}`}
-                    >
-                      <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="checkbox"
-                          aria-label={`${s.citation} 선택`}
-                          disabled={s.status !== 'PENDING'}
-                          checked={s.checked}
-                          onChange={(e) => update(s.id, { checked: e.target.checked })}
-                          className="h-4 w-4 accent-[#1F4E79]"
-                        />
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-xs">{s.citation}</td>
-                      <td className="px-3 py-2.5 text-gray-800">{s.summary}</td>
-                      <td className="px-3 py-2.5 text-gray-600">{s.frequency}</td>
-                      <td className="px-3 py-2.5"><Badge {...QC[s.quoteCheck]} /></td>
-                      <td className="px-3 py-2.5"><Badge {...ST[s.status]} /></td>
-                    </tr>
-                  ))}
+                  {rows.map((s) => {
+                    const p = effective(s);
+                    return (
+                      <tr
+                        key={s.id}
+                        onClick={() => { setSelectedId(s.id); setMode('view'); }}
+                        className={`cursor-pointer transition ${s.id === sel?.id && mode !== 'add' ? 'bg-[#1F4E79]/5' : 'hover:bg-[#F8F7F2]'}`}
+                      >
+                        {me?.canBulkApprove && (
+                          <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              aria-label={`${p.citation_raw || p.summary} 선택`}
+                              disabled={s.status !== 'PENDING'}
+                              checked={checked.has(s.id)}
+                              onChange={(e) => setChecked((prev) => {
+                                const next = new Set(prev);
+                                if (e.target.checked) next.add(s.id); else next.delete(s.id);
+                                return next;
+                              })}
+                              className="h-4 w-4 accent-[#1F4E79]"
+                            />
+                          </td>
+                        )}
+                        <td className="px-3 py-2.5 font-mono text-xs">{p.citation_raw || '—'}</td>
+                        <td className="px-3 py-2.5 text-gray-800">{p.summary}</td>
+                        <td className="px-3 py-2.5 text-gray-600">{FREQ[p.frequency]}</td>
+                        <td className="px-3 py-2.5"><Badge {...(p.quote_check ? QC[p.quote_check] : MANUAL_BADGE)} /></td>
+                        <td className="px-3 py-2.5"><Badge {...ST[s.status]} /></td>
+                      </tr>
+                    );
+                  })}
+                  {!rows.length && (
+                    <tr><td colSpan={6} className="px-3 py-8 text-center text-sm text-gray-400">검토할 조건이 없습니다. '+ 직접 추가'로 등록하세요.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -186,86 +253,38 @@ export default function ReviewQueuePage() {
 
           {/* Detail */}
           <section className="min-w-0 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-base font-semibold text-gray-800">
-                <span className="font-mono">{sel.citation}</span> · {sel.summary}
-              </h2>
-              <Badge {...ST[sel.status]} />
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {sel.quoteCheck === 'MISMATCH' && (
-                <Callout tone="red" title="환각 의심">{sel.mismatchNote} 원문과 대조해 수정하거나 거절하세요.</Callout>
-              )}
-              {gated && (
-                <Callout tone="amber" title="원문 확인 필요">
-                  스캔본이라 자동 대조가 안 됩니다. 아래 {sel.page}쪽 원문을 열어야 승인할 수 있습니다.
-                </Callout>
-              )}
-              {sel.status === 'SUBMITTED' && (
-                <Callout tone="sky" title="승인 요청됨">혼자 승인 권한이 있는 사람이 최종 확정합니다.</Callout>
-              )}
-
-              <div>
-                <p className="mb-1 text-xs font-semibold text-gray-500">AI가 인용한 원문</p>
-                <blockquote className="rounded-r-lg border-l-4 border-[#1F4E79] bg-[#F8F7F2] px-3 py-2 text-sm">{sel.quote}</blockquote>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Info label="분야 (평가항목)" value={sel.category} />
-                <Info label="주기" value={sel.frequency} />
-                <label className="text-sm">
-                  <span className="mb-1 block text-xs font-medium text-gray-500">첫 기한일 (선택)</span>
-                  <input type="date" className="w-full rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-sm" />
-                </label>
-                <Info label="이행 담당" value="운영사업소 환경팀" />
-              </div>
-
-              {open && (
-                <div className="flex flex-wrap gap-2">
-                  {role === 'lead' ? (
-                    <>
-                      <button type="button" disabled={gated} className={btnPrimary}
-                        onClick={() => { update(sel.id, { status: 'ACCEPTED' }); notify('승인했습니다. 인허가 대장과 기한 알림에 등록됩니다.'); }}>승인</button>
-                      <button type="button" disabled={gated} className={btnGhost}
-                        onClick={() => { update(sel.id, { status: 'EDITED_ACCEPTED' }); notify('수정 내용으로 승인했습니다. 수정 기록이 남습니다.'); }}>수정 후 승인</button>
-                      <button type="button" className={`${btnGhost} text-[#991B1B]`}
-                        onClick={() => { update(sel.id, { status: 'REJECTED' }); notify('거절했습니다.'); }}>거절</button>
-                    </>
-                  ) : (
-                    sel.status === 'PENDING' && (
-                      <>
-                        <button type="button" disabled={gated} className={btnPrimary}
-                          onClick={() => { update(sel.id, { status: 'SUBMITTED' }); notify('승인 요청을 보냈습니다.'); }}>승인 요청</button>
-                        <button type="button" className={btnGhost}
-                          onClick={() => { update(sel.id, { status: 'SUBMITTED' }); notify('거절 요청을 보냈습니다.'); }}>거절 요청</button>
-                      </>
-                    )
-                  )}
-                </div>
-              )}
-
-              <details
+            {mode === 'add' && projectId != null ? (
+              <PayloadForm
+                title="조건 직접 추가"
+                permits={permits}
+                initial={EMPTY}
+                onCancel={() => setMode('view')}
+                onSave={(permitItemId, payload) => run(async () => {
+                  const s = await addSuggestion(projectId, permitItemId!, payload);
+                  setSelectedId(s.id);
+                  setMode('view');
+                }, '검토 대기에 추가했습니다.')}
+              />
+            ) : mode === 'edit' && sel ? (
+              <PayloadForm
+                title="조건 수정"
+                initial={effective(sel)}
+                onCancel={() => setMode('view')}
+                onSave={(_, payload) => run(async () => { await editSuggestion(sel, payload); setMode('view'); },
+                  '수정했습니다. 승인하면 수정 후 승인으로 기록됩니다.')}
+              />
+            ) : sel ? (
+              <Detail
                 key={sel.id}
-                open={sel.quoteCheck !== 'UNVERIFIABLE' || sel.viewed}
-                onToggle={(e) => { if ((e.target as HTMLDetailsElement).open && !sel.viewed) update(sel.id, { viewed: true }); }}
-              >
-                <summary className="cursor-pointer text-sm text-gray-500">원문 {sel.page}쪽 {sel.viewed && '· 열람함'}</summary>
-                <div className="relative mt-2 overflow-hidden rounded border border-[#E5E3DC] bg-[#F7F3EA] px-5 py-4 text-[13px] leading-7 text-[#2B2A26]">
-                  <div className="mb-2 flex justify-between text-[11px] opacity-70">
-                    <span>광명 자원회수시설 설치사업 환경영향평가 협의의견</span><span>- {sel.page} -</span>
-                  </div>
-                  <p>{sel.citation.split('-')[1]}. {sel.quoteCheck === 'VERIFIED'
-                    ? <mark className="bg-amber-200/70">{sel.quote}</mark>
-                    : (sel.pageText ?? sel.quote)}</p>
-                  <p className="opacity-60">(이하 생략)</p>
-                  {sel.scanned && (
-                    <span className="absolute bottom-3 right-5 grid h-14 w-14 rotate-[-12deg] place-items-center rounded-full border-2 border-[#991B1B] text-[11px] font-bold text-[#991B1B] opacity-60">광명시</span>
-                  )}
-                </div>
-              </details>
-              <p className="text-xs text-gray-400">기록: AI 추출 (모델·프롬프트 버전 저장){sel.viewed && ' → 원문 열람'} → {ST[sel.status].label}</p>
-            </div>
+                s={sel}
+                lead={lead}
+                permitName={permits.find((p) => p.id === sel.targetParentId)?.name ?? '—'}
+                onEdit={() => setMode('edit')}
+                run={run}
+              />
+            ) : (
+              <p className="text-sm text-gray-400">왼쪽에서 조건을 선택하세요.</p>
+            )}
           </section>
         </div>
       </div>
@@ -273,6 +292,169 @@ export default function ReviewQueuePage() {
         <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-2 text-sm text-white shadow-lg">{toast}</div>
       )}
     </div>
+  );
+}
+
+function Detail({ s, lead, permitName, onEdit, run }: {
+  s: Suggestion;
+  lead: boolean;
+  permitName: string;
+  onEdit: () => void;
+  run: (action: () => Promise<unknown>, done: string) => Promise<void>;
+}) {
+  const p = effective(s);
+  const [firstDue, setFirstDue] = useState('');
+  const [events, setEvents] = useState<SuggestionEvent[]>([]);
+  useEffect(() => {
+    suggestionEvents(s.id).then(setEvents, () => setEvents([]));
+  }, [s.id, s.version]);
+
+  const ask = (q: string) => {
+    const r = window.prompt(q)?.trim();
+    return r || null;
+  };
+  const decidable = s.status === 'PENDING' || s.status === 'SUBMITTED';
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-gray-800">
+          {p.citation_raw && <><span className="font-mono">{p.citation_raw}</span> · </>}{p.summary}
+        </h2>
+        <Badge {...ST[s.status]} />
+      </div>
+
+      <div className="mt-4 space-y-3">
+        {p.quote_check === 'MISMATCH' && (
+          <Callout tone="red" title="환각 의심">AI 인용문이 원문과 다릅니다. 원문과 대조해 수정하거나 거절하세요.</Callout>
+        )}
+        {s.status === 'SUBMITTED' && (
+          <Callout tone="sky" title={s.proposedDecision === 'REJECT' ? '거절 요청됨' : '승인 요청됨'}>
+            혼자 승인 권한이 있는 사람이 최종 확정합니다.
+          </Callout>
+        )}
+        {s.status === 'REJECTED' && s.rejectReason && <Callout tone="red" title="거절 사유">{s.rejectReason}</Callout>}
+
+        <div>
+          <p className="mb-1 text-xs font-semibold text-gray-500">{p.source_quote ? `원문 인용 (${p.page_no ?? '?'}쪽)` : '조건 전문'}</p>
+          <blockquote className="rounded-r-lg border-l-4 border-[#1F4E79] bg-[#F8F7F2] px-3 py-2 text-sm">{p.source_quote || p.requirement_text}</blockquote>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Info label="인허가 항목" value={permitName} />
+          <Info label="분야 (평가항목)" value={categoryLabel(p.category)} />
+          <Info label="주기" value={FREQ[p.frequency]} />
+          <Info label="유형" value={TYPE[p.type] ?? p.type} />
+          {lead && decidable && (
+            <label className="text-sm">
+              <span className="mb-1 block text-xs font-medium text-gray-500">첫 기한일 (선택, 없으면 기한 미정)</span>
+              <input type="date" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} className={input} />
+            </label>
+          )}
+          {p.responsible_party && <Info label="이행 담당" value={p.responsible_party} />}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {lead && decidable && (
+            <>
+              <button type="button" className={btnPrimary}
+                onClick={() => run(() => acceptSuggestion(s, firstDue || null),
+                  s.editedPayload ? '수정 내용으로 승인했습니다. 수정 기록이 남습니다.' : '승인했습니다. 인허가 대장과 기한 알림에 등록됩니다.')}>
+                {s.editedPayload ? '수정 후 승인' : '승인'}
+              </button>
+              <button type="button" className={`${btnGhost} text-[#991B1B]`}
+                onClick={() => { const r = ask('거절 사유'); if (r) run(() => rejectSuggestion(s, r), '거절했습니다.'); }}>거절</button>
+            </>
+          )}
+          {lead && s.status === 'SUBMITTED' && (
+            <button type="button" className={btnGhost}
+              onClick={() => { const r = ask('반려 사유 (요청자에게 돌려보냅니다)'); if (r) run(() => returnSuggestion(s, r), '반려했습니다.'); }}>반려</button>
+          )}
+          {!lead && s.status === 'PENDING' && (
+            <>
+              <button type="button" className={btnPrimary}
+                onClick={() => run(() => submitSuggestion(s, 'ACCEPT'), '승인 요청을 보냈습니다.')}>승인 요청</button>
+              <button type="button" className={btnGhost}
+                onClick={() => { const r = ask('거절 요청 사유'); if (r) run(() => submitSuggestion(s, 'REJECT', r), '거절 요청을 보냈습니다.'); }}>거절 요청</button>
+            </>
+          )}
+          {s.status === 'PENDING' && <button type="button" className={btnGhost} onClick={onEdit}>수정</button>}
+          {lead && s.status === 'REJECTED' && (
+            <button type="button" className={btnGhost} onClick={() => run(() => reopenSuggestion(s), '검토 대기로 되돌렸습니다.')}>재검토</button>
+          )}
+        </div>
+
+        <p className="text-xs text-gray-400">
+          기록: {s.origin === 'MANUAL' ? '직접 추가' : 'AI 추출'}
+          {events.slice(1).map((e) => ` → ${e.actorId == null ? '시스템 ' : ''}${EVENT[e.type]}`).join('')}
+        </p>
+      </div>
+    </>
+  );
+}
+
+function PayloadForm({ title, permits, initial, onSave, onCancel }: {
+  title: string;
+  permits?: PermitItem[];
+  initial: ObligationPayload;
+  onSave: (permitItemId: number | null, payload: ObligationPayload) => void;
+  onCancel: () => void;
+}) {
+  const [p, setP] = useState(initial);
+  const [permitId, setPermitId] = useState(permits?.[0]?.id ?? null);
+  const set = (k: keyof ObligationPayload) => (e: { target: { value: string } }) => setP({ ...p, [k]: e.target.value });
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    onSave(permitId, { ...p, citation_raw: p.citation_raw || null });
+  };
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <h2 className="text-base font-semibold text-gray-800">{title}</h2>
+      {permits && (
+        <Field label="인허가 항목">
+          <select value={permitId ?? ''} onChange={(e) => setPermitId(Number(e.target.value))} className={input}>
+            {permits.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+          </select>
+        </Field>
+      )}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="조건번호 (원문 표기)"><input value={p.citation_raw ?? ''} onChange={set('citation_raw')} className={input} placeholder="협의의견 3-2항" /></Field>
+        <Field label="한 줄 요약"><input required maxLength={200} value={p.summary} onChange={set('summary')} className={input} /></Field>
+      </div>
+      <Field label="조건 전문">
+        <textarea required rows={3} value={p.requirement_text} onChange={set('requirement_text')} className={input} />
+      </Field>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <Field label="유형">
+          <select value={p.type} onChange={set('type')} className={input}>
+            {Object.entries(TYPE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </Field>
+        <Field label="분야 (평가항목)">
+          <select value={p.category} onChange={set('category')} className={input}>
+            {Object.keys(CATEGORY).map((k) => <option key={k} value={k}>{categoryLabel(k)}</option>)}
+          </select>
+        </Field>
+        <Field label="주기">
+          <select value={p.frequency} onChange={set('frequency')} className={input}>
+            {Object.entries(FREQ).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </Field>
+      </div>
+      <div className="flex gap-2">
+        <button type="submit" className={btnPrimary}>저장</button>
+        <button type="button" onClick={onCancel} className={btnGhost}>취소</button>
+      </div>
+    </form>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="block text-sm">
+      <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
+      {children}
+    </label>
   );
 }
 
