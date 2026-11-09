@@ -29,3 +29,4 @@ dist/
 .wrangler/
 .DS_Store
 .vite/
+.env
