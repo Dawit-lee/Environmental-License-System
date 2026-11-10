@@ -17,7 +17,9 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -124,6 +126,14 @@ class EmissionController {
     /** taskId: the open task these values fulfil (완료 조건 O2). source defaults to MANUAL. */
     record MeasurementRequest(@NotEmpty @Size(max = 500) List<@Valid MeasurementRow> rows, Long taskId,
                               @Pattern(regexp = "MANUAL|PASTE") String source) {
+    }
+
+    record PasteRequest(@NotNull @Size(max = 100_000) String text) {
+    }
+
+    /** One pasted line. error == null: the row would be saved with this unit, limit and level. */
+    record PasteRow(int line, String raw, LocalDate measuredOn, String pollutant, String pollutantName, BigDecimal value,
+                    String unit, BigDecimal limitValue, BigDecimal warnRatio, Judgement.Level level, String error) {
     }
 
     record DeleteRequest(@NotBlank @Size(max = 300) String reason) {
@@ -274,6 +284,55 @@ class EmissionController {
                     userId(jwt), now));
         }
         return ids.stream().map(m -> measurements("AND m.id = ?", m).get(0)).toList();
+    }
+
+    /** 붙여넣기 미리보기 (§3.4): the pasted lines with the judgement or the error each would get. Saves nothing. */
+    @PostMapping("/api/emission-points/{id}/measurements/preview")
+    List<PasteRow> previewPaste(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @Validated @RequestBody PasteRequest req) {
+        return pasteRows(point(id, jwt), req.text());
+    }
+
+    /** Saves the pasted lines that have no error, all or none, as source PASTE; the error lines are left out. */
+    @PostMapping("/api/emission-points/{id}/measurements/paste")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    List<MeasurementView> savePaste(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @Validated @RequestBody PasteRequest req) {
+        PointView p = point(id, jwt);
+        jdbc.queryForList("SELECT id FROM emission_point WHERE id = ? FOR UPDATE", id); // the limits read here are the ones the save judges with
+        List<MeasurementRow> rows = pasteRows(p, req.text()).stream().filter(r -> r.error() == null)
+                .map(r -> new MeasurementRow(r.measuredOn(), r.pollutant(), r.value(), r.unit(), false)).toList();
+        if (rows.isEmpty()) {
+            throw unprocessable("저장할 수 있는 행이 없습니다.");
+        }
+        return addMeasurements(jwt, id, new MeasurementRequest(rows, null, "PASTE"));
+    }
+
+    /** Parser errors, plus the one the parser cannot know: no limit of this point in force on the measured day. */
+    private List<PasteRow> pasteRows(PointView p, String text) {
+        Map<String, String> names = new HashMap<>();
+        jdbc.query("SELECT code, name FROM pollutant WHERE medium = ?", rs -> {
+            names.put(rs.getString("code"), rs.getString("name"));
+        }, p.medium());
+        List<PasteParser.Row> parsed;
+        try {
+            parsed = PasteParser.parse(text, names);
+        } catch (IllegalArgumentException e) {
+            throw unprocessable(e.getMessage());
+        }
+        List<LimitView> limits = limits("l.emission_point_id = ?", p.id());
+        return parsed.stream().map(r -> {
+            String name = names.get(r.pollutant());
+            if (r.error() != null) {
+                return new PasteRow(r.line(), r.raw(), r.measuredOn(), r.pollutant(), name, r.value(), null, null, null, null, r.error());
+            }
+            LimitView l = limits.stream().filter(x -> x.pollutant().equals(r.pollutant()) && !x.effectiveFrom().isAfter(r.measuredOn())
+                    && (x.effectiveTo() == null || !x.effectiveTo().isBefore(r.measuredOn()))).findFirst().orElse(null);
+            return l == null
+                    ? new PasteRow(r.line(), r.raw(), r.measuredOn(), r.pollutant(), name, r.value(), null, null, null, null,
+                    "측정일에 유효한 한도가 없는 항목")
+                    : new PasteRow(r.line(), r.raw(), r.measuredOn(), r.pollutant(), name, r.value(), l.unit(), l.limitValue(),
+                    l.warnRatio(), Judgement.judge(r.value(), l.limitValue(), l.warnRatio(), false), null);
+        }).toList();
     }
 
     /** Live (not deleted) values of the point, newest measured day first. */
