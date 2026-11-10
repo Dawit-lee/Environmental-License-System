@@ -8,6 +8,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 public class Project {
@@ -35,11 +39,16 @@ public class Project {
     @Enumerated(EnumType.STRING)
     private Status status;
 
+    /** Derivation input, keyed by the field dictionary (com.envpermit.derivation.Fields). */
+    @JdbcTypeCode(SqlTypes.JSON)
+    private JsonNode attributes;
+
     protected Project() {
     }
 
     public Project(Long companyId) {
         this.companyId = companyId;
+        this.attributes = JsonNodeFactory.instance.objectNode();
     }
 
     void apply(ProjectController.ProjectRequest r) {
@@ -63,4 +72,9 @@ public class Project {
     public LocalDate getStartDate() { return startDate; }
     public LocalDate getExpectedEndDate() { return expectedEndDate; }
     public Status getStatus() { return status; }
+    public JsonNode getAttributes() { return attributes; }
+
+    public void setAttributes(JsonNode attributes) {
+        this.attributes = attributes;
+    }
 }

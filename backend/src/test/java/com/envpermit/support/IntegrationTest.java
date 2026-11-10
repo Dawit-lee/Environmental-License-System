@@ -68,13 +68,13 @@ public abstract class IntegrationTest {
     }
 
     /**
-     * Empties every app table. Keeps Flyway history and the migration-seeded law catalog
-     * (only laws added by search are removed). Call from a test's @BeforeEach.
+     * Empties every app table. Keeps Flyway history, the migration-seeded law catalog
+     * (only laws added by search are removed) and the seeded derivation rule set. Call from a test's @BeforeEach.
      */
     protected void truncateAll() {
         String tables = String.join(",", jdbc.queryForList(
                 "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
-                        + "AND tablename NOT IN ('flyway_schema_history', 'law_catalog')",
+                        + "AND tablename NOT IN ('flyway_schema_history', 'law_catalog', 'derivation_rule', 'ruleset_state')",
                 String.class));
         jdbc.execute("TRUNCATE " + tables + " RESTART IDENTITY CASCADE");
         jdbc.update("DELETE FROM law_catalog WHERE source <> 'SEED'");

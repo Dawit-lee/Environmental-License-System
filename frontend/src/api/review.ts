@@ -49,8 +49,11 @@ export const effective = (s: Suggestion) => s.editedPayload ?? s.payload;
 
 const post = <T>(path: string, body: unknown) => api<T>(path, { method: 'POST', body: JSON.stringify(body) });
 
+// shortcut: this queue renders OBLIGATION payloads only; PERMIT_ITEM review UI comes with permit-derivation/02
 export const listSuggestions = (pid: number, runId?: number) =>
-  api<Suggestion[]>(`/api/projects/${pid}/suggestions${runId ? `?runId=${runId}` : ''}`);
+  api<Suggestion[]>(`/api/projects/${pid}/suggestions${runId ? `?runId=${runId}` : ''}`).then((all) =>
+    all.filter((s) => s.kind === 'OBLIGATION'),
+  );
 export const suggestionEvents = (id: number) => api<SuggestionEvent[]>(`/api/suggestions/${id}/events`);
 export const addSuggestion = (pid: number, permitItemId: number, payload: ObligationPayload) =>
   post<Suggestion>(`/api/projects/${pid}/suggestions`, { permitItemId, payload });

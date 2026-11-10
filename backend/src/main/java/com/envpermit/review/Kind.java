@@ -2,8 +2,8 @@ package com.envpermit.review;
 
 /**
  * What a suggestion turns into when approved. Each kind has exactly one {@link SuggestionApplier}.
- * Later: PERMIT_ITEM (derivation), DERIVATION_RULE (company/project-less), OBLIGATION_REVISION (version diff).
+ * PERMIT_ITEM: auto-derivation (Applier in permit-derivation/02). Later: DERIVATION_RULE (company/project-less), OBLIGATION_REVISION (version diff).
  */
 public enum Kind {
-    OBLIGATION
+    OBLIGATION, PERMIT_ITEM
 }

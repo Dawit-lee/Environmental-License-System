@@ -100,7 +100,7 @@ public class Review {
 
     /** AI output of a finished run: PENDING suggestions, CREATED by SYSTEM. Runs in the caller's transaction. */
     @Transactional
-    public void addAi(AiRun run, long targetParentId, List<JsonNode> payloads) {
+    public void addAi(AiRun run, Long targetParentId, List<JsonNode> payloads) {
         for (JsonNode payload : payloads) {
             AiSuggestion s = suggestions.save(new AiSuggestion(run.getCompanyId(), run.getProjectId(), run.getId(),
                     run.getKind(), targetParentId, Origin.AI, payload));
