@@ -11,7 +11,41 @@
 
 ---
 
+## ✅ 지금 동작하는 것
+
+백엔드(Spring Boot)와 화면(React)이 실제 API로 연결돼 있고, 로컬에서 `docker compose` + `npm run dev`로 띄워 볼 수 있습니다. 백엔드 테스트는 Testcontainers로 실제 PostgreSQL 위에서 돌립니다(2026-11-10 `dev` 기준 413개 통과, 실제 API 녹화용 2개는 건너뜀). 아직 배포하지 않았고, 정확도 평가(정답셋)는 만들지 않았습니다. 자세한 구분은 [개발 로드맵](#-개발-로드맵)에 있습니다.
+
+| 기능 | 상태 | 테스트 (`backend/src/test/java/com/envpermit/…`) |
+|---|---|---|
+| 로그인(JWT, 토큰 재발급), 회사·프로젝트·멤버 권한, 인허가 항목 CRUD·상태 이력 | ✅ API · 화면 (인허가 추가·수정 폼은 아직 없음) | `core/auth/AuthApiTest`, `core/project/ProjectPermitApiTest` |
+| 인허가 문서 첨부 (S3, 형식·용량·내용 검사) | ✅ | `core/document/DocumentApiTest`, `DocumentTypeTest` |
+| 기한 알림 D-90/60/30/7, 앱 알림, 캘린더 | ✅ (이메일은 로그로만 남김, 실제 발송 없음) | `notification/NotificationApiTest` |
+| 법령 카탈로그 · 인허가↔법령 연결 · 법제처 검색 | ✅ | `law/LawApiTest`, `law/LawApiClientTest` |
+| 매일 법령 개정 감지 배치 · 직접 영향/참고 판정 · 개정 알림 화면 | ✅ (테스트는 법제처 응답 픽스처로) | `law/AmendmentBatchTest`, `AmendmentFilterTest`, `ImpactRuleTest`, `LawImpactApiTest` |
+| 사람 검토 통로 (승인·승인 요청·거절, 일괄 승인, 감사 로그) | ✅ | `review/ReviewApiTest`, `review/TransitionTest` |
+| 허가조건 AI 추출 (텍스트 PDF, 인용문 원문 대조, 스캔본은 원문 페이지 열람 후 승인) | ✅ (스캔본 OCR은 없음) | `extraction/ExtractionApiTest`, `QuoteCheckerTest`, `CitationKeyTest` |
+| 추출 제공자 Claude / Gemini / OpenAI 선택 | ✅ (Gemini·OpenAI는 실제 API 응답을 녹화해 테스트, Claude는 손으로 만든 응답) | `extraction/GeminiClientTest`, `OpenAiClientTest`, `ProviderTest` |
+| 의무사항 승인 시 근거 법령 자동 연결 | ✅ | `obligation/ObligationLawLinkApiTest`, `law/LegalBasisTest` |
+| 인허가 자동 도출 (규칙 엔진 참/거짓/모름, 판정 보류, 승인, 재실행) | ✅ (규칙은 시드 SQL, AI 규칙 초안은 없음) | `derivation/EvaluatorTest`, `DerivationApiTest`, `DerivationReviewApiTest`, `RerunTest` |
+| 허가증 버전 비교 (추가/삭제/변경/경미), 승인, 현장 반영 추적 | ✅ | `revision/DiffEngineTest`, `extraction/RevisionApiTest`, `RevisionApplyApiTest` |
+| 대시보드 | 🟡 기한 임박·현장 반영 대기는 실제 API, **상태 분포 차트·최근 활동은 아직 mock** | — |
+
+> 로그인 화면의 "카카오 로그인" 버튼은 자리만 있고 동작하지 않습니다.
+
+### 화면
+
+아래는 로컬에서 띄운 실제 화면입니다. 회사·프로젝트·법령 개정 내역은 `dev` 프로필이 넣는 **가상의 예시 데이터**입니다.
+
+| 프로젝트 상세 — 분야별 인허가 대장 | 인허가 상세 — 해당 사유, 관련 법령, 문서 |
+|---|---|
+| ![프로젝트 상세](docs/images/project-detail.png) | ![인허가 상세](docs/images/permit-drawer.png) |
+| **인허가 자동 도출 — 해당 / 판정 보류 + 필요한 정보** | **법령 개정 알림 — 직접 영향 / 참고** |
+| ![인허가 자동 도출](docs/images/derivation.png) | ![법령 개정 알림](docs/images/laws.png) |
+
+---
+
 ## 👀 목차
+0. [✅ 지금 동작하는 것](#-지금-동작하는-것)
 1. [📌 프로젝트 개요](#-프로젝트-개요)
 2. [📑 요구사항 분석](#-요구사항-분석)
 3. [🔧 시스템 아키텍처](#-시스템-아키텍처)
@@ -165,16 +199,16 @@
 
 ## 🖥 화면 및 기능 설계서
 
-> `frontend/`에 mock 데이터로 동작하는 화면이 있습니다. 아래 [로컬 실행 방법](#-로컬-실행-방법)으로 바로 볼 수 있습니다.
+> 화면은 실제 API에 연결돼 있습니다(대시보드 일부 제외). 아래 [로컬 실행 방법](#-로컬-실행-방법)으로 볼 수 있습니다.
 
-| 경로 | 화면 |
-|---|---|
-| `/dashboard` | 대시보드 — 인허가 현황, 만료 임박 |
-| `/projects`, `/projects/:id` | 프로젝트 목록·상세 — 분야별 인허가 대장, 관련 법규·승인기관 링크 |
-| `/projects/new` | 새 프로젝트 — 속성 입력 → 인허가 자동 도출(판정 보류 포함) |
-| `/calendar` | 인허가 일정 캘린더 |
-| `/review` | 허가조건 AI 추출 결과 검토 |
-| `/laws` | 법령 개정 알림 — 직접 영향 / 참고, 신구조문 비교 |
+| 경로 | 화면 | 데이터 |
+|---|---|---|
+| `/dashboard` | 대시보드 — 인허가 현황, 만료 임박 | 🟡 기한 임박·현장 반영 대기는 API, 상태 분포 차트·최근 활동은 mock |
+| `/projects`, `/projects/:id` | 프로젝트 목록·상세 — 분야별 인허가 대장, 관련 법령, 문서, 버전 비교 | API (인허가 추가 버튼은 아직 동작하지 않음) |
+| `/projects/new` | 새 프로젝트 — 속성 입력 → 인허가 자동 도출(판정 보류 포함) | API |
+| `/calendar` | 인허가 일정 캘린더 | API |
+| `/review` | 허가조건 AI 추출 결과 검토 | API |
+| `/laws` | 법령 개정 알림 — 직접 영향 / 참고, 신구조문 비교 | API |
 
 ---
 
@@ -188,7 +222,7 @@
 | 파일 저장 | ![AWS S3](https://img.shields.io/badge/AWS%20S3-569A31?logo=amazons3&logoColor=white) |
 | 인프라 | ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ![AWS EC2](https://img.shields.io/badge/AWS%20EC2-FF9900?logo=amazonec2&logoColor=white) |
 | 인증 | ![JWT](https://img.shields.io/badge/JWT-000000?logo=jsonwebtokens&logoColor=white) |
-| AI | ![Claude API](https://img.shields.io/badge/Claude%20API-D97757?logo=anthropic&logoColor=white) — 허가증 PDF 추출, 판정 규칙 초안 |
+| AI | Claude / Gemini / OpenAI 중 하나 (서버 설정) — 허가증 PDF 의무사항 추출 |
 | 외부 데이터 | 법제처 국가법령정보 Open API — 법령 개정 감지, 신구조문 |
 
 ---
@@ -197,24 +231,28 @@
 
 ```
 Environmental-License-System/
-├── frontend/                   # React + TypeScript + Vite (현재 mock 데이터)
+├── frontend/                   # React + TypeScript + Vite
 │   ├── src/
+│   │   ├── api/                # 백엔드 API 호출
 │   │   ├── pages/              # 화면 (대시보드, 프로젝트, 검토, 법령 개정 …)
 │   │   ├── components/
 │   │   ├── types/
 │   │   └── styles/
 │   └── package.json
-├── backend/                    # Spring Boot 3 + Flyway (현재 core: 인증)
+├── backend/                    # Spring Boot 3 + Flyway
 │   └── src/main/java/com/envpermit/
-│       ├── core/               # 회사·프로젝트·인허가·문서
+│       ├── core/               # 인증·회사·프로젝트·인허가·문서
 │       ├── review/             # AI 제안 검토·승인
-│       ├── extraction/         # 허가증 의무 추출
+│       ├── extraction/         # 허가증 의무 추출 (Claude / Gemini / OpenAI)
+│       ├── obligation/         # 의무사항·버전 반영·현장 반영
+│       ├── revision/           # 허가증 버전 비교
 │       ├── derivation/         # 인허가 자동 도출
-│       ├── law/                # 법령 카탈로그·개정 감지
-│       └── notification/       # 기한 알림·이메일
+│       ├── law/                # 법령 카탈로그·개정 감지·영향 판정
+│       └── notification/       # 기한 알림·이메일(현재 로그)
 ├── docs/
 │   ├── ARCHITECTURE.md
-│   └── architecture.svg
+│   ├── architecture.svg
+│   └── images/                 # README 화면 캡처
 └── README.md
 ```
 
@@ -265,7 +303,7 @@ npm install
 npm run dev
 ```
 `/api` 요청은 Vite가 `http://localhost:8080`으로 넘깁니다. API 포트를 바꿨다면 `API_URL=http://localhost:18080 npm run dev`.
-로그인 화면에서 위 개발용 계정으로 로그인합니다. 로그인, 프로젝트 목록·상세, 대시보드의 기한 임박 목록, 캘린더(`/calendar`), 상단 알림 벨, 인허가 상세의 '관련 법령'은 실제 API를 쓰고, 나머지는 아직 mock 데이터입니다.
+로그인 화면에서 위 개발용 계정으로 로그인합니다. 대시보드의 상태 분포 차트·최근 활동만 mock이고, 나머지 화면은 실제 API를 씁니다.
 
 ### 백엔드만 Docker 없이 실행
 DB와 문서 저장소는 `docker compose up -d db s3`로 띄우고:
@@ -318,16 +356,22 @@ Access 토큰 30분, Refresh 토큰 14일.
 
 ## 🗓 개발 로드맵
 
+✅ 구현(테스트 있음) · 🟡 부분 구현 · ⏳ 미구현. PR 번호는 `dev` 브랜치에 병합된 PR입니다.
+
 | 단계 | 작업 내용 | 상태 |
 |------|----------|------|
-| 1 | 화면 설계 · mock 프론트엔드 (대시보드, 프로젝트, 캘린더, 검토, 법령 개정, 자동 도출) | ✅ 완료 |
-| 2 | 확장 기능 설계: 사람 검토 + 허가조건 추출, 법령 개정 모니터링 | ✅ 설계 승인 |
-| 3 | 확장 기능 설계: 인허가 자동 도출 엔진, 허가증 버전 비교 | ✅ 설계 승인 |
-| 4 | 앱 뼈대: 인증, 프로젝트·인허가 CRUD, 문서 첨부, 기한 알림 | 🚧 진행 중 (인증 완료) |
-| 5 | 사람 검토 + 허가조건 AI 추출 | ⏳ 예정 |
-| 6 | 법령 개정 모니터링 (법제처 Open API) | ⏳ 예정 |
-| 7 | 인허가 자동 도출 엔진 · 허가증 버전 비교 | ⏳ 예정 |
-| 8 | 배포 (Docker → AWS EC2) | ⏳ 예정 |
+| 1 | 화면 설계 · 프론트엔드 초안 | ✅ (#1) |
+| 2–3 | 확장 기능 설계: 사람 검토 + 허가조건 추출, 법령 개정 모니터링, 자동 도출, 버전 비교 | ✅ 설계 승인 (#2, #3) |
+| 4 | 앱 뼈대: 인증, 회사·프로젝트·멤버 권한, 인허가 CRUD, 문서 첨부, 기한 알림 | ✅ (#4–#7) · 🟡 이메일은 로그로만, 화면의 인허가 추가·수정 폼 없음 |
+| 5 | 사람 검토 + 허가조건 AI 추출 (텍스트 PDF, 스캔본 원문 열람 승인, 일괄 승인, Claude/Gemini/OpenAI) | ✅ (#9, #12, #13, #18, #20) · 🟡 스캔본 OCR 없음, Claude 실제 응답 미검증 |
+| 6 | 법령 개정 모니터링 (카탈로그, 매일 개정 감지, 영향 판정, 의무–법령 연결) | ✅ (#8, #10, #14, #15) |
+| 7a | 인허가 자동 도출 (규칙 엔진, 판정 승인, 재실행) | ✅ (#11, #16) · ⏳ AI 규칙 초안·규칙 관리자 승인 없음(규칙은 시드 SQL) |
+| 7b | 허가증 버전 비교 (비교 엔진, 승인, 현장 반영 추적) | ✅ (#17, #19, #21) |
+| 7c | 자동 도출 정확도 평가 (정답셋으로 재현율·정밀도) | ⏳ 미구현 |
+| — | 대시보드 상태 분포 차트·최근 활동 | 🟡 mock |
+| — | 실제 이메일 발송 (SMTP) | ⏳ 미구현 (`LogMailer`가 로그로만 남김) |
+| — | CI (GitHub Actions) | ⏳ 미구현 |
+| 8 | 배포 (Docker → AWS EC2) | ⏳ 미구현 |
 
 ---
 
