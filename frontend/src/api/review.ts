@@ -1,5 +1,5 @@
 // ③ review pipeline: suggestions wait here until a person approves them.
-import { api } from './client';
+import { api, apiBlob } from './client';
 
 export type SuggestionStatus = 'PENDING' | 'SUBMITTED' | 'ACCEPTED' | 'EDITED_ACCEPTED' | 'REJECTED';
 export type Frequency = 'ONCE' | 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'ANNUAL' | 'OTHER';
@@ -43,6 +43,7 @@ export interface SuggestionEvent {
   actorId: number | null;
   at: string;
   type: 'CREATED' | 'EDITED' | 'PAGE_VIEWED' | 'SUBMITTED' | 'RETURNED' | 'ACCEPTED' | 'REJECTED' | 'REOPENED';
+  data: { page_no?: number } | null;
 }
 
 export const effective = (s: Suggestion) => s.editedPayload ?? s.payload;
@@ -70,3 +71,6 @@ export const returnSuggestion = (s: Suggestion, reason: string) =>
 export const reopenSuggestion = (s: Suggestion) => post<Suggestion>(`/api/suggestions/${s.id}/reopen`, { version: s.version });
 export const bulkAccept = (ids: number[]) =>
   post<{ id: number; ok: boolean; reason: string | null }[]>('/api/suggestions/bulk-accept', { ids });
+// D7: opening a scan's page in the viewer is what allows approving it
+export const recordPageView = (id: number, pageNo: number) => post<void>(`/api/suggestions/${id}/page-views`, { pageNo });
+export const pageImage = (id: number, pageNo: number) => apiBlob(`/api/suggestions/${id}/pages/${pageNo}`);

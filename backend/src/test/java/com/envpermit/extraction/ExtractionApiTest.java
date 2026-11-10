@@ -6,7 +6,9 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -20,6 +22,12 @@ import com.envpermit.review.Kind;
 import com.envpermit.support.InMemoryDocumentStorage;
 import com.envpermit.support.IntegrationTest;
 import com.jayway.jsonpath.JsonPath;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
@@ -28,6 +36,7 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,17 +57,24 @@ class ExtractionApiTest extends IntegrationTest {
             "Condition 3-2. Measure noise and vibration once per quarter during construction",
             "and submit the results to the city. Condition 5. Keep TMS records for 5 years.");
 
+    /** What a scanner produces: each page is one image, no text layer. Same wording as PERMIT_PDF. */
+    static final byte[] SCANNED_PDF = scanned(
+            "Condition 3-2. Measure noise and vibration once per quarter",
+            "Condition 5. Keep TMS records for 5 years.");
+
     @Autowired UserRepository users;
     @Autowired CompanyRepository companies;
     @Autowired AiRunRepository runs;
     @Autowired Extraction extraction;
     @Autowired PasswordEncoder encoder;
+    @Autowired ObjectMapper mapper;
 
     long companyId;
     long kimId;
     String master;
     String kim;
     String park;
+    String lee; // plain member: no approval rights
     long projectId;
     long permitId;
     long docId;
@@ -71,6 +87,8 @@ class ExtractionApiTest extends IntegrationTest {
         users.save(new User("master@a.com", encoder.encode("pw"), "마스터", User.Role.ADMIN, companyId));
         kimId = users.save(new User("kim@a.com", encoder.encode("pw"), "김에이", User.Role.USER, companyId)).getId();
         users.save(new User("park@b.com", encoder.encode("pw"), "박비", User.Role.USER, b));
+        long leeId = users.save(new User("lee@a.com", encoder.encode("pw"), "이에이", User.Role.USER, companyId)).getId();
+        lee = login("lee@a.com");
         master = login("master@a.com");
         kim = login("kim@a.com");
         park = login("park@b.com");
@@ -78,6 +96,8 @@ class ExtractionApiTest extends IntegrationTest {
                 {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명"}""")));
         permitId = id(call(kim, json(post("/api/projects/" + projectId + "/permits"), """
                 {"name":"환경영향평가 협의","category":"ENVIRONMENT","status":"COMPLETED"}""")));
+        call(kim, json(post("/api/projects/" + projectId + "/members"), "{\"userId\":" + leeId + "}"))
+                .andExpect(status().isCreated());
         docId = upload("협의의견서.pdf", PERMIT_PDF);
     }
 
@@ -263,6 +283,99 @@ class ExtractionApiTest extends IntegrationTest {
         call(kim, get("/api/ai-runs/" + recent.getId())).andExpect(jsonPath("$.status").value("RUNNING"));
     }
 
+    // --- scanned PDF (design D7) ----------------------------------------------------------------------------
+
+    static final String NOT_VIEWED_P1 = "원문 미열람 스캔본: 1쪽 원문을 열어 본 뒤 승인할 수 있습니다.";
+
+    @Test
+    void scanned_pages_are_unverifiable_and_approval_waits_until_the_page_is_opened() throws Exception {
+        String list = scannedRun();
+        call(kim, get("/api/projects/" + projectId + "/suggestions"))
+                .andExpect(jsonPath("$[*].payload.quote_check", contains("UNVERIFIABLE", "UNVERIFIABLE", "UNVERIFIABLE")));
+        long onP1 = idOf(list, "3-2");
+
+        call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":0}"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(NOT_VIEWED_P1));
+        // EDITED approval is gated the same way
+        ObjectNode edited = (ObjectNode) payloadOf(list, "3-2");
+        edited.put("summary", "공사 중 소음·진동 분기 측정");
+        call(kim, json(patch("/api/suggestions/" + onP1), "{\"editedPayload\":" + edited + ",\"version\":0}"))
+                .andExpect(status().isOk());
+        call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":1}"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(NOT_VIEWED_P1));
+        // another page does not count
+        call(kim, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":2}")).andExpect(status().isNoContent());
+        call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":1}")).andExpect(status().isUnprocessableEntity());
+        // anyone in the project may be the one who opened it; once per user and page
+        call(lee, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":1}")).andExpect(status().isNoContent());
+        call(lee, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":1}")).andExpect(status().isNoContent());
+        call(park, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":1}")).andExpect(status().isForbidden());
+        call(kim, get("/api/suggestions/" + onP1 + "/events"))
+                .andExpect(jsonPath("$[?(@.type=='PAGE_VIEWED')].data.page_no", contains(2, 1)));
+
+        call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":1}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("EDITED_ACCEPTED"));
+        // rejection needs no view
+        call(kim, json(post("/api/suggestions/" + idOf(list, "5") + "/reject"), "{\"reason\":\"중복\",\"version\":0}"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void bulk_approval_leaves_out_unviewed_scans_with_the_reason() throws Exception {
+        String list = scannedRun();
+        long viewed = idOf(list, "5");
+        long unviewed = idOf(list, "3-2");
+        call(lee, json(post("/api/suggestions/" + viewed + "/page-views"), "{\"pageNo\":2}")).andExpect(status().isNoContent());
+
+        call(kim, json(post("/api/suggestions/bulk-accept"), "{\"ids\":[%d,%d]}".formatted(viewed, unviewed)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].ok", contains(true, false)))
+                .andExpect(jsonPath("$[1].reason").value(NOT_VIEWED_P1));
+        call(kim, get("/api/suggestions/" + unviewed + "/events")).andExpect(jsonPath("$.length()").value(1));
+    }
+
+    @Test
+    void review_screen_gets_the_stored_page_as_an_image() throws Exception {
+        String list = scannedRun();
+        long id = idOf(list, "3-2");
+
+        byte[] png = call(lee, get("/api/suggestions/" + id + "/pages/1"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "image/png"))
+                .andReturn().getResponse().getContentAsByteArray();
+        assertThat(new String(png, 1, 3)).isEqualTo("PNG");
+        call(lee, get("/api/suggestions/" + id + "/pages/3")).andExpect(status().isNotFound());
+        call(park, get("/api/suggestions/" + id + "/pages/1")).andExpect(status().isForbidden());
+    }
+
+    /** Runs extraction on an image-only PDF and returns the suggestion list JSON. */
+    private String scannedRun() throws Exception {
+        enable();
+        long scanId = upload("협의의견서-스캔.pdf", SCANNED_PDF);
+        claude.answer("obligations-ok.json");
+        call(kim, post(path(scanId))).andExpect(status().isAccepted());
+        return call(kim, get("/api/projects/" + projectId + "/suggestions")).andReturn().getResponse()
+                .getContentAsString();
+    }
+
+    private long idOf(String list, String citationKey) throws Exception {
+        for (JsonNode s : mapper.readTree(list)) {
+            if (citationKey.equals(s.path("payload").path("citation_key").asText())) {
+                return s.get("id").asLong();
+            }
+        }
+        throw new AssertionError("no suggestion " + citationKey);
+    }
+
+    private JsonNode payloadOf(String list, String citationKey) throws Exception {
+        for (JsonNode s : mapper.readTree(list)) {
+            if (citationKey.equals(s.path("payload").path("citation_key").asText())) {
+                return s.get("payload");
+            }
+        }
+        throw new AssertionError("no suggestion " + citationKey);
+    }
+
     // --- helpers --------------------------------------------------------------------------------------------
 
     private void enable() throws Exception {
@@ -299,6 +412,29 @@ class ExtractionApiTest extends IntegrationTest {
                     s.newLineAtOffset(40, 700);
                     s.showText(text);
                     s.endText();
+                }
+            }
+            doc.save(out);
+            return out.toByteArray();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    static byte[] scanned(String... pages) {
+        try (PDDocument doc = new PDDocument(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            for (String text : pages) {
+                BufferedImage img = new BufferedImage(612, 792, BufferedImage.TYPE_BYTE_GRAY);
+                Graphics2D g = img.createGraphics();
+                g.setColor(Color.WHITE);
+                g.fillRect(0, 0, 612, 792);
+                g.setColor(Color.BLACK);
+                g.drawString(text, 40, 90);
+                g.dispose();
+                PDPage page = new PDPage();
+                doc.addPage(page);
+                try (PDPageContentStream s = new PDPageContentStream(doc, page)) {
+                    s.drawImage(LosslessFactory.createFromImage(doc, img), 0, 0, 612, 792);
                 }
             }
             doc.save(out);
