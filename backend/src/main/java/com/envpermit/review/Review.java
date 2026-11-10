@@ -159,7 +159,8 @@ public class Review {
 
     /** @param version null only for bulk approval (each item is decided on its current version). */
     @Transactional
-    public AiSuggestion accept(long id, Jwt jwt, LocalDate firstDueDate, Long version, boolean bulk) {
+    public AiSuggestion accept(long id, Jwt jwt, LocalDate firstDueDate, boolean confirmAbsent, Long version,
+                               boolean bulk) {
         AiSuggestion s = version == null ? lock(id) : lock(id, version);
         ProjectMember m = access.member(s.getProjectId(), jwt);
         Status next = Transition.next(s.getStatus(), Action.ACCEPT, m.canSelfApprove(), s.getEditedPayload() != null);
@@ -167,10 +168,12 @@ public class Review {
         SuggestionApplier applier = applier(s.getKind());
         JsonNode payload = s.effectivePayload();
         applier.validate(payload);
-        long liveId = applier.apply(s, payload, new ApplyContext(m.getUserId(), firstDueDate, now()));
+        long liveId = applier.apply(s, payload, new ApplyContext(m.getUserId(), firstDueDate, now(), confirmAbsent,
+                bulk));
         s.decide(next, m.getUserId(), now(), null, liveId);
         event(s, m.getUserId(), Type.ACCEPTED, json.createObjectNode()
-                .put("first_due_date", firstDueDate == null ? null : firstDueDate.toString()).put("bulk", bulk));
+                .put("first_due_date", firstDueDate == null ? null : firstDueDate.toString()).put("bulk", bulk)
+                .put("confirm_absent", confirmAbsent));
         return s;
     }
 
@@ -237,6 +240,46 @@ public class Review {
         return close(s, Status.REJECTED, actorId, how.reason);
     }
 
+    /** Exception 2 entry: the PENDING suggestion at this version, locked, for a member who may edit it. */
+    @Transactional
+    public AiSuggestion lockForRestructure(long id, long version, Jwt jwt) {
+        AiSuggestion s = lock(id, version);
+        access.member(s.getProjectId(), jwt);
+        requirePending(s);
+        return s;
+    }
+
+    /**
+     * Exception 2: close the (locked) originals with the reserved reason and create their PENDING replacements in
+     * the same run. Each original gets an UNPAIRED/PAIRED event naming the replacements.
+     */
+    @Transactional
+    public List<AiSuggestion> restructure(List<AiSuggestion> originals, long actorId, Restructure how,
+                                          List<JsonNode> replacements) {
+        AiSuggestion first = originals.get(0);
+        List<AiSuggestion> created = replacements.stream().map(p -> {
+            AiSuggestion s = suggestions.save(new AiSuggestion(first.getCompanyId(), first.getProjectId(),
+                    first.getRunId(), first.getKind(), first.getTargetParentId(), Origin.AI, p));
+            event(s, actorId, Type.CREATED, null);
+            return s;
+        }).toList();
+        ObjectNode data = json.createObjectNode();
+        created.forEach(s -> data.withArray("replacement_ids").add(s.getId()));
+        for (AiSuggestion o : originals) {
+            close(o, Status.REJECTED, actorId, how.reason);
+            event(o, actorId, how == Restructure.SPLIT ? Type.UNPAIRED : Type.PAIRED, data);
+        }
+        return created;
+    }
+
+    /** ④ rediff: server-computed fields recomputed against the live obligation (the locked, PENDING row). */
+    @Transactional
+    public AiSuggestion rediff(AiSuggestion s, long actorId, JsonNode payload, JsonNode editedPayload, JsonNode data) {
+        s.rediff(payload, editedPayload);
+        event(s, actorId, Type.REDIFFED, data);
+        return s;
+    }
+
     /** The review screen opened page pageNo of the source document. Once per user and page (design D7). */
     @Transactional
     public void pageViewed(long id, Jwt jwt, int pageNo) {
@@ -257,6 +300,10 @@ public class Review {
     /** D7: a scan can't be checked by machine, so someone must have opened its page. Rejecting is not gated. */
     private void requirePageViewed(AiSuggestion s) {
         JsonNode p = s.effectivePayload();
+        if (s.getKind() == Kind.OBLIGATION_REVISION) {
+            // ④ §4.2: the new text decides; UNCHANGED equals already-approved live text, so no re-reading
+            p = "UNCHANGED".equals(s.getPayload().path("change_type").asText()) ? json.nullNode() : p.path("new");
+        }
         if (!"UNVERIFIABLE".equals(p.path("quote_check").asText())) {
             return;
         }

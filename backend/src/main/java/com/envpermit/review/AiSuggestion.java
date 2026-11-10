@@ -87,6 +87,12 @@ public class AiSuggestion {
         this.appliedEntityId = appliedEntityId;
     }
 
+    /** ④ rediff: computed fields replaced; the reviewer's edit (if any) keeps its own `new`. */
+    void rediff(JsonNode payload, JsonNode editedPayload) {
+        this.payload = payload;
+        this.editedPayload = editedPayload;
+    }
+
     /** RETURNED / REOPENED: back to PENDING, previous decision data cleared. */
     void backToPending() {
         this.status = Status.PENDING;
