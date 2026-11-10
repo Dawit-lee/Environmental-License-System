@@ -98,6 +98,8 @@ class RevisionApplyApiTest extends IntegrationTest {
     @Test
     void changed_updates_the_same_row_logs_before_and_needs_the_next_due_date_when_frequency_changes() throws Exception {
         JsonNode changed = byType.get("CHANGED");
+        Map<String, Object> taskBefore = jdbc.queryForMap("SELECT id, due_date FROM obligation_task WHERE obligation_id = ? "
+                + "AND status = 'OPEN'", v1Ids.get("3-2"));
         accept(kim, changed, null).andExpect(status().isUnprocessableEntity())
                 .andExpect(status().reason("다음 기한일 필요"));
 
@@ -114,6 +116,16 @@ class RevisionApplyApiTest extends IntegrationTest {
         assertThat(log).containsEntry("change_type", "CHANGED").containsEntry("f", "QUARTERLY")
                 .containsEntry("doc", v1).containsEntry("due", "2026-03-31");
         assertThat(deadline(live)).isEqualTo("2026-02-15");
+        // ops/02: the open task is the same row, moved to the new due date, with one deadline left
+        assertThat(taskBefore).containsEntry("due_date", java.sql.Date.valueOf("2026-03-31"));
+        call(kim, get("/api/projects/" + projectId + "/tasks?obligationId=" + live))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(taskBefore.get("id")))
+                .andExpect(jsonPath("$[0].status").value("OPEN"))
+                .andExpect(jsonPath("$[0].dueDate").value("2026-02-15"));
+        call(kim, get("/api/tasks/" + taskBefore.get("id"))).andExpect(jsonPath("$.events[-1:].type").value("DUE_CHANGED"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM deadline_event WHERE kind = 'OBLIGATION' AND target_id = ?",
+                Long.class, live)).isEqualTo(1);
     }
 
     @Test

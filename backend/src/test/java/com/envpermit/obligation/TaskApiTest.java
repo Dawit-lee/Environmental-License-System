@@ -6,7 +6,9 @@ import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -14,6 +16,7 @@ import com.envpermit.core.company.Company;
 import com.envpermit.core.company.CompanyRepository;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
+import com.envpermit.notification.NotificationJob;
 import com.envpermit.support.IntegrationTest;
 import com.jayway.jsonpath.JsonPath;
 import java.time.Duration;
@@ -40,6 +43,11 @@ class TaskApiTest extends IntegrationTest {
     String kim;
     String lee;
     String park;
+    long kimId;
+    long leeId;
+    long parkId;
+    @Autowired NotificationJob job;
+    @Autowired com.envpermit.support.InMemoryMailer mailer;
     long projectId;
     long permitId;
     long otherPermitId;
@@ -47,11 +55,12 @@ class TaskApiTest extends IntegrationTest {
     @BeforeEach
     void seed() throws Exception {
         truncateAll();
+        mailer.clear();
         long a = companies.save(new Company("A환경")).getId();
         long b = companies.save(new Company("B엔지니어링")).getId();
-        users.save(new User("kim@a.com", encoder.encode("pw"), "김에이", User.Role.USER, a));
-        long leeId = users.save(new User("lee@a.com", encoder.encode("pw"), "이에이", User.Role.USER, a)).getId();
-        users.save(new User("park@b.com", encoder.encode("pw"), "박비", User.Role.USER, b));
+        kimId = users.save(new User("kim@a.com", encoder.encode("pw"), "김에이", User.Role.USER, a)).getId();
+        leeId = users.save(new User("lee@a.com", encoder.encode("pw"), "이에이", User.Role.USER, a)).getId();
+        parkId = users.save(new User("park@b.com", encoder.encode("pw"), "박비", User.Role.USER, b)).getId();
         kim = login("kim@a.com");
         lee = login("lee@a.com");
         park = login("park@b.com");
@@ -254,7 +263,159 @@ class TaskApiTest extends IntegrationTest {
                 + "+ (SELECT count(*) FROM task_evidence)", Long.class)).isZero();
     }
 
+    // --- operations-compliance/02: assignee, due date, inbox, overdue ------------------------------------------
+
+    @Test
+    void reassigning_moves_the_d_day_reminder_and_the_inbox_entry_to_the_new_assignee() throws Exception {
+        long obligation = accepted("MONTHLY", "2026-01-31");
+        long task = openTask(obligation);
+
+        call(kim, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + leeId + ",\"version\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.task.assigneeName").value("이에이"))
+                .andExpect(jsonPath("$.events[*].type", contains("CREATED", "ASSIGNED")))
+                .andExpect(jsonPath("$.events[1].data.from").doesNotExist())
+                .andExpect(jsonPath("$.events[1].data.to").value(leeId));
+        job.createDueNotifications(); // D-26 → the D-30 reminder
+
+        assertThat(notified(leeId)).containsExactly(30);
+        assertThat(notified(kimId)).isEmpty();
+        call(lee, get("/api/tasks/mine"))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(task))
+                .andExpect(jsonPath("$[0].projectId").value(projectId));
+        call(kim, get("/api/tasks/mine")).andExpect(jsonPath("$.length()").value(0));
+
+        // unassigned again → every member, as before
+        call(kim, json(patch("/api/tasks/" + task), "{\"assigneeId\":null}"))
+                .andExpect(jsonPath("$.task.assigneeId").doesNotExist());
+        job.createDueNotifications();
+        assertThat(notified(kimId)).containsExactly(30);
+        call(lee, get("/api/tasks/mine")).andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void changing_the_due_date_moves_the_obligation_and_its_single_deadline_in_step() throws Exception {
+        long obligation = accepted("MONTHLY", "2026-01-31");
+        long task = openTask(obligation);
+
+        call(lee, json(patch("/api/tasks/" + task), "{\"dueDate\":\"2026-02-10\",\"version\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.task.id").value(task))
+                .andExpect(jsonPath("$.task.dueDate").value("2026-02-10"))
+                .andExpect(jsonPath("$.events[*].type", contains("CREATED", "DUE_CHANGED")))
+                .andExpect(jsonPath("$.events[1].data.from").value("2026-01-31"))
+                .andExpect(jsonPath("$.events[1].data.to").value("2026-02-10"));
+
+        call(lee, get("/api/projects/" + projectId + "/obligations"))
+                .andExpect(jsonPath("$[0].nextDueDate").value("2026-02-10"))
+                .andExpect(jsonPath("$[0].openTask.id").value(task));
+        call(lee, get("/api/deadlines?from=2026-01-01&to=2026-12-31"))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].dueDate").value("2026-02-10"));
+        call(lee, json(patch("/api/tasks/" + task), "{\"dueDate\":\"02/10\"}")).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void a_new_cycle_goes_to_the_default_assignee_then_the_project_em_then_the_pm() throws Exception {
+        call(kim, get("/api/tasks/" + openTask(accepted("MONTHLY", "2026-01-31"))))
+                .andExpect(jsonPath("$.task.assigneeId").doesNotExist()); // no default, no EM, no PM
+
+        project("\"pmUserId\":" + kimId);
+        call(kim, get("/api/tasks/" + openTask(accepted("MONTHLY", "2026-01-31"))))
+                .andExpect(jsonPath("$.task.assigneeId").value(kimId));
+
+        project("\"pmUserId\":" + kimId + ",\"emUserId\":" + leeId);
+        long obligation = accepted("MONTHLY", "2026-01-31");
+        long task = openTask(obligation);
+        call(kim, get("/api/tasks/" + task)).andExpect(jsonPath("$.task.assigneeId").value(leeId));
+
+        // the default assignee wins from the next cycle on; the open one keeps its assignee
+        call(lee, json(patch("/api/obligations/" + obligation), "{\"defaultAssigneeId\":" + kimId + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.defaultAssigneeId").value(kimId))
+                .andExpect(jsonPath("$.openTask.assigneeId").value(leeId));
+        attach(task);
+        call(lee, json(post("/api/tasks/" + task + "/complete"), "{}")).andExpect(status().isOk());
+        call(kim, get("/api/tasks/" + openTask(obligation))).andExpect(jsonPath("$.task.assigneeId").value(kimId));
+        job.createDueNotifications(); // next cycle 2026-02-28: its reminder goes to the task's assignee
+        assertThat(jdbc.queryForList("SELECT DISTINCT n.user_id FROM notification n JOIN deadline_event e "
+                + "ON e.id = n.deadline_event_id WHERE e.target_id = ?", Long.class, obligation)).containsExactly(kimId);
+
+        // an EM who is not a member of the project is skipped
+        project("\"pmUserId\":" + kimId + ",\"emUserId\":null");
+        jdbc.update("UPDATE project SET em_user_id = ? WHERE id = ?", parkId, projectId);
+        call(kim, get("/api/tasks/" + openTask(accepted("MONTHLY", "2026-01-31"))))
+                .andExpect(jsonPath("$.task.assigneeId").value(kimId));
+    }
+
+    @Test
+    void the_day_after_the_due_date_the_assignee_or_every_member_is_told_once() throws Exception {
+        long assigned = openTask(accepted("MONTHLY", "2026-01-31"));
+        accepted("MONTHLY", "2026-01-31"); // nobody assigned
+        accepted("MONTHLY", "2026-02-28"); // not due yet
+        call(kim, json(patch("/api/tasks/" + assigned), "{\"assigneeId\":" + leeId + "}")).andExpect(status().isOk());
+
+        clock.advance(Duration.ofDays(26)); // 2026-01-31: due today, not overdue
+        job.createDueNotifications();
+        assertThat(notified(leeId)).doesNotContain(NotificationJob.OVERDUE);
+
+        clock.advance(Duration.ofDays(1)); // 2026-02-01
+        job.createDueNotifications();
+        job.createDueNotifications(); // rerun: nothing new
+        assertThat(overdue(leeId)).isEqualTo(2); // own task + the unassigned one
+        assertThat(overdue(kimId)).isEqualTo(1); // only the unassigned one
+        assertThat(overdue(parkId)).isZero();
+        assertThat(jdbc.queryForObject("SELECT message || ' ' || link FROM notification WHERE user_id = ? AND offset_days = -1",
+                String.class, kimId)).isEqualTo("기한 경과 · 광명 자원회수시설 · 환경영향평가 협의 · 소음·진동 분기 1회 측정 (2026-01-31) "
+                + "/projects/" + projectId + "/obligations");
+
+        clock.advance(Duration.ofDays(1)); // 2026-02-02: not repeated
+        job.createDueNotifications();
+        assertThat(overdue(leeId)).isEqualTo(2);
+        assertThat(overdue(kimId)).isEqualTo(1);
+
+        job.sendDigests();
+        assertThat(mailer.sent()).anySatisfy(m -> assertThat(m.body()).contains("[기한 경과]"));
+    }
+
+    @Test
+    void assignees_must_be_project_members_and_a_stale_version_is_refused() throws Exception {
+        long obligation = accepted("MONTHLY", "2026-01-31");
+        long task = openTask(obligation);
+
+        call(kim, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + parkId + ",\"version\":0}"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NOT_MEMBER));
+        call(kim, json(patch("/api/obligations/" + obligation), "{\"defaultAssigneeId\":" + parkId + "}"))
+                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NOT_MEMBER));
+        call(park, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + parkId + "}")).andExpect(status().isForbidden());
+        call(park, json(patch("/api/obligations/" + obligation), "{\"defaultAssigneeId\":null}")).andExpect(status().isForbidden());
+
+        call(kim, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + leeId + ",\"version\":0}")).andExpect(status().isOk());
+        call(lee, json(patch("/api/tasks/" + task), "{\"dueDate\":\"2026-02-10\",\"version\":0}")) // kim got there first
+                .andExpect(status().isConflict());
+        call(lee, get("/api/tasks/" + task)).andExpect(jsonPath("$.task.dueDate").value("2026-01-31"));
+
+        attach(task);
+        call(kim, json(post("/api/tasks/" + task + "/complete"), "{}")).andExpect(status().isOk());
+        call(kim, json(patch("/api/tasks/" + task), "{\"assigneeId\":null}")).andExpect(status().isConflict()); // not open
+    }
+
     // --- helpers ----------------------------------------------------------------------------------------------
+
+    private void project(String roles) throws Exception {
+        call(kim, json(put("/api/projects/" + projectId), """
+                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명",%s}""".formatted(roles)))
+                .andExpect(status().isOk());
+    }
+
+    private java.util.List<Integer> notified(long userId) {
+        return jdbc.queryForList("SELECT offset_days FROM notification WHERE user_id = ? ORDER BY id", Integer.class, userId);
+    }
+
+    private long overdue(long userId) {
+        return notified(userId).stream().filter(o -> o == NotificationJob.OVERDUE).count();
+    }
 
     private long accepted(String frequency, String firstDue) throws Exception {
         return id(call(kim, json(post("/api/suggestions/" + addSuggestion(lee, frequency) + "/accept"),
