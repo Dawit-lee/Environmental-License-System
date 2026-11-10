@@ -2,12 +2,12 @@ import { useEffect, useRef, useState } from 'react';
 import type { PermitDocument, PermitItem } from '../types';
 import { Link } from 'react-router';
 import { api, apiBlob, isMaster, type ApiError } from '../api/client';
-import { getCompany, getRun, listRuns, setAiExtraction, startExtraction, startRevision, type AiRun } from '../api/extraction';
+import { getAiProvider, getCompany, getRun, listRuns, setAiExtraction, startExtraction, startRevision, type AiRun } from '../api/extraction';
 import { listRevisions, listSuggestions } from '../api/review';
 
 // Attached files of one permit: list, upload, download, delete, and AI extraction of PDFs. Lives in PermitDetailDrawer.
 
-const TRANSFER_NOTICE = 'AI 추출을 실행하면 이 문서가 외부 AI 서비스(Anthropic)로 전송됩니다.';
+const notice = (service: string) => `AI 추출을 실행하면 이 문서가 외부 AI 서비스(${service})로 전송됩니다.`;
 
 const MAX_BYTES = 10 * 1024 * 1024;
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.xlsx';
@@ -25,6 +25,8 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
   const [busy, setBusy] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const [aiOn, setAiOn] = useState(false);
+  const [service, setService] = useState('외부 AI');
+  const TRANSFER_NOTICE = notice(service);
   const [runs, setRuns] = useState<Record<number, AiRun>>({}); // latest run per document id
   const [found, setFound] = useState<Record<number, number>>({}); // run id → suggestions extracted
   const [supersedes, setSupersedes] = useState(''); // ④ "이전 버전 대체": id of the document the upload replaces
@@ -33,6 +35,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
 
   useEffect(() => {
     getCompany().then((c) => setAiOn(c.aiExtractionEnabled), () => setAiOn(false));
+    getAiProvider().then((p) => setService(p.label), () => {});
     listRuns(permit.projectId).then((rs) => {
       const latest: Record<number, AiRun> = {};
       for (const r of rs) {

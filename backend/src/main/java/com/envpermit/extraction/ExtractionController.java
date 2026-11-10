@@ -28,9 +28,11 @@ class ExtractionController {
     private final AiRunRepository runs;
     private final ProjectAccess access;
     private final Executor executor;
+    private final LlmClient llm;
 
     ExtractionController(Extraction extraction, AiRunRepository runs, ProjectAccess access,
-                         @Qualifier(ExtractionConfig.EXECUTOR) Executor executor) {
+                         @Qualifier(ExtractionConfig.EXECUTOR) Executor executor, LlmClient llm) {
+        this.llm = llm;
         this.extraction = extraction;
         this.runs = runs;
         this.access = access;
@@ -41,12 +43,13 @@ class ExtractionController {
     }
 
     /** Audit view of a run (design §2.1). The raw response stays in S3; only its key is shown. */
-    record RunView(long id, long projectId, String status, String errorMessage, JsonNode inputRef, String model,
+    record RunView(long id, long projectId, String status, String errorMessage, JsonNode inputRef, String provider,
+                   String model,
                    String promptVersion, String preparer, Integer inputTokens, Integer outputTokens,
                    String rawResponseKey, Long startedBy, Instant startedAt, Instant finishedAt) {
         static RunView of(AiRun r) {
             return new RunView(r.getId(), r.getProjectId(), r.getStatus(), r.getErrorMessage(), r.getInputRef(),
-                    r.getModel(), r.getPromptVersion(), r.getPreparer(), r.getInputTokens(), r.getOutputTokens(),
+                    r.getProvider(), r.getModel(), r.getPromptVersion(), r.getPreparer(), r.getInputTokens(), r.getOutputTokens(),
                     r.getRawResponseKey(), r.getStartedBy(), r.getStartedAt(), r.getFinishedAt());
         }
     }
@@ -68,6 +71,12 @@ class ExtractionController {
         AiRun run = extraction.startRevision(projectId, permitId, documentId, jwt);
         executor.execute(() -> extraction.run(run.getId()));
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("runId", run.getId()));
+    }
+
+    /** Which external AI documents go to, for the transfer notice shown before extraction (design §3.8). */
+    @GetMapping("/api/ai-provider")
+    Map<String, String> provider() {
+        return Map.of("provider", llm.provider().name(), "label", llm.provider().label);
     }
 
     @GetMapping(value = "/api/suggestions/{id}/pages/{pageNo}", produces = MediaType.IMAGE_PNG_VALUE)

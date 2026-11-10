@@ -31,9 +31,14 @@ app:
     bucket: ${S3_BUCKET:envpermit-documents}
     access-key: ${S3_ACCESS_KEY}
     secret-key: ${S3_SECRET_KEY}
-  # ① AI obligation extraction. The API key is read only from env var ANTHROPIC_API_KEY (never in config).
+  # ① AI obligation extraction. API keys are read only from env vars ANTHROPIC_API_KEY / GEMINI_API_KEY (never in config).
   extraction:
-    model: ${EXTRACTION_MODEL:claude-sonnet-5-5}
+    provider: ${EXTRACTION_PROVIDER:} # claude|gemini; empty = whichever key is set (Claude when both)
+    claude:
+      model: ${CLAUDE_MODEL:claude-sonnet-5-5}
+    gemini:
+      model: ${GEMINI_MODEL:gemini-3.6-flash} # needs PDF input + structured output
+      base-url: https://generativelanguage.googleapis.com
     preparer: ${EXTRACTION_PREPARER:CLAUDE_PDF_DIRECT} # swappable input step (design §3.2)
     stale-after: 30m # RUNNING older than this at startup → FAILED("중단됨")
   # ④ version diff matching (design §3.4). shortcut: guesses until the gold-set sweep (design §6.3) sets them

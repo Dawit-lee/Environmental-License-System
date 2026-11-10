@@ -30,6 +30,7 @@ public class AiRun {
     private Kind kind;
     @JdbcTypeCode(SqlTypes.JSON)
     private JsonNode inputRef;
+    private String provider;
     private String model;
     private String promptVersion;
     private String preparer;
@@ -73,6 +74,12 @@ public class AiRun {
         return r;
     }
 
+    /** LLM provider (CLAUDE|GEMINI) of an extraction run; null for manual and rule-engine runs. */
+    public AiRun provider(String provider) {
+        this.provider = provider;
+        return this;
+    }
+
     /** Raw response and token counts are kept on failure too (cost and debugging). */
     public void finish(String error, String rawResponseKey, Integer inputTokens, Integer outputTokens, Instant now) {
         this.status = error == null ? SUCCEEDED : FAILED;
@@ -88,6 +95,7 @@ public class AiRun {
     public Long getProjectId() { return projectId; }
     public Kind getKind() { return kind; }
     public JsonNode getInputRef() { return inputRef; }
+    public String getProvider() { return provider; }
     public String getModel() { return model; }
     public String getPromptVersion() { return promptVersion; }
     public String getPreparer() { return preparer; }
