@@ -1,15 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { getNotifications, markAllRead, markRead, type AppNotification } from '../api/notifications';
+import { getNewLawImpactCount } from '../api/lawImpacts';
 
 // Header bell: unread count + dropdown of the newest notifications. Polls every minute.
 export default function NotificationBell() {
   const [items, setItems] = useState<AppNotification[]>([]);
+  const [lawNew, setLawNew] = useState(0); // NEW law impacts on projects I am 책임자 of
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  const load = () => getNotifications().then(setItems, () => {});
+  const load = () => {
+    getNotifications().then(setItems, () => {});
+    getNewLawImpactCount().then((r) => setLawNew(r.count), () => {});
+  };
   useEffect(() => {
     load();
     const t = setInterval(load, 60_000);
@@ -25,7 +30,7 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
-  const unread = items.filter((n) => !n.readAt).length;
+  const unread = items.filter((n) => !n.readAt).length + lawNew;
 
   const openItem = async (n: AppNotification) => {
     setOpen(false);
@@ -54,7 +59,7 @@ export default function NotificationBell() {
         <div className="absolute right-0 top-full z-30 mt-2 w-80 rounded-xl border border-[#E5E3DC] bg-white shadow-lg">
           <div className="flex items-center justify-between border-b border-[#E5E3DC] px-4 py-2.5">
             <span className="text-sm font-semibold text-gray-900">알림</span>
-            {unread > 0 && (
+            {unread > lawNew && (
               <button
                 type="button"
                 onClick={() => markAllRead().then(load, () => {})}
@@ -64,7 +69,17 @@ export default function NotificationBell() {
               </button>
             )}
           </div>
-          {items.length === 0 ? (
+          {lawNew > 0 && (
+            <button
+              type="button"
+              onClick={() => { setOpen(false); navigate('/laws'); }}
+              className="flex w-full gap-2 border-b border-[#E5E3DC] px-4 py-2.5 text-left text-sm font-medium text-gray-800 transition hover:bg-[#F8F7F2]"
+            >
+              <span aria-hidden>⚖️</span>
+              <span>법령 개정 미확인 {lawNew}건</span>
+            </button>
+          )}
+          {items.length === 0 && lawNew === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-gray-400">알림이 없습니다.</p>
           ) : (
             <ul className="max-h-96 divide-y divide-[#E5E3DC] overflow-y-auto">

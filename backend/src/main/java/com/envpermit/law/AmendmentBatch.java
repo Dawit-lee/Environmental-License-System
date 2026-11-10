@@ -18,7 +18,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 /**
  * Daily 06:00 KST: for each day after the cursor through yesterday (≤31 per run), reads 법제처's change list
  * (lsHstInf) and stores new 현행 versions of watched laws with their changed articles and 신구조문.
- * One transaction per day; a failing day rolls back and the run stops there.
+ * One transaction per day; a failing day rolls back and the run stops there. Each stored amendment gets its
+ * permit impacts; the run ends with the impact mail.
  * shortcut: single server, no distributed lock; add ShedLock when scaling out.
  */
 @Component
@@ -36,8 +37,10 @@ public class AmendmentBatch {
     private final JdbcTemplate jdbc;
     private final TransactionTemplate tx;
     private final Clock clock;
+    private final LawImpacts impacts;
 
-    AmendmentBatch(LawApiClient api, JdbcTemplate jdbc, TransactionTemplate tx, Clock clock) {
+    AmendmentBatch(LawApiClient api, JdbcTemplate jdbc, TransactionTemplate tx, Clock clock, LawImpacts impacts) {
+        this.impacts = impacts;
         this.api = api;
         this.jdbc = jdbc;
         this.tx = tx;
@@ -82,11 +85,16 @@ public class AmendmentBatch {
                 tx.executeWithoutResult(s -> processDay(day));
             } catch (RuntimeException e) {
                 log.warn("법령 개정 배치 실패, {}에서 멈춤", day, e);
-                jdbc.update("UPDATE batch_cursor SET consecutive_failures = consecutive_failures + 1 WHERE job_name = ?", JOB);
+                int failures = jdbc.queryForObject("UPDATE batch_cursor SET consecutive_failures = consecutive_failures + 1 "
+                        + "WHERE job_name = ? RETURNING consecutive_failures", Integer.class, JOB);
+                if (failures == 2) {
+                    impacts.alertAdmins(day, failures);
+                }
                 break;
             }
         }
         refetchOldNew();
+        impacts.mailDigest();
     }
 
     private void processDay(LocalDate day) {
@@ -108,6 +116,7 @@ public class AmendmentBatch {
                 jdbc.update("INSERT INTO law_amendment_article (amendment_id, article_no, jo_code, change_reason, "
                         + "article_enforced_on) VALUES (?, ?, ?, ?, ?)", id, a.articleNo(), a.joCode(), a.changeType(), a.enforcedOn());
             }
+            impacts.record(id);
             jdbc.update("UPDATE law_catalog SET last_mst = ?, last_promulgated_on = ?, last_enforced_on = ?, "
                             + "repealed = ? WHERE id = ?", r.mst(), r.promulgatedOn(), r.enforcedOn(),
                     r.revisionType().contains("폐지"), w.catalogId()); // 폐지 spelling unverified (design §11)
