@@ -3,7 +3,10 @@ import {
   acceptRevision, listRevisions, pairRevisions, rediffRevision, rejectSuggestion, unpairRevision,
   bulkAccept, type ChangeType, type ObligationPayload, type RevisionSuggestion,
 } from '../api/review';
-import { ApiError } from '../api/client';
+import { api, ApiError } from '../api/client';
+import {
+  completeSiteImplementation, listSiteImplementations, updateSiteImplementation, type SiteImplementation,
+} from '../api/revisions';
 
 // ④ version-diff: compare view of a project's revision suggestions (summary bar, v1 | v2 word diff, approve).
 
@@ -35,14 +38,18 @@ export default function RevisionSuggestions({ projectId }: { projectId: number }
   const [showUnchanged, setShowUnchanged] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const load = useCallback(() => listRevisions(projectId).then(setItems, () => setItems([])), [projectId]);
+  const [site, setSite] = useState<SiteImplementation[]>([]);
+  const load = useCallback(() => Promise.all([
+    listRevisions(projectId).then(setItems, () => setItems([])),
+    listSiteImplementations(projectId).then(setSite, () => setSite([])),
+  ]), [projectId]);
   useEffect(() => { load(); }, [load]);
 
   const pending = items.filter(open);
   // rejected (not restructured) rows still point at the old document: the live obligation kept its v1 basis
   const keptOld = items.filter((s) => s.status === 'REJECTED' && !RESTRUCTURED.includes(s.rejectReason ?? '')
     && s.payload.prev_obligation_id != null);
-  if (!pending.length && !keptOld.length) return null;
+  if (!pending.length && !keptOld.length && !site.length) return null;
 
   const rank = (s: RevisionSuggestion) => (s.payload.match.flags.length ? -1 : ORDER.indexOf(s.payload.change_type));
   const visible = pending.filter((s) => !hidden(s)).sort((a, b) => rank(a) - rank(b));
@@ -76,6 +83,7 @@ export default function RevisionSuggestions({ projectId }: { projectId: number }
         <span className="text-[#B45309]">~{count('CHANGED')} 변경</span>
         <span className="text-gray-600">경미 {count('MINOR')}</span>
         <span className="text-gray-500">· 변경 없음 {unchanged.length}</span>
+        <span className="font-medium text-[#1F4E79]">· 현장 반영 {site.filter((r) => r.doneAt).length}/{site.length}</span>
         {unchanged.length > 0 && (
           <button type="button" onClick={confirmUnchanged}
             className="rounded-md bg-[#1F4E79] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#173d5f]">
@@ -106,7 +114,46 @@ export default function RevisionSuggestions({ projectId }: { projectId: number }
           <p className="px-4 py-6 text-sm text-gray-500">왼쪽에서 조건을 고르면 이전 | 새 버전을 나란히 봅니다.</p>
         )}
       </div>
+      <SiteList projectId={projectId} rows={site.filter((r) => !r.doneAt)} run={run} />
     </section>
+  );
+}
+
+/** 현장 반영 목록: open rows of approved CHANGED/ADDED, with assignee, target date (→ D-day alerts) and note. */
+function SiteList({ projectId, rows, run }: { projectId: number; rows: SiteImplementation[]; run: Run }) {
+  const [members, setMembers] = useState<{ userId: number; name: string }[]>([]);
+  useEffect(() => {
+    api<{ userId: number; name: string }[]>(`/api/projects/${projectId}/members`).then(setMembers, () => setMembers([]));
+  }, [projectId]);
+  if (!rows.length) return null;
+  const save = (r: SiteImplementation) => run(() => updateSiteImplementation(r), '현장 반영 정보를 저장했습니다.').catch(() => {});
+  return (
+    <div className="border-t border-[#E5E3DC] px-4 py-3 text-sm">
+      <h3 className="font-semibold text-gray-800">현장 반영 대기 {rows.length}건</h3>
+      <ul className="mt-2 divide-y divide-[#E5E3DC]">
+        {rows.map((r) => (
+          <li key={r.suggestionId} className="flex flex-wrap items-center gap-2 py-2">
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE[r.changeType].cls}`}>{TYPE[r.changeType].label}</span>
+            <span className="font-mono text-xs text-gray-500">{r.citationKey}</span>
+            <span className="min-w-0 flex-1 truncate text-gray-800">{r.summary}</span>
+            <select aria-label="담당자" value={r.assigneeId ?? ''}
+              onChange={(e) => save({ ...r, assigneeId: Number(e.target.value) })}
+              className="rounded-md border border-[#E5E3DC] px-2 py-1">
+              {r.assigneeId == null && <option value="">담당자 없음</option>}
+              {members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
+            </select>
+            <input type="date" aria-label="목표일" defaultValue={r.targetDate ?? ''}
+              onBlur={(e) => { if ((e.target.value || null) !== r.targetDate) save({ ...r, targetDate: e.target.value || null }); }}
+              className="rounded-md border border-[#E5E3DC] px-2 py-1" />
+            <input aria-label="메모" placeholder="메모" defaultValue={r.note ?? ''} maxLength={1000}
+              onBlur={(e) => { if ((e.target.value || null) !== r.note) save({ ...r, note: e.target.value || null }); }}
+              className="w-40 rounded-md border border-[#E5E3DC] px-2 py-1" />
+            <button type="button" onClick={() => run(() => completeSiteImplementation(r.suggestionId), '반영 완료했습니다.').catch(() => {})}
+              className="rounded-md bg-[#0F6E56] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#0b5a46]">반영 완료</button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
