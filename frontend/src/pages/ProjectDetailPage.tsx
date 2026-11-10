@@ -8,6 +8,7 @@ import ReviewQueuePage from './ReviewQueuePage';
 import LawAmendmentsPage from './LawAmendmentsPage';
 import CalendarPage from './CalendarPage';
 import NewProjectPage from './NewProjectPage';
+import ProjectOverview from '../components/ProjectOverview';
 import ProjectObligations from '../components/ProjectObligations';
 import ProjectDocuments from '../components/ProjectDocuments';
 import ProjectMembers from '../components/ProjectMembers';
@@ -83,8 +84,9 @@ const CATEGORY_TAB_ORDER: PermitCategory[] = [
   'LOCATION', 'FACILITY', 'CONSTRUCTION', 'ELECTRICAL', 'ENVIRONMENT',
 ];
 
-// Planned tabs (not built yet): overview(개요, compliance rate), operations(운영, measured values).
+// Planned tab (not built yet): operations(운영, measured values).
 const TABS = [
+  { key: 'overview', label: '개요' },
   { key: 'permits', label: '인허가' },
   { key: 'obligations', label: '의무사항' },
   { key: 'review', label: 'AI 검토' },
@@ -108,7 +110,7 @@ function lifecycleStage(project: Project, permits: PermitItem[], today = new Dat
 }
 
 export default function ProjectDetailPage() {
-  const { id, tab = 'permits' } = useParams();
+  const { id, tab = 'overview' } = useParams();
   const [activeCategory, setActiveCategory] = useState<'ALL' | PermitCategory>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | PermitStatus>('ALL');
   const [selected, setSelected] = useState<PermitItem | null>(null);
@@ -244,6 +246,7 @@ export default function ProjectDetailPage() {
         </nav>
 
         <div className="mt-6">
+          {tab === 'overview' && <ProjectOverview project={project} permits={permits} />}
           {tab === 'review' && <ReviewQueuePage key={id} projectId={project.id} />}
           {tab === 'laws' && <LawAmendmentsPage key={id} projectId={project.id} />}
           {tab === 'schedule' && <CalendarPage key={id} projectId={project.id} />}
@@ -255,7 +258,7 @@ export default function ProjectDetailPage() {
               <ProjectMembers key={`m${id}`} projectId={project.id} />
             </>
           )}
-          {!TABS.some((t) => t.key === tab) && <Navigate to={`/projects/${id}/permits`} replace />}
+          {!TABS.some((t) => t.key === tab) && <Navigate to={`/projects/${id}/overview`} replace />}
         </div>
 
         {tab === 'permits' && (<>

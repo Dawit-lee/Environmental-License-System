@@ -1,53 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import type { PermitItem, PermitStatus, Project } from '../types';
+import type { PermitItem, Project } from '../types';
 import { api } from '../api/client';
 import { getDeadlines, ymd, type Deadline } from '../api/notifications';
 import { openSiteImplementationCount } from '../api/revisions';
 import { getNewLawImpactCount } from '../api/lawImpacts';
+import {
+  ActivityList, DeadlineTimeline, PendingRow, STATUSES, StatusDonut, dDayClasses, deadlineLink, isOpen, recentActivity,
+} from '../components/dashboard';
 
 // ---------------------------------------------------------------------------
 // DashboardPage — portfolio-wide overview: summary cards, near-expiry table,
 // per-project status bars, 90-day deadline timeline, pending-work counts,
 // status donut (pure CSS conic-gradient) and recent activity.
 // ---------------------------------------------------------------------------
-
-function dDayClasses(dDay: number): string {
-  if (dDay <= 7) return 'text-[#991B1B] font-semibold';
-  if (dDay <= 30) return 'text-[#B45309] font-semibold';
-  if (dDay <= 60) return 'text-amber-500 font-medium';
-  return 'text-gray-500';
-}
-
-// Adjacent pairs pass the dataviz CVD / normal-vision separation check; every chart also shows a text legend.
-const STATUSES: { status: PermitStatus; label: string; color: string }[] = [
-  { status: 'COMPLETED', label: '취득완료', color: '#0F6E56' },
-  { status: 'IN_PROGRESS', label: '진행중', color: '#3B82C4' },
-  { status: 'NOT_APPLIED', label: '미신청', color: '#D1D5DB' },
-  { status: 'NEAR_EXPIRY', label: '만료임박', color: '#E8A33D' },
-  { status: 'EXPIRED', label: '만료', color: '#991B1B' },
-];
-
-const isOpen = (s: { status: string }) => s.status === 'PENDING' || s.status === 'SUBMITTED';
-
-interface Activity {
-  key: string;
-  date: string;
-  text: string;
-}
-
-// Recent activity = latest application / acquisition dates recorded on permits.
-function recentActivity(projects: Project[], permits: PermitItem[]): Activity[] {
-  const names = new Map(projects.map((p) => [p.id, p.name]));
-  return permits
-    .flatMap((p) => [
-      p.applicationDate && { key: `a${p.id}`, date: p.applicationDate, text: `${names.get(p.projectId)} — ${p.name} 신청` },
-      p.acquisitionDate && { key: `q${p.id}`, date: p.acquisitionDate, text: `${names.get(p.projectId)} — ${p.name} 취득완료` },
-    ])
-    .filter((a): a is Activity => !!a && a.date <= ymd(new Date())) // planned future dates are not activity
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 5);
-}
 
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
@@ -69,7 +35,6 @@ export default function DashboardPage() {
       .catch((e: Error) => setLoadError(e.message));
   }, []);
 
-  const slices = STATUSES.map((s) => ({ ...s, value: permits.filter((p) => p.status === s.status).length }));
   const activity = useMemo(() => recentActivity(projects, permits), [projects, permits]);
 
   // Deadlines due within 90 days (API returns them sorted by date); the table shows the first 30.
@@ -88,16 +53,6 @@ export default function DashboardPage() {
 
   const total = permits.length;
 
-  // Build conic-gradient stops for the donut (grey ring when there are no permits yet).
-  let acc = 0;
-  const gradient = total === 0 ? '#E5E3DC' : `conic-gradient(${slices
-    .map((s) => {
-      const start = (acc / total) * 360;
-      acc += s.value;
-      return `${s.color} ${start}deg ${(acc / total) * 360}deg`;
-    })
-    .join(', ')})`;
-
   return (
     <div className="min-h-full bg-[#F8F7F2]">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
@@ -109,7 +64,7 @@ export default function DashboardPage() {
           <SummaryCard label="전체 프로젝트" value={projects.length} tone="text-[#1F4E79]" />
           <SummaryCard label="전체 인허가" value={total} tone="text-gray-800" />
           <SummaryCard label="만료임박 (D-30 이내)" value={nearExpiry.length} tone="text-[#B45309]" />
-          <SummaryCard label="미신청" value={slices.find((s) => s.status === 'NOT_APPLIED')!.value} tone="text-[#991B1B]" />
+          <SummaryCard label="미신청" value={permits.filter((p) => p.status === 'NOT_APPLIED').length} tone="text-[#991B1B]" />
         </div>
 
         {/* Near-expiry table — full width so each row stays on one line */}
@@ -135,7 +90,7 @@ export default function DashboardPage() {
                   {nearExpiry.map((row) => (
                     <tr key={row.id} className="transition hover:bg-[#F8F7F2]">
                       <td className="px-3 py-2.5">
-                        <Link to={`/projects/${row.projectId}`} className="text-gray-700 transition hover:text-[#1F4E79] hover:underline">
+                        <Link to={deadlineLink(row)} className="text-gray-700 transition hover:text-[#1F4E79] hover:underline">
                           {row.projectName}
                         </Link>
                       </td>
@@ -157,9 +112,9 @@ export default function DashboardPage() {
           <section className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">처리 대기</h2>
             <ul className="mt-3 divide-y divide-[#E5E3DC]">
-              <PendingRow to="/review" label="허가조건 검토 대기" value={reviewOpen} />
-              <PendingRow to="/laws" label="법령 개정 확인 필요" value={lawNew} />
-              <PendingRow to="/projects" label="현장 반영 대기" value={siteOpen} />
+              <PendingRow to="/inbox?kind=REVIEW" label="허가조건 검토 대기" value={reviewOpen} />
+              <PendingRow to="/inbox?kind=LAW" label="법령 개정 확인 필요" value={lawNew} />
+              <PendingRow to="/inbox?kind=SITE" label="현장 반영 대기" value={siteOpen} />
             </ul>
           </section>
         </div>
@@ -172,28 +127,7 @@ export default function DashboardPage() {
           {/* Donut */}
           <section className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">인허가 상태 분포</h2>
-            <div className="mt-4 flex flex-wrap items-center gap-5">
-              <div
-                className="relative h-32 w-32 shrink-0 rounded-full"
-                style={{ background: gradient }}
-                role="img"
-                aria-label="인허가 상태 분포 도넛 차트"
-              >
-                <div className="absolute inset-[18%] flex flex-col items-center justify-center rounded-full bg-white">
-                  <span className="text-xl font-bold text-gray-800">{total}</span>
-                  <span className="text-[10px] text-gray-400">전체</span>
-                </div>
-              </div>
-              <ul className="space-y-1.5 text-sm">
-                {slices.map((s) => (
-                  <li key={s.status} className="flex items-center gap-2">
-                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                    <span className="whitespace-nowrap text-gray-600">{s.label}</span>
-                    <span className="ml-auto font-medium text-gray-800">{s.value}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <StatusDonut permits={permits} />
           </section>
 
         </div>
@@ -202,15 +136,7 @@ export default function DashboardPage() {
         <div className="mt-6">
           <section className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">최근 활동</h2>
-          <ul className="mt-3 divide-y divide-[#E5E3DC]">
-            {activity.length === 0 && <li className="py-6 text-center text-sm text-gray-400">아직 기록된 신청·취득이 없습니다.</li>}
-            {activity.map((a) => (
-              <li key={a.key} className="flex gap-3 py-2.5 text-sm">
-                <span className="shrink-0 text-gray-400">{a.date}</span>
-                <span className="truncate text-gray-700" title={a.text}>{a.text}</span>
-              </li>
-            ))}
-          </ul>
+          <ActivityList activity={activity} />
           </section>
         </div>
       </div>
@@ -248,7 +174,7 @@ function ProjectStatusBars({ projects, permits }: { projects: Project[]; permits
           const done = mine.filter((x) => x.status === 'COMPLETED').length;
           return (
             <li key={p.id} className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-3 text-sm">
-              <Link to={`/projects/${p.id}`} className="truncate text-gray-700 hover:text-[#1F4E79] hover:underline" title={p.name}>
+              <Link to={`/projects/${p.id}/permits`} className="truncate text-gray-700 hover:text-[#1F4E79] hover:underline" title={p.name}>
                 {p.name}
               </Link>
               <div className="flex h-3 gap-0.5 overflow-hidden rounded bg-[#F3F2EC]">
@@ -269,49 +195,3 @@ function ProjectStatusBars({ projects, permits }: { projects: Project[]; permits
   );
 }
 
-// Column per week (13 weeks from this week's Monday); height = deadlines due that week.
-function DeadlineTimeline({ deadlines }: { deadlines: Deadline[] }) {
-  const monday = new Date();
-  monday.setHours(0, 0, 0, 0);
-  monday.setDate(monday.getDate() - ((monday.getDay() + 6) % 7));
-  const weeks = Array.from({ length: 13 }, (_, i) => {
-    const start = new Date(monday);
-    start.setDate(start.getDate() + i * 7);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 6);
-    const items = deadlines.filter((d) => d.dueDate >= ymd(start) && d.dueDate <= ymd(end));
-    return { start, items };
-  });
-  const max = Math.max(1, ...weeks.map((w) => w.items.length));
-  return (
-    <div className="mt-4">
-      <div className="flex h-36 items-end gap-1.5 border-b border-[#E5E3DC]">
-        {weeks.map((w, i) => (
-          <div key={i} className="flex h-full flex-1 flex-col justify-end"
-            title={`${w.start.getMonth() + 1}/${w.start.getDate()} 주 — ${w.items.length}건${w.items.map((d) => `\n· ${d.projectName}: ${d.title}`).join('')}`}>
-            {w.items.length > 0 && <span className="mb-1 text-center text-xs text-gray-600">{w.items.length}</span>}
-            <div className="rounded-t bg-[#3B82C4]" style={{ height: `${(w.items.length / max) * 80}%` }} />
-          </div>
-        ))}
-      </div>
-      <div className="mt-1.5 flex gap-1.5 text-[11px] text-gray-400">
-        {weeks.map((w, i) => (
-          <span key={i} className="flex-1 whitespace-nowrap text-center">
-            {i % 2 === 0 ? `${w.start.getMonth() + 1}/${w.start.getDate()}` : ''}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PendingRow({ to, label, value }: { to: string; label: string; value: number }) {
-  return (
-    <li>
-      <Link to={to} className="flex items-center justify-between py-3 text-sm transition hover:text-[#1F4E79]">
-        <span className="text-gray-600">{label}</span>
-        <span className={`text-2xl font-bold ${value > 0 ? 'text-[#1F4E79]' : 'text-gray-300'}`}>{value}</span>
-      </Link>
-    </li>
-  );
-}

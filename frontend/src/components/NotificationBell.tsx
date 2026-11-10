@@ -72,7 +72,7 @@ export default function NotificationBell() {
           {lawNew > 0 && (
             <button
               type="button"
-              onClick={() => { setOpen(false); navigate('/laws'); }}
+              onClick={() => { setOpen(false); navigate('/inbox?kind=LAW'); }}
               className="flex w-full gap-2 border-b border-[#E5E3DC] px-4 py-2.5 text-left text-sm font-medium text-gray-800 transition hover:bg-[#F8F7F2]"
             >
               <span aria-hidden>⚖️</span>
