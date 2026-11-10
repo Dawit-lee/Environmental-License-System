@@ -4,12 +4,10 @@ import DashboardPage from './pages/DashboardPage';
 import ProjectListPage from './pages/ProjectListPage';
 import NewProjectPage from './pages/NewProjectPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
-import CalendarPage from './pages/CalendarPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import JoinRequestsPage from './pages/JoinRequestsPage';
-import ReviewQueuePage from './pages/ReviewQueuePage';
-import LawAmendmentsPage from './pages/LawAmendmentsPage';
+import LegacyRedirect from './pages/LegacyRedirect';
 import NotificationBell from './components/NotificationBell';
 import type { Session } from './api/auth';
 import { isMaster } from './api/client';
@@ -32,9 +30,6 @@ function loadSession(): Session | null {
 const NAV = [
   { to: '/dashboard', label: '대시보드', icon: '📊' },
   { to: '/projects', label: '프로젝트', icon: '📁' },
-  { to: '/calendar', label: '캘린더', icon: '🗓' },
-  { to: '/review', label: '허가조건 검토', icon: '✅' },
-  { to: '/laws', label: '법령 개정', icon: '⚖️' },
 ];
 const ADMIN_NAV = [{ to: '/join-requests', label: '가입 요청', icon: '👥' }];
 
@@ -137,10 +132,11 @@ export default function PermitApp() {
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/projects" element={<ProjectListPage />} />
                 <Route path="/projects/new" element={<NewProjectPage />} />
-                <Route path="/projects/:id" element={<ProjectDetailPage />} />
-                <Route path="/calendar" element={<CalendarPage />} />
-                <Route path="/review" element={<ReviewQueuePage />} />
-                <Route path="/laws" element={<LawAmendmentsPage />} />
+                <Route path="/projects/:id/:tab?" element={<ProjectDetailPage />} />
+                {/* old top-level screens now live in project tabs; mail/notification links still use these */}
+                <Route path="/calendar" element={<LegacyRedirect tab="schedule" />} />
+                <Route path="/review" element={<LegacyRedirect tab="review" />} />
+                <Route path="/laws" element={<LegacyRedirect tab="laws" />} />
                 <Route path="/join-requests" element={<JoinRequestsPage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

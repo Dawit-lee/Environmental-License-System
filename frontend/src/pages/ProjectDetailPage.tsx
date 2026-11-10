@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, NavLink, Navigate, useParams } from 'react-router';
 import type { FacilityType, PermitCategory, PermitItem, PermitStatus, Project } from '../types';
 import { api } from '../api/client';
 import { latestDerivation, type DerivationWarning } from '../api/derivation';
 import PermitDetailDrawer from '../components/PermitDetailDrawer';
+import ReviewQueuePage from './ReviewQueuePage';
+import LawAmendmentsPage from './LawAmendmentsPage';
+import CalendarPage from './CalendarPage';
 
 // ---------------------------------------------------------------------------
-// ProjectDetailPage — project summary + permit table with status/category
-// filters. Each row opens the PermitDetailDrawer.
+// ProjectDetailPage — the project hub: summary + lifecycle stage + routed tabs
+// (/projects/:id/:tab). 인허가 tab = permit table; each row opens the drawer.
 // ---------------------------------------------------------------------------
 
 const FACILITY_LABEL: Record<FacilityType, string> = {
@@ -76,8 +79,30 @@ const CATEGORY_TAB_ORDER: PermitCategory[] = [
   'LOCATION', 'FACILITY', 'CONSTRUCTION', 'ELECTRICAL', 'ENVIRONMENT',
 ];
 
+// Planned tabs (not built yet): overview(개요, compliance rate), obligations(의무사항, obligation tasks),
+// documents(문서, reports), settings(설정), operations(운영, measured values).
+const TABS = [
+  { key: 'permits', label: '인허가' },
+  { key: 'review', label: 'AI 검토' },
+  { key: 'laws', label: '법령 영향' },
+  { key: 'schedule', label: '일정' },
+] as const;
+
+const STAGES = ['입지', '설계', '착공', '준공', '운영'] as const;
+
+/** shortcut: rough stage from permit status + planned dates; replace when projects store a real stage. */
+function lifecycleStage(project: Project, permits: PermitItem[], today = new Date().toISOString().slice(0, 10)): number {
+  const done = (cats: PermitCategory[]) =>
+    permits.filter((p) => cats.includes(p.category)).every((p) => p.status === 'COMPLETED');
+  if (!done(['LOCATION', 'ENVIRONMENT'])) return 0;
+  if (!project.startDate || today < project.startDate) return 1;
+  if (!project.expectedEndDate || today < project.expectedEndDate) return 2;
+  if (!permits.every((p) => p.status === 'COMPLETED')) return 3;
+  return 4;
+}
+
 export default function ProjectDetailPage() {
-  const { id } = useParams();
+  const { id, tab = 'permits' } = useParams();
   const [activeCategory, setActiveCategory] = useState<'ALL' | PermitCategory>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | PermitStatus>('ALL');
   const [selected, setSelected] = useState<PermitItem | null>(null);
@@ -125,7 +150,7 @@ export default function ProjectDetailPage() {
   if (error || !project) {
     return (
       <div className="min-h-full bg-[#F8F7F2]">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
           <Link to="/projects" className="text-sm text-gray-500 transition hover:text-[#1F4E79] hover:underline">
             ← 프로젝트 목록
           </Link>
@@ -139,7 +164,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="min-h-full bg-[#F8F7F2]">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Breadcrumb */}
         <nav className="text-sm text-gray-500">
           <Link to="/projects" className="transition hover:text-[#1F4E79] hover:underline">
@@ -184,10 +209,35 @@ export default function ProjectDetailPage() {
             <Stat label="만료임박" value={stats.nearExpiry} tone="text-[#B45309]" />
             <Stat label="미신청" value={stats.notApplied} tone="text-[#991B1B]" />
           </div>
+
+          <StageBar current={lifecycleStage(project, permits)} />
         </section>
 
-        {/* Tabs + status filter */}
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+        <nav className="mt-6 flex gap-1 overflow-x-auto border-b border-[#E5E3DC]" aria-label="프로젝트 메뉴">
+          {TABS.map((t) => (
+            <NavLink
+              key={t.key}
+              to={`/projects/${id}/${t.key}`}
+              className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+                tab === t.key ? 'border-[#1F4E79] text-[#1F4E79]' : 'border-transparent text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              {t.label}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="mt-6">
+          {tab === 'review' && <ReviewQueuePage key={id} projectId={project.id} />}
+          {tab === 'laws' && <LawAmendmentsPage key={id} projectId={project.id} />}
+          {tab === 'schedule' && <CalendarPage key={id} projectId={project.id} />}
+          {!TABS.some((t) => t.key === tab) && <Navigate to={`/projects/${id}/permits`} replace />}
+        </div>
+
+        {tab === 'permits' && (<>
+
+        {/* Category chips + status filter */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex flex-wrap gap-2">
             <Tab label="전체" active={activeCategory === 'ALL'} onClick={() => setActiveCategory('ALL')} />
             {CATEGORY_TAB_ORDER.map((cat) => (
@@ -268,16 +318,17 @@ export default function ProjectDetailPage() {
             </tbody>
           </table>
         </div>
+        </>)}
       </div>
 
       {/* Floating add button */}
-      <button
+      {tab === 'permits' && <button
         type="button"
         // TODO: open "인허가 추가" flow / POST /api/projects/:id/permits
         className="fixed bottom-6 right-6 z-30 rounded-full bg-[#1F4E79] px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40"
       >
         + 인허가 추가
-      </button>
+      </button>}
 
       <PermitDetailDrawer permit={selected} onClose={() => setSelected(null)} />
     </div>
@@ -306,5 +357,25 @@ function Tab({ label, active, onClick }: { label: string; active: boolean; onCli
     >
       {label}
     </button>
+  );
+}
+
+function StageBar({ current }: { current: number }) {
+  return (
+    <ol className="mt-6 flex items-center gap-1 text-xs" aria-label="생애주기 단계">
+      {STAGES.map((label, i) => (
+        <li key={label} className="flex flex-1 items-center gap-1">
+          <span
+            aria-current={i === current ? 'step' : undefined}
+            className={`flex-1 rounded-full px-2 py-1.5 text-center font-medium ${
+              i === current ? 'bg-[#1F4E79] text-white' : i < current ? 'bg-[#1F4E79]/10 text-[#1F4E79]' : 'bg-[#F8F7F2] text-gray-400'
+            }`}
+          >
+            {label}
+          </span>
+          {i < STAGES.length - 1 && <span aria-hidden className="text-gray-300">→</span>}
+        </li>
+      ))}
+    </ol>
   );
 }

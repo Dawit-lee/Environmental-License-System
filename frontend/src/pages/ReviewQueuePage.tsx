@@ -61,9 +61,10 @@ const btnPrimary = `${btn} bg-[#1F4E79] text-white hover:bg-[#173a5c]`;
 const btnGhost = `${btn} border border-[#E5E3DC] text-gray-700 hover:bg-[#F8F7F2]`;
 const input = 'w-full rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-sm';
 
-export default function ReviewQueuePage() {
+/** With `projectId` (project tab) the project dropdown is hidden. */
+export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: number }) {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [projectId, setProjectId] = useState<number | null>(null);
+  const [projectId, setProjectId] = useState<number | null>(fixedId ?? null);
   const [permits, setPermits] = useState<PermitItem[]>([]);
   const [me, setMe] = useState<Member | null>(null);
   const [items, setItems] = useState<Suggestion[]>([]);
@@ -81,11 +82,12 @@ export default function ReviewQueuePage() {
   };
 
   useEffect(() => {
+    if (fixedId) return;
     api<Project[]>('/api/projects').then((ps) => {
       setProjects(ps);
       if (ps.length) setProjectId(ps[0].id);
     }, (e: Error) => setError(e.message));
-  }, []);
+  }, [fixedId]);
 
   const reload = useCallback(async () => {
     if (projectId == null) return;
@@ -149,17 +151,17 @@ export default function ReviewQueuePage() {
 
   return (
     <div className="min-h-full bg-[#F8F7F2]">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className={fixedId ? '' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6'}>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold tracking-wide text-gray-500">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>
+            {!fixedId && <p className="text-xs font-semibold tracking-wide text-gray-500">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>}
             <h1 className="mt-1 text-2xl font-bold text-[#1F4E79]">의무사항 검토</h1>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               검토 중인 조건은 승인 전까지 인허가 대장과 기한 알림에 들어가지 않습니다. 원문과 다른 항목이 맨 위에 옵니다.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="flex items-center gap-2 text-sm text-gray-600">
+            {!fixedId && <label className="flex items-center gap-2 text-sm text-gray-600">
               프로젝트
               <select
                 value={projectId ?? ''}
@@ -168,7 +170,7 @@ export default function ReviewQueuePage() {
               >
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-            </label>
+            </label>}
             {me && (
               <span className="text-xs text-gray-500">
                 내 권한: {lead ? '혼자 승인' : '승인 요청만'}{me.canBulkApprove && ' · 일괄 승인'}
