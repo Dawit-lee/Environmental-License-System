@@ -67,6 +67,15 @@ class ObligationController {
         return obligations.findByPermitItemIdOrderById(permitId).stream().map(ObligationView::of).toList();
     }
 
+    /** Every obligation of the project (프로젝트 › 의무사항 tab), nearest due date first. */
+    @GetMapping("/api/projects/{projectId}/obligations")
+    List<ObligationView> projectList(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
+        access.member(projectId, jwt);
+        List<Long> permitIds = permits.findByProjectIdOrderById(projectId).stream().map(PermitItem::getId).toList();
+        return obligations.findByPermitItemIdInOrderByNextDueDateAscIdAsc(permitIds).stream()
+                .map(ObligationView::of).toList();
+    }
+
     /** ④ 변경 이력: what each approved revision overwrote, oldest first. */
     @GetMapping("/api/obligations/{id}/revision-log")
     List<RevisionLogView> revisionLog(@AuthenticationPrincipal Jwt jwt, @PathVariable long id) {

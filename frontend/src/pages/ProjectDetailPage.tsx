@@ -7,6 +7,10 @@ import PermitDetailDrawer from '../components/PermitDetailDrawer';
 import ReviewQueuePage from './ReviewQueuePage';
 import LawAmendmentsPage from './LawAmendmentsPage';
 import CalendarPage from './CalendarPage';
+import NewProjectPage from './NewProjectPage';
+import ProjectObligations from '../components/ProjectObligations';
+import ProjectDocuments from '../components/ProjectDocuments';
+import ProjectMembers from '../components/ProjectMembers';
 
 // ---------------------------------------------------------------------------
 // ProjectDetailPage — the project hub: summary + lifecycle stage + routed tabs
@@ -79,13 +83,15 @@ const CATEGORY_TAB_ORDER: PermitCategory[] = [
   'LOCATION', 'FACILITY', 'CONSTRUCTION', 'ELECTRICAL', 'ENVIRONMENT',
 ];
 
-// Planned tabs (not built yet): overview(개요, compliance rate), obligations(의무사항, obligation tasks),
-// documents(문서, reports), settings(설정), operations(운영, measured values).
+// Planned tabs (not built yet): overview(개요, compliance rate), operations(운영, measured values).
 const TABS = [
   { key: 'permits', label: '인허가' },
+  { key: 'obligations', label: '의무사항' },
   { key: 'review', label: 'AI 검토' },
   { key: 'laws', label: '법령 영향' },
   { key: 'schedule', label: '일정' },
+  { key: 'documents', label: '문서' },
+  { key: 'settings', label: '설정' },
 ] as const;
 
 const STAGES = ['입지', '설계', '착공', '준공', '운영'] as const;
@@ -110,6 +116,7 @@ export default function ProjectDetailPage() {
   const [permits, setPermits] = useState<PermitItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [ruleWarnings, setRuleWarnings] = useState<DerivationWarning[]>([]);
+  const [reloads, setReloads] = useState(0); // 설정 saves → refresh the header
 
   useEffect(() => {
     // approved items the current rules no longer find applicable; no derivation yet → 404, nothing to show
@@ -125,7 +132,7 @@ export default function ProjectDetailPage() {
       },
       (e: Error) => setError(e.message),
     );
-  }, [id]);
+  }, [id, reloads]);
 
   const stats = useMemo(() => {
     const total = permits.length;
@@ -240,6 +247,14 @@ export default function ProjectDetailPage() {
           {tab === 'review' && <ReviewQueuePage key={id} projectId={project.id} />}
           {tab === 'laws' && <LawAmendmentsPage key={id} projectId={project.id} />}
           {tab === 'schedule' && <CalendarPage key={id} projectId={project.id} />}
+          {tab === 'obligations' && <ProjectObligations key={id} projectId={project.id} permits={permits} onOpenPermit={setSelected} />}
+          {tab === 'documents' && <ProjectDocuments key={id} projectId={project.id} permits={permits} onOpenPermit={setSelected} />}
+          {tab === 'settings' && (
+            <>
+              <NewProjectPage key={id} projectId={project.id} onSaved={() => setReloads((n) => n + 1)} />
+              <ProjectMembers key={`m${id}`} projectId={project.id} />
+            </>
+          )}
           {!TABS.some((t) => t.key === tab) && <Navigate to={`/projects/${id}/permits`} replace />}
         </div>
 

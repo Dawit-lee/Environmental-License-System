@@ -16,7 +16,7 @@ import {
   type RuleCategory,
 } from '../api/derivation';
 import { acceptSuggestion, editSuggestion, rejectSuggestion } from '../api/review';
-import type { FacilityType } from '../types';
+import type { FacilityType, Project, ProjectStatus } from '../types';
 
 // ---------------------------------------------------------------------------
 // NewProjectPage — two-step wizard.
@@ -75,11 +75,19 @@ const EXTRA_INPUT: Record<string, { unit: string; placeholder: string; scale?: n
   },
 };
 
+/** Attributes the step-1 form owns (see baseAttributes). */
+const BASE_FIELDS = ['facility_type', 'capacity_tpd', 'sido', 'address', 'proponent', 'project_kind',
+  'existing_capacity_tpd', 'waste_types', 'construction_start'];
+
 const law = (name: string) => `https://www.law.go.kr/법령/${name.replace(/\s/g, '')}`;
 const input =
   'w-full rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
 
-export default function NewProjectPage() {
+/**
+ * New project wizard. With `projectId` it is the project's 설정 tab: the same form prefilled from the project and its
+ * attributes, saving with PUT and re-running the derivation (step 2) when the facility type supports it.
+ */
+export default function NewProjectPage({ projectId: editId, onSaved }: { projectId?: number; onSaved?: () => void } = {}) {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -94,6 +102,9 @@ export default function NewProjectPage() {
   const [wasteTypes, setWasteTypes] = useState<string[]>([]);
   const [capacity, setCapacity] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [expectedEndDate, setExpectedEndDate] = useState('');
+  const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
+  const [saved, setSaved] = useState(false);
   const [depts, setDepts] = useState<Department[]>([]);
   const [people, setPeople] = useState<CompanyUser[]>([]);
   const [teamId, setTeamId] = useState<number | null>(null);
@@ -105,11 +116,37 @@ export default function NewProjectPage() {
     Promise.all([getDepartments(), getCompanyUsers()]).then(([ds, us]) => {
       setDepts(ds);
       setPeople(us);
+      if (editId) return;
       const me = us.find((u) => u.id === sessionUserId());
       setTeamId((t) => t ?? me?.teamId ?? null);
       setPmUserId((u) => u ?? me?.id ?? null);
     }, () => {});
-  }, []);
+  }, [editId]);
+
+  useEffect(() => {
+    if (!editId) return;
+    api<Project>(`/api/projects/${editId}`).then((p) => {
+      const a = (p.attributes ?? {}) as Attributes;
+      setProjectId(p.id);
+      // keep earlier "추가 정보 필요" answers; the form's own fields come from baseAttributes() on save
+      setExtra(Object.fromEntries(Object.entries(a).filter(([k]) => !BASE_FIELDS.includes(k))));
+      setName(p.name);
+      setFacilityType(p.facilityType);
+      setSido(typeof a.sido === 'string' ? a.sido : '');
+      setAddress(typeof a.address === 'string' ? a.address : p.location);
+      if (typeof a.proponent === 'string') setProponent(a.proponent);
+      if (a.project_kind === 'EXPANSION') setProjectKind('EXPANSION');
+      if (a.existing_capacity_tpd != null) setExistingCapacity(String(a.existing_capacity_tpd));
+      if (Array.isArray(a.waste_types)) setWasteTypes(a.waste_types);
+      setCapacity(p.capacity == null ? '' : String(p.capacity));
+      setStartDate(p.startDate ?? '');
+      setExpectedEndDate(p.expectedEndDate ?? '');
+      setStatus(p.status);
+      setTeamId(p.teamId);
+      setPmUserId(p.pmUserId);
+      setEmUserId(p.emUserId);
+    }, (e: Error) => setError(e.message));
+  }, [editId]);
 
   // ---- Step 2 state ------------------------------------------------------
   const [projectId, setProjectId] = useState<number | null>(null);
@@ -143,6 +180,7 @@ export default function NewProjectPage() {
   }, [suggestions]);
   const closed = suggestions.filter(closedBySystem);
 
+  const canSave = name.trim().length > 0 && address.trim() !== '';
   const canProceed =
     name.trim().length > 0 &&
     facilityType === 'INCINERATION' &&
@@ -211,17 +249,20 @@ export default function NewProjectPage() {
     if (why) act(() => rejectSuggestion(s, why));
   };
 
-  const handleNext = async () => {
+  const handleNext = async (derivation = true) => {
     setBusy(true);
     setError(null);
+    setSaved(false);
     try {
       const body = JSON.stringify({
         name: name.trim(),
         facilityType,
-        location: `${sido} ${address.trim()}`,
-        capacity: Number(capacity),
+        location: sido ? `${sido} ${address.trim()}` : address.trim(),
+        capacity: capacity === '' ? null : Number(capacity),
         capacityUnit: '톤/일',
         startDate: startDate || null,
+        expectedEndDate: expectedEndDate || null,
+        status,
         teamId,
         pmUserId,
         emUserId,
@@ -231,6 +272,8 @@ export default function NewProjectPage() {
         (await api<{ id: number }>('/api/projects', { method: 'POST', body })).id;
       if (projectId) await api(`/api/projects/${pid}`, { method: 'PUT', body });
       setProjectId(pid);
+      onSaved?.();
+      if (!derivation) return setSaved(true);
       await run(pid, { ...baseAttributes(), ...extra });
       setStep(2);
     } catch (e) {
@@ -272,11 +315,11 @@ export default function NewProjectPage() {
     activeCategory === 'ALL' ? derived : derived.filter((p) => p.category === activeCategory);
 
   return (
-    <div className="min-h-full bg-[#F8F7F2]">
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+    <div className={editId ? '' : 'min-h-full bg-[#F8F7F2]'}>
+      <div className={editId ? 'max-w-5xl' : 'mx-auto max-w-5xl px-4 py-8 sm:px-6'}>
         {/* Step indicator */}
         <ol className="mb-8 flex items-center gap-4 text-sm">
-          <StepDot index={1} label="프로젝트 정보 입력" active={step >= 1} current={step === 1} />
+          <StepDot index={1} label={editId ? '프로젝트 정보·도출 조건' : '프로젝트 정보 입력'} active={step >= 1} current={step === 1} />
           <li className="h-px flex-1 bg-[#E5E3DC]" aria-hidden />
           <StepDot index={2} label="인허가 자동 도출" active={step >= 2} current={step === 2} />
         </ol>
@@ -289,9 +332,11 @@ export default function NewProjectPage() {
 
         {step === 1 ? (
           <section className="rounded-xl border border-[#E5E3DC] bg-white p-6 shadow-sm sm:p-8">
-            <h1 className="text-2xl font-bold text-[#1F4E79]">프로젝트 정보 입력</h1>
+            <h1 className="text-2xl font-bold text-[#1F4E79]">{editId ? '프로젝트 정보' : '프로젝트 정보 입력'}</h1>
             <p className="mt-1 text-sm text-gray-500">
-              사업 속성을 입력하면 다음 단계에서 필요한 인허가가 자동으로 도출됩니다.
+              {editId
+                ? '정보를 고친 뒤 저장합니다. 사업 속성을 바꿨다면 인허가를 다시 도출하세요. 바뀐 판정만 검토 목록에 새로 올라갑니다.'
+                : '사업 속성을 입력하면 다음 단계에서 필요한 인허가가 자동으로 도출됩니다.'}
             </p>
 
             <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -421,6 +466,21 @@ export default function NewProjectPage() {
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} />
               </Field>
 
+              {editId && (
+                <>
+                  <Field label="준공예정일">
+                    <input type="date" value={expectedEndDate} onChange={(e) => setExpectedEndDate(e.target.value)} className={input} />
+                  </Field>
+                  <Field label="진행 상태">
+                    <select value={status} onChange={(e) => setStatus(e.target.value as ProjectStatus)} className={input}>
+                      <option value="IN_PROGRESS">진행중</option>
+                      <option value="COMPLETED">완료</option>
+                      <option value="ON_HOLD">보류</option>
+                    </select>
+                  </Field>
+                </>
+              )}
+
               <Field label="부서/팀">
                 <select value={teamId ?? ''} onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : null)} className={input}>
                   <option value="">미지정</option>
@@ -442,14 +502,25 @@ export default function NewProjectPage() {
               </div>
             </div>
 
-            <div className="mt-8 flex justify-end">
+            <div className="mt-8 flex items-center justify-end gap-3">
+              {saved && <span role="status" className="text-sm text-[#0F6E56]">저장했습니다</span>}
+              {editId && (
+                <button
+                  type="button"
+                  disabled={!canSave || busy}
+                  onClick={() => handleNext(false)}
+                  className="rounded-lg border border-[#E5E3DC] px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-[#F8F7F2] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  저장
+                </button>
+              )}
               <button
                 type="button"
                 disabled={!canProceed || busy}
-                onClick={handleNext}
+                onClick={() => handleNext()}
                 className="rounded-lg bg-[#1F4E79] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {busy ? '도출 중…' : '다음: 인허가 자동 도출 →'}
+                {busy ? '처리 중…' : editId ? '저장 후 인허가 다시 도출 →' : '다음: 인허가 자동 도출 →'}
               </button>
             </div>
           </section>
@@ -684,7 +755,7 @@ export default function NewProjectPage() {
               </button>
               <button
                 type="button"
-                onClick={() => navigate(`/projects/${projectId}`)}
+                onClick={() => (editId ? setStep(1) : navigate(`/projects/${projectId}`))}
                 className="rounded-lg bg-[#1F4E79] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40"
               >
                 완료

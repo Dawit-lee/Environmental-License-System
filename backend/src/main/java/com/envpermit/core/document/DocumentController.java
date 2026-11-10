@@ -2,6 +2,7 @@ package com.envpermit.core.document;
 
 import static com.envpermit.core.project.ProjectAccess.userId;
 
+import com.envpermit.core.permit.PermitItem;
 import com.envpermit.core.permit.PermitItemRepository;
 import com.envpermit.core.project.ProjectAccess;
 import com.envpermit.core.user.User;
@@ -65,14 +66,26 @@ public class DocumentController {
     }
 
     record DocumentView(long id, String fileName, String contentType, long size, String sha256,
-                        String uploadedBy, Instant uploadedAt, Long supersedesDocumentId, LocalDate effectiveDate) {
+                        String uploadedBy, Instant uploadedAt, Long supersedesDocumentId, LocalDate effectiveDate,
+                        long permitItemId) {
     }
 
     @GetMapping("/api/projects/{projectId}/permits/{permitId}/documents")
     List<DocumentView> list(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                             @PathVariable long permitId) {
         checkPermit(jwt, projectId, permitId);
-        List<Document> rows = documents.findByPermitItemIdOrderByUploadedAtDescIdDesc(permitId);
+        return views(documents.findByPermitItemIdOrderByUploadedAtDescIdDesc(permitId));
+    }
+
+    /** Every document of the project (프로젝트 › 문서 tab), newest first. */
+    @GetMapping("/api/projects/{projectId}/documents")
+    List<DocumentView> projectList(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
+        access.member(projectId, jwt);
+        return views(documents.findByPermitItemIdInOrderByUploadedAtDescIdDesc(
+                permits.findByProjectIdOrderById(projectId).stream().map(PermitItem::getId).toList()));
+    }
+
+    private List<DocumentView> views(List<Document> rows) {
         Map<Long, String> names = users.findAllById(rows.stream().map(Document::getUploadedBy).toList())
                 .stream().collect(Collectors.toMap(User::getId, User::getName));
         return rows.stream().map(d -> view(d, names.get(d.getUploadedBy()))).toList();
@@ -189,6 +202,6 @@ public class DocumentController {
 
     private static DocumentView view(Document d, String uploader) {
         return new DocumentView(d.getId(), d.getFileName(), d.getContentType(), d.getSizeBytes(), d.getSha256(),
-                uploader, d.getUploadedAt(), d.getSupersedesDocumentId(), d.getEffectiveDate());
+                uploader, d.getUploadedAt(), d.getSupersedesDocumentId(), d.getEffectiveDate(), d.getPermitItemId());
     }
 }

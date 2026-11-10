@@ -53,3 +53,7 @@ export const completeSiteImplementation = (suggestionId: number) =>
 export const listObligations = (pid: number, permitId: number) =>
   api<Obligation[]>(`/api/projects/${pid}/permits/${permitId}/obligations`);
 export const revisionLog = (obligationId: number) => api<RevisionLogEntry[]>(`/api/obligations/${obligationId}/revision-log`);
+export const listProjectObligations = (pid: number) => api<Obligation[]>(`/api/projects/${pid}/obligations`);
+/** "이행 완료": next due date by frequency; pass nextDueDate when the server can't compute it (OTHER / no date). */
+export const completeObligation = (id: number, nextDueDate?: string) =>
+  api<Obligation>(`/api/obligations/${id}/complete`, { method: 'POST', body: JSON.stringify({ nextDueDate: nextDueDate ?? null }) });
