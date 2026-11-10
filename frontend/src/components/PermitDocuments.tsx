@@ -175,7 +175,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                     ` · ${docs.find((x) => x.id === d.supersedesDocumentId)?.fileName ?? '이전 문서'} 대체`}
                   {d.effectiveDate && ` · 시행 ${d.effectiveDate}`}
                 </p>
-                {runs[d.id] && <RunStatus run={runs[d.id]} count={found[runs[d.id].id]} onRetry={() => extract(d)} />}
+                {runs[d.id] && <RunStatus projectId={permit.projectId} run={runs[d.id]} count={found[runs[d.id].id]} onRetry={() => extract(d)} />}
               </div>
               {d.contentType === 'application/pdf' && (
                 <button
@@ -260,7 +260,8 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
   );
 }
 
-function RunStatus({ run, count, onRetry }: { run: AiRun; count?: number; onRetry: () => void }) {
+function RunStatus({ projectId, run, count, onRetry }: { projectId: number; run: AiRun; count?: number; onRetry: () => void }) {
+  const review = `/projects/${projectId}/review`;
   const revision = run.inputRef?.prev_document_id != null;
   if (run.status === 'RUNNING') return <p className="text-xs text-[#1F4E79]">{revision ? '개정 비교 중…' : 'AI 추출 중…'}</p>;
   if (run.status === 'FAILED') {
@@ -275,17 +276,17 @@ function RunStatus({ run, count, onRetry }: { run: AiRun; count?: number; onRetr
   if (revision) {
     return (
       <p className="text-xs text-[#0F6E56]">
-        비교 결과 {count}건 · <Link to="/review" className="font-medium underline">검토하기</Link>
+        비교 결과 {count}건 · <Link to={review} className="font-medium underline">검토하기</Link>
       </p>
     );
   }
   return count > 0 ? (
     <p className="text-xs text-[#0F6E56]">
-      의무사항 {count}건 추출 · <Link to="/review" className="font-medium underline">검토하기</Link>
+      의무사항 {count}건 추출 · <Link to={review} className="font-medium underline">검토하기</Link>
     </p>
   ) : (
     <p className="text-xs text-gray-500">
-      추출된 의무사항 없음 · <Link to="/review" className="underline">검토 화면에서 직접 추가</Link>
+      추출된 의무사항 없음 · <Link to={review} className="underline">검토 화면에서 직접 추가</Link>
     </p>
   );
 }

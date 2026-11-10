@@ -46,7 +46,8 @@ function Marked({ text }: { text: string }) {
   );
 }
 
-export default function LawAmendmentsPage() {
+/** With `projectId` (project tab) only that project's impacts are listed. */
+export default function LawAmendmentsPage({ projectId }: { projectId?: number }) {
   const [params, setParams] = useSearchParams();
   const [items, setItems] = useState<LawImpact[] | null>(null);
   const [detail, setDetail] = useState<LawImpactDetail | null>(null);
@@ -59,7 +60,7 @@ export default function LawAmendmentsPage() {
 
   const selectedId = Number(params.get('id')) || items?.[0]?.id || null;
 
-  const load = () => getLawImpacts().then(setItems, (e) => setError(e.message));
+  const load = () => getLawImpacts().then((l) => setItems(projectId ? l.filter((i) => i.projectId === projectId) : l), (e) => setError(e.message));
   useEffect(() => {
     load();
   }, []);
@@ -77,7 +78,7 @@ export default function LawAmendmentsPage() {
   }, [selectedId]);
 
   if (!items) {
-    return <div className="min-h-full bg-[#F8F7F2] p-8 text-sm text-gray-500">{error ?? '불러오는 중…'}</div>;
+    return <div className={`text-sm text-gray-500 ${projectId ? '' : 'min-h-full bg-[#F8F7F2] p-8'}`}>{error ?? '불러오는 중…'}</div>;
   }
 
   const projects = [...new Map(items.map((i) => [i.projectId, i.projectName])).entries()];
@@ -112,7 +113,7 @@ export default function LawAmendmentsPage() {
 
   return (
     <div className="min-h-full bg-[#F8F7F2]">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className={projectId ? '' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6'}>
         <p className="text-xs font-semibold tracking-wide text-gray-500">매일 06:00 법제처 개정 목록 확인</p>
         <h1 className="mt-1 text-2xl font-bold text-[#1F4E79]">법령 개정 알림</h1>
         <p className="mt-1 max-w-2xl text-sm text-gray-500">

@@ -35,7 +35,8 @@ const TONE_LABEL: Record<DotTone, string> = {
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
-export default function CalendarPage() {
+/** With `projectId` (project tab) only that project's deadlines are shown. */
+export default function CalendarPage({ projectId }: { projectId?: number }) {
   const [year, setYear] = useState(() => new Date().getFullYear());
   const [month, setMonth] = useState(() => new Date().getMonth() + 1); // 1-based
   const [openDay, setOpenDay] = useState<string | null>(null);
@@ -45,8 +46,8 @@ export default function CalendarPage() {
   useEffect(() => {
     setError(null);
     getDeadlines(ymd(new Date(year, month - 1, 1)), ymd(new Date(year, month, 0)))
-      .then(setDeadlines, (e: Error) => setError(e.message));
-  }, [year, month]);
+      .then((l) => setDeadlines(projectId ? l.filter((d) => d.projectId === projectId) : l), (e: Error) => setError(e.message));
+  }, [year, month, projectId]);
 
   const byDate = useMemo(() => {
     const map: Record<string, Deadline[]> = {};
@@ -82,8 +83,8 @@ export default function CalendarPage() {
 
   return (
     <div className="min-h-full bg-[#F8F7F2]">
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-bold text-[#1F4E79]">인허가 캘린더</h1>
+      <div className={projectId ? '' : 'mx-auto max-w-5xl px-4 py-8 sm:px-6'}>
+        {!projectId && <h1 className="text-2xl font-bold text-[#1F4E79]">인허가 캘린더</h1>}
 
         {/* Legend */}
         <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-[#E5E3DC] bg-white px-4 py-2.5 text-sm">
