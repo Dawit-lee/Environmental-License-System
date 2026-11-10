@@ -5,6 +5,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import java.time.Instant;
+import java.time.LocalDate;
 
 /** A file attached to a permit item. The bytes are in {@link DocumentStorage} under storageKey. */
 @Entity
@@ -22,12 +23,15 @@ public class Document {
     private String storageKey;
     private Long uploadedBy;
     private Instant uploadedAt;
+    private Long supersedesDocumentId;
+    private LocalDate effectiveDate;
 
     protected Document() {
     }
 
     Document(Long permitItemId, String fileName, String contentType, long sizeBytes, String sha256,
-             String storageKey, Long uploadedBy, Instant uploadedAt) {
+             String storageKey, Long uploadedBy, Instant uploadedAt, Long supersedesDocumentId,
+             LocalDate effectiveDate) {
         this.permitItemId = permitItemId;
         this.fileName = fileName;
         this.contentType = contentType;
@@ -36,6 +40,8 @@ public class Document {
         this.storageKey = storageKey;
         this.uploadedBy = uploadedBy;
         this.uploadedAt = uploadedAt;
+        this.supersedesDocumentId = supersedesDocumentId;
+        this.effectiveDate = effectiveDate;
     }
 
     public Long getId() { return id; }
@@ -47,4 +53,6 @@ public class Document {
     public String getStorageKey() { return storageKey; }
     public Long getUploadedBy() { return uploadedBy; }
     public Instant getUploadedAt() { return uploadedAt; }
+    public Long getSupersedesDocumentId() { return supersedesDocumentId; }
+    public LocalDate getEffectiveDate() { return effectiveDate; }
 }

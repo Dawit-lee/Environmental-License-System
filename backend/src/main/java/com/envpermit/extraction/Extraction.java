@@ -18,8 +18,10 @@ import com.envpermit.review.AiRun;
 import com.envpermit.review.AiRunRepository;
 import com.envpermit.review.Kind;
 import com.envpermit.review.Review;
+import com.envpermit.revision.RevisionDiff;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.annotation.JsonNaming;
 import jakarta.validation.Valid;
@@ -75,6 +77,7 @@ public class Extraction {
     private final DocumentStorage storage;
     private final AiRunRepository runs;
     private final Review review;
+    private final RevisionDiff revisions;
     private final ExtractionInputPreparer preparer;
     private final ClaudeClient claude;
     private final ObjectMapper json;
@@ -86,7 +89,7 @@ public class Extraction {
 
     Extraction(ProjectAccess access, ProjectRepository projects, CompanyRepository companies,
                PermitItemRepository permits, DocumentRepository documents, DocumentStorage storage,
-               AiRunRepository runs, Review review, ExtractionInputPreparer preparer, ClaudeClient claude,
+               AiRunRepository runs, Review review, RevisionDiff revisions, ExtractionInputPreparer preparer, ClaudeClient claude,
                ObjectMapper json, Validator validator, TransactionTemplate tx, Clock clock,
                @Value("${app.extraction.model}") String model,
                @Value("${app.extraction.stale-after}") Duration staleAfter) {
@@ -98,6 +101,7 @@ public class Extraction {
         this.storage = storage;
         this.runs = runs;
         this.review = review;
+        this.revisions = revisions;
         this.preparer = preparer;
         this.claude = claude;
         this.json = json;
@@ -129,6 +133,29 @@ public class Extraction {
     @Transactional
     public AiRun start(long projectId, long permitId, long documentId, Jwt jwt,
                        boolean confirmDuplicate) {
+        Document doc = startable(projectId, permitId, documentId, jwt);
+        if (doc.getSupersedesDocumentId() != null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "개정 문서는 [개정 비교]로 처리합니다.");
+        }
+        if (!confirmDuplicate && runs.extractedBefore(projectId, doc.getSha256())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "이미 추출한 문서입니다. 확인하면 새로 추출합니다(이전 결과는 그대로 남습니다).");
+        }
+        return save(projectId, Kind.OBLIGATION, doc, jwt);
+    }
+
+    /** ④ version diff (design §3.1): same extraction, then DiffEngine against the previous version line. */
+    @Transactional
+    public AiRun startRevision(long projectId, long permitId, long documentId, Jwt jwt) {
+        Document doc = startable(projectId, permitId, documentId, jwt);
+        if (doc.getSupersedesDocumentId() == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "대체할 이전 버전이 없는 문서입니다.");
+        }
+        documents.requireNoOpenReview(doc.getId());
+        return save(projectId, Kind.OBLIGATION_REVISION, doc, jwt);
+    }
+
+    private Document startable(long projectId, long permitId, long documentId, Jwt jwt) {
         access.member(projectId, jwt);
         permits.findByIdAndProjectId(permitId, projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
@@ -142,14 +169,18 @@ public class Extraction {
         if (!PDF.equals(doc.getContentType())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "PDF 문서만 AI 추출할 수 있습니다.");
         }
-        if (!confirmDuplicate && runs.extractedBefore(projectId, doc.getSha256())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "이미 추출한 문서입니다. 확인하면 새로 추출합니다(이전 결과는 그대로 남습니다).");
+        return doc;
+    }
+
+    private AiRun save(long projectId, Kind kind, Document doc, Jwt jwt) {
+        ObjectNode inputRef = json.createObjectNode().put("document_id", doc.getId())
+                .put("permit_item_id", doc.getPermitItemId()).put("sha256", doc.getSha256());
+        if (kind == Kind.OBLIGATION_REVISION) {
+            inputRef.put("prev_document_id", doc.getSupersedesDocumentId());
         }
-        JsonNode inputRef = json.createObjectNode().put("document_id", doc.getId()).put("permit_item_id", permitId)
-                .put("sha256", doc.getSha256());
-        return runs.save(AiRun.start(project.getCompanyId(), projectId, Kind.OBLIGATION, inputRef, model,
-                ObligationPrompt.VERSION, preparer.name(), userId(jwt), clock.instant()));
+        long companyId = projects.findById(projectId).orElseThrow().getCompanyId();
+        return runs.save(AiRun.start(companyId, projectId, kind, inputRef, model, ObligationPrompt.VERSION,
+                preparer.name(), userId(jwt), clock.instant()));
     }
 
     /** The slow part. Never throws: every outcome ends as SUCCEEDED or FAILED on the run. */
@@ -215,7 +246,8 @@ public class Extraction {
                 return; // already closed as stale; don't resurrect it
             }
             if (payloads != null) {
-                review.addAi(run, permitId, payloads);
+                review.addAi(run, permitId, run.getKind() != Kind.OBLIGATION_REVISION ? payloads
+                        : revisions.payloads(permitId, run.getInputRef().get("prev_document_id").asLong(), payloads));
             }
             run.finish(payloads != null ? null : error, rawKey, inTokens, outTokens, clock.instant());
         });

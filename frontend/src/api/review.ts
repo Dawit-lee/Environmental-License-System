@@ -55,6 +55,27 @@ export const listSuggestions = (pid: number, runId?: number) =>
   api<Suggestion[]>(`/api/projects/${pid}/suggestions${runId ? `?runId=${runId}` : ''}`).then((all) =>
     all.filter((s) => s.kind === 'OBLIGATION'),
   );
+/** ④ OBLIGATION_REVISION payload (version-diff design §2.3). prev = the compared obligation, for display. */
+export type ChangeType = 'ADDED' | 'REMOVED' | 'CHANGED' | 'MINOR' | 'UNCHANGED';
+export interface RevisionPayload {
+  change_type: ChangeType;
+  prev_obligation_id: number | null;
+  prev_obligation_version: number | null;
+  prev_obligation_closed: boolean;
+  prev: ObligationPayload | null;
+  new: ObligationPayload | null;
+  match: { method: 'KEY' | 'SIMILARITY' | 'MANUAL' | null; similarity: number | null; flags: string[] };
+  changed_fields: string[];
+  numeric_changes: { before: string | null; after: string | null }[];
+}
+export type RevisionSuggestion = Omit<Suggestion, 'kind' | 'payload' | 'editedPayload'> & {
+  kind: 'OBLIGATION_REVISION';
+  payload: RevisionPayload;
+};
+export const listRevisions = (pid: number, runId?: number) =>
+  api<(Suggestion | RevisionSuggestion)[]>(`/api/projects/${pid}/suggestions${runId ? `?runId=${runId}` : ''}`).then(
+    (all) => all.filter((s): s is RevisionSuggestion => s.kind === 'OBLIGATION_REVISION'),
+  );
 export const suggestionEvents = (id: number) => api<SuggestionEvent[]>(`/api/suggestions/${id}/events`);
 export const addSuggestion = (pid: number, permitItemId: number, payload: ObligationPayload) =>
   post<Suggestion>(`/api/projects/${pid}/suggestions`, { permitItemId, payload });

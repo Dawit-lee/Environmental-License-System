@@ -67,6 +67,8 @@ export interface PermitDocument {
   sha256: string;
   uploadedBy: string;
   uploadedAt: string;
+  supersedesDocumentId: number | null; // ④ new version of this earlier document
+  effectiveDate: string | null;
 }
 
 export interface PermitHistory {
