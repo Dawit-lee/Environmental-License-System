@@ -2,6 +2,7 @@ package com.envpermit.extraction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -47,7 +48,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
- * Text-PDF extraction through the REST API: real PostgreSQL, Claude answered from /claude fixtures, run inline.
+ * Text-PDF extraction through the REST API: real PostgreSQL, LLM answered from /claude or /gemini fixtures, run inline.
  * master = company ADMIN (may switch AI extraction), kim = project creator, park = other company.
  */
 class ExtractionApiTest extends IntegrationTest {
@@ -61,6 +62,10 @@ class ExtractionApiTest extends IntegrationTest {
     static final byte[] SCANNED_PDF = scanned(
             "Condition 3-2. Measure noise and vibration once per quarter",
             "Condition 5. Keep TMS records for 5 years.");
+
+    // usage of the recorded Gemini response: promptTokenCount, candidatesTokenCount + thoughtsTokenCount
+    static final int GEMINI_IN = 960;
+    static final int GEMINI_OUT = 617 + 954;
 
     @Autowired UserRepository users;
     @Autowired CompanyRepository companies;
@@ -109,7 +114,7 @@ class ExtractionApiTest extends IntegrationTest {
 
         extract(kim).andExpect(status().isForbidden())
                 .andExpect(status().reason("회사 설정에서 AI 추출이 꺼져 있습니다. 회사 마스터가 켤 수 있습니다."));
-        assertThat(claude.calls).isEmpty();
+        assertThat(llm.calls).isEmpty();
         assertThat(runs.count()).isZero();
     }
 
@@ -131,12 +136,13 @@ class ExtractionApiTest extends IntegrationTest {
     @Test
     void text_pdf_becomes_pending_suggestions_with_keys_and_quote_checks_mismatch_first() throws Exception {
         enable();
-        claude.answer("obligations-ok.json");
+        llm.answer("obligations-ok.json");
 
         long runId = runId(extract(kim).andExpect(status().isAccepted()));
 
         call(kim, get("/api/ai-runs/" + runId))
                 .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.provider").value("CLAUDE"))
                 .andExpect(jsonPath("$.model").value("claude-sonnet-5-5"))
                 .andExpect(jsonPath("$.promptVersion").value("obligation-v1"))
                 .andExpect(jsonPath("$.preparer").value("CLAUDE_PDF_DIRECT"))
@@ -148,9 +154,9 @@ class ExtractionApiTest extends IntegrationTest {
         String rawKey = runs.findById(runId).orElseThrow().getRawResponseKey();
         assertThat(new String(((InMemoryDocumentStorage) storage).objects.get(rawKey))).contains("msg_01Fixture0kThreeObligations");
         // the PDF itself was sent, with the schema-constrained output
-        assertThat(claude.calls).hasSize(1);
-        assertThat(((PreparedInput.Pdf) claude.calls.get(0).content()).bytes()).isEqualTo(PERMIT_PDF);
-        assertThat(claude.calls.get(0).schema().at("/properties/obligations/items/properties/category/enum").size())
+        assertThat(llm.calls).hasSize(1);
+        assertThat(((PreparedInput.Pdf) llm.calls.get(0).content()).bytes()).isEqualTo(PERMIT_PDF);
+        assertThat(llm.calls.get(0).schema().at("/properties/obligations/items/properties/category/enum").size())
                 .isEqualTo(22);
 
         call(kim, get("/api/projects/" + projectId + "/suggestions?runId=" + runId))
@@ -176,9 +182,35 @@ class ExtractionApiTest extends IntegrationTest {
     }
 
     @Test
+    void gemini_reads_the_same_pdf_into_the_same_rows_and_the_run_records_provider_and_tokens() throws Exception {
+        enable();
+        llm.use(Provider.GEMINI, "gemini-3.6-flash");
+        call(kim, get("/api/ai-provider")).andExpect(jsonPath("$.provider").value("GEMINI"))
+                .andExpect(jsonPath("$.label").value("Google Gemini"));
+        byte[] pdf = ExtractionApiTest.class.getResourceAsStream("/gemini/consultation-opinion.pdf").readAllBytes();
+        docId = upload("합성-협의의견서.pdf", pdf);
+        llm.answer("obligations-recorded.json"); // recorded from the real API on that PDF (see /gemini/README.md)
+
+        long runId = runId(extract(kim).andExpect(status().isAccepted()));
+
+        call(kim, get("/api/ai-runs/" + runId))
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.provider").value("GEMINI"))
+                .andExpect(jsonPath("$.model").value("gemini-3.6-flash"))
+                .andExpect(jsonPath("$.promptVersion").value("obligation-v1"))
+                .andExpect(jsonPath("$.inputTokens").value(GEMINI_IN))
+                .andExpect(jsonPath("$.outputTokens").value(GEMINI_OUT));
+        assertThat(((PreparedInput.Pdf) llm.calls.get(0).content()).bytes()).isEqualTo(pdf);
+        call(kim, get("/api/projects/" + projectId + "/suggestions?runId=" + runId))
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[*].payload.citation_key", containsInAnyOrder("3-2", "4-1", "5-3")))
+                .andExpect(jsonPath("$[*].payload.quote_check", contains("VERIFIED", "VERIFIED", "VERIFIED")));
+    }
+
+    @Test
     void zero_obligations_is_a_success_with_no_rows() throws Exception {
         enable();
-        claude.answer("obligations-empty.json");
+        llm.answer("obligations-empty.json");
 
         long runId = runId(extract(kim));
 
@@ -190,11 +222,11 @@ class ExtractionApiTest extends IntegrationTest {
     @Test
     void schema_violation_is_retried_once_then_the_run_fails_and_can_be_run_again() throws Exception {
         enable();
-        claude.answer("obligations-schema-violation.json", "obligations-schema-violation.json");
+        llm.answer("obligations-schema-violation.json", "obligations-schema-violation.json");
 
         long runId = runId(extract(kim));
 
-        assertThat(claude.calls).hasSize(2);
+        assertThat(llm.calls).hasSize(2);
         call(kim, get("/api/ai-runs/" + runId))
                 .andExpect(jsonPath("$.status").value("FAILED"))
                 .andExpect(jsonPath("$.errorMessage").value(startsWith("AI 응답")))
@@ -203,7 +235,7 @@ class ExtractionApiTest extends IntegrationTest {
         call(kim, get("/api/projects/" + projectId + "/suggestions")).andExpect(jsonPath("$.length()").value(0));
 
         // "다시 실행": a failed run does not count as "already extracted"
-        claude.answer("obligations-ok.json");
+        llm.answer("obligations-ok.json");
         long again = runId(extract(kim).andExpect(status().isAccepted()));
         call(kim, get("/api/ai-runs/" + again)).andExpect(jsonPath("$.status").value("SUCCEEDED"));
         call(kim, get("/api/projects/" + projectId + "/ai-runs"))
@@ -213,7 +245,7 @@ class ExtractionApiTest extends IntegrationTest {
     @Test
     void api_error_is_retried_once() throws Exception {
         enable();
-        claude.answer(new RuntimeException("overloaded_error"), "obligations-ok.json");
+        llm.answer(new RuntimeException("overloaded_error"), "obligations-ok.json");
 
         long runId = runId(extract(kim));
 
@@ -224,7 +256,7 @@ class ExtractionApiTest extends IntegrationTest {
     @Test
     void two_api_errors_fail_the_run() throws Exception {
         enable();
-        claude.answer(new RuntimeException("timeout"), new RuntimeException("timeout"));
+        llm.answer(new RuntimeException("timeout"), new RuntimeException("timeout"));
 
         long runId = runId(extract(kim));
 
@@ -236,7 +268,7 @@ class ExtractionApiTest extends IntegrationTest {
     @Test
     void same_file_again_needs_confirmation() throws Exception {
         enable();
-        claude.answer("obligations-ok.json", "obligations-ok.json");
+        llm.answer("obligations-ok.json", "obligations-ok.json");
         runId(extract(kim));
         long sameBytes = upload("협의의견서(사본).pdf", PERMIT_PDF);
 
@@ -255,13 +287,13 @@ class ExtractionApiTest extends IntegrationTest {
         extract(park).andExpect(status().isForbidden());
         call(kim, post("/api/projects/" + projectId + "/permit-items/" + permitId + "/documents/999/extractions"))
                 .andExpect(status().isNotFound());
-        assertThat(claude.calls).isEmpty();
+        assertThat(llm.calls).isEmpty();
     }
 
     @Test
     void run_is_visible_to_project_members_only() throws Exception {
         enable();
-        claude.answer("obligations-empty.json");
+        llm.answer("obligations-empty.json");
         long runId = runId(extract(kim));
 
         call(park, get("/api/ai-runs/" + runId)).andExpect(status().isForbidden());
@@ -352,7 +384,7 @@ class ExtractionApiTest extends IntegrationTest {
     private String scannedRun() throws Exception {
         enable();
         long scanId = upload("협의의견서-스캔.pdf", SCANNED_PDF);
-        claude.answer("obligations-ok.json");
+        llm.answer("obligations-ok.json");
         call(kim, post(path(scanId))).andExpect(status().isAccepted());
         return call(kim, get("/api/projects/" + projectId + "/suggestions")).andReturn().getResponse()
                 .getContentAsString();

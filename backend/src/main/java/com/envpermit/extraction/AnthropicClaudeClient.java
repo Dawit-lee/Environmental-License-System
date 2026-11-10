@@ -20,28 +20,38 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
-import org.springframework.stereotype.Component;
 
 /**
  * Real Messages API call: PDF document block + JSON-schema-constrained output (structured outputs).
  * The key comes only from env var ANTHROPIC_API_KEY (ANTHROPIC_BASE_URL is honoured for a local stub).
  * SDK retries are off: {@link Extraction} retries once, as design §3.9 says.
  */
-@Component
-class AnthropicClaudeClient implements ClaudeClient {
+class AnthropicClaudeClient implements LlmClient {
 
     private static final long MAX_TOKENS = 16_000;
 
     private final ObjectMapper json;
+    private final String model;
     private volatile AnthropicClient client;
 
-    AnthropicClaudeClient(ObjectMapper json) {
+    AnthropicClaudeClient(ObjectMapper json, String model) {
         this.json = json;
+        this.model = model;
+    }
+
+    @Override
+    public Provider provider() {
+        return Provider.CLAUDE;
+    }
+
+    @Override
+    public String model() {
+        return model;
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public String send(String model, String system, PreparedInput.Content content, String instruction,
+    public String send(String system, PreparedInput.Content content, String instruction,
                        JsonNode schema) {
         ContentBlockParam input = content instanceof PreparedInput.Pdf pdf
                 ? ContentBlockParam.ofDocument(DocumentBlockParam.builder()

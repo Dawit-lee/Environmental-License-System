@@ -23,7 +23,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 
 /**
  * Base for API tests: real PostgreSQL 16 (Testcontainers, shared across tests) + fixed clock
- * + in-memory document storage (replaces S3, so tests need no MinIO) + Claude fixtures, extraction run inline.
+ * + in-memory document storage (replaces S3, so tests need no MinIO) + LLM fixtures, extraction run inline.
  * Each test starts at {@link #START}; move time with {@code clock.advance(...)}.
  */
 @SpringBootTest(properties = {"app.jwt.secret=test-secret-test-secret-test-secret-0123456789",
@@ -51,7 +51,7 @@ public abstract class IntegrationTest {
     // extraction runs inline, so a test sees the finished run right after the 202
     @TestBean(name = "extractionExecutor", methodName = "com.envpermit.support.IntegrationTest#inlineExecutor")
     protected ExecutorService extractionExecutor;
-    @Autowired protected FixtureClaudeClient claude;
+    @Autowired protected FixtureLlmClient llm;
 
     static DocumentStorage memoryStorage() {
         return new InMemoryDocumentStorage();
@@ -64,7 +64,7 @@ public abstract class IntegrationTest {
     @BeforeEach
     void resetClock() {
         clock.set(START);
-        claude.reset();
+        llm.reset();
     }
 
     /**
@@ -96,8 +96,8 @@ public abstract class IntegrationTest {
 
         @Bean
         @Primary
-        FixtureClaudeClient fixtureClaude() {
-            return new FixtureClaudeClient();
+        FixtureLlmClient fixtureLlm() {
+            return new FixtureLlmClient();
         }
 
         @Bean
