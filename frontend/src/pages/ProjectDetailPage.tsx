@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import type { FacilityType, PermitCategory, PermitItem, PermitStatus, Project } from '../types';
 import { api } from '../api/client';
+import { latestDerivation, type DerivationWarning } from '../api/derivation';
 import PermitDetailDrawer from '../components/PermitDetailDrawer';
 
 // ---------------------------------------------------------------------------
@@ -83,6 +84,12 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [permits, setPermits] = useState<PermitItem[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [ruleWarnings, setRuleWarnings] = useState<DerivationWarning[]>([]);
+
+  useEffect(() => {
+    // approved items the current rules no longer find applicable; no derivation yet → 404, nothing to show
+    latestDerivation(Number(id)).then((d) => setRuleWarnings(d.warnings ?? []), () => setRuleWarnings([]));
+  }, [id]);
 
   useEffect(() => {
     setError(null);
@@ -163,6 +170,12 @@ export default function ProjectDetailPage() {
               <dd className="text-gray-700">{project.expectedEndDate ?? '—'}</dd>
             </dl>
           </div>
+
+          {ruleWarnings.map((w) => (
+            <p key={w.rule_key} className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-[#B45309]">
+              {w.permit_name} — {w.message}
+            </p>
+          ))}
 
           {/* Stats row */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
