@@ -37,6 +37,15 @@ export interface Project {
   permitCount: number;
   acquiredCount: number;
   nearExpiryCount: number;
+  teamId: number | null;
+  teamName: string | null;
+  departmentName: string | null;
+  pmUserId: number | null;
+  pmName: string | null;
+  emUserId: number | null;
+  emName: string | null;
+  /** false = company-wide view of a project I am not a member of (read-only) */
+  member: boolean;
 }
 
 export interface PermitItem {

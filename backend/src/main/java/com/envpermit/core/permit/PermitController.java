@@ -82,13 +82,13 @@ public class PermitController {
 
     @GetMapping("/api/projects/{projectId}/permits")
     List<PermitView> list(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
-        access.member(projectId, jwt);
+        access.viewer(projectId, jwt);
         return permits.findByProjectIdOrderById(projectId).stream().map(this::view).toList();
     }
 
     @GetMapping("/api/projects/{projectId}/permits/{id}")
     PermitView get(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId, @PathVariable long id) {
-        access.member(projectId, jwt);
+        access.viewer(projectId, jwt);
         return view(find(projectId, id));
     }
 
@@ -134,7 +134,7 @@ public class PermitController {
     @GetMapping("/api/projects/{projectId}/permits/{id}/history")
     List<HistoryView> history(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                               @PathVariable long id) {
-        access.member(projectId, jwt);
+        access.viewer(projectId, jwt);
         find(projectId, id);
         List<PermitStatusHistory> rows = history.findByPermitItemIdOrderByChangedAtDescIdDesc(id);
         Map<Long, String> names = users.findAllById(rows.stream().map(PermitStatusHistory::getChangedBy).toList())

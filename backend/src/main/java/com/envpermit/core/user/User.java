@@ -26,6 +26,7 @@ public class User {
     private Role role;
 
     private Long companyId;
+    private Long teamId;
 
     protected User() {
     }
@@ -48,4 +49,9 @@ public class User {
     public String getName() { return name; }
     public Role getRole() { return role; }
     public Long getCompanyId() { return companyId; }
+    public Long getTeamId() { return teamId; }
+
+    public void setTeamId(Long teamId) {
+        this.teamId = teamId;
+    }
 }

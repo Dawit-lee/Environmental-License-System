@@ -193,9 +193,18 @@ export default function ProjectDetailPage() {
               <dd className="text-gray-700">{project.startDate ?? '—'}</dd>
               <dt className="text-gray-400">준공예정일</dt>
               <dd className="text-gray-700">{project.expectedEndDate ?? '—'}</dd>
+              <dt className="text-gray-400">부서/팀</dt>
+              <dd className="text-gray-700">{project.teamName ? `${project.departmentName} / ${project.teamName}` : '—'}</dd>
+              <dt className="text-gray-400">PM / EM</dt>
+              <dd className="text-gray-700">{project.pmName ?? '—'} / {project.emName ?? '—'}</dd>
             </dl>
           </div>
 
+          {!project.member && (
+            <p className="mt-4 rounded-lg bg-[#F8F7F2] px-3 py-2 text-sm text-gray-600">
+              이 프로젝트의 멤버가 아니라 인허가 목록만 볼 수 있습니다. 수정하려면 프로젝트 어드민에게 멤버 추가를 요청하세요.
+            </p>
+          )}
           {ruleWarnings.map((w) => (
             <p key={w.rule_key} className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-[#B45309]">
               {w.permit_name} — {w.message}
