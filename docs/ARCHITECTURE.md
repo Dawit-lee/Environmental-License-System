@@ -1,6 +1,6 @@
 # 아키텍처
 
-환경기초시설 인허가 관리 시스템의 전체 구조입니다. 지금은 프론트엔드가 mock 데이터로 동작하고, 백엔드는 설계가 끝난 상태입니다. 상태는 맨 아래 [구현 현황](#8-구현-현황)에 정리했습니다.
+환경기초시설 인허가 관리 시스템의 전체 구조입니다. 아래 설계 중 대부분은 구현됐고, 일부(정확도 평가, AI 규칙 초안, OCR, 이메일 발송, 배포)는 아직입니다. 상태는 맨 아래 [구현 현황](#8-구현-현황)에 정리했습니다.
 
 ## 1. 설계 원칙
 
@@ -31,14 +31,14 @@ flowchart LR
 
   API --> DB[(PostgreSQL 16)]
   API --> S3[(S3<br/>문서·AI 원 응답)]
-  EXT -->|PDF 입력| LLM[Claude API]
+  EXT -->|PDF 입력| LLM[Claude / Gemini / OpenAI<br/>서버당 하나]
   DER -->|규칙 초안 작성| LLM
   LAW -->|매일 06:00| DRF[법제처 Open API<br/>law.go.kr/DRF]
   NOTI --> MAIL[SMTP]
 ```
 
 - 서버는 **한 대**를 전제로 합니다. 스케줄러는 Spring `@Scheduled`를 쓰고, 서버를 늘리면 ShedLock을 붙입니다.
-- 외부로 나가는 데이터는 두 종류입니다. 허가 문서(Claude)와 법령명 조회(법제처)입니다. 허가 문서 전송은 회사 단위 동의 설정(`ai_extraction_enabled`)이 켜져 있을 때만 일어납니다.
+- 외부로 나가는 데이터는 두 종류입니다. 허가 문서(설정한 AI 제공자)와 법령명 조회(법제처)입니다. 허가 문서 전송은 회사 단위 동의 설정(`ai_extraction_enabled`)이 켜져 있을 때만 일어납니다.
 
 ## 3. 백엔드 모듈
 
@@ -201,7 +201,7 @@ erDiagram
 
 ## 6. 프론트엔드
 
-`frontend/`는 React 18 + TypeScript + Tailwind + Vite입니다. 지금은 **mock 데이터**로만 동작합니다. 각 화면의 mock 상수 옆에 연결할 API를 `TODO`로 적어 두었습니다.
+`frontend/`는 React 18 + TypeScript + Tailwind + Vite입니다. 모든 화면이 실제 API를 씁니다. 예외: 대시보드의 상태 분포 차트·최근 활동은 아직 mock 상수이고, 프로젝트 상세의 "인허가 추가" 버튼은 연결되지 않았습니다.
 
 | 경로 | 화면 | 연결될 모듈 |
 |---|---|---|
@@ -222,13 +222,23 @@ erDiagram
 
 ## 8. 구현 현황
 
-| 영역 | 설계 | 구현 |
-|---|---|---|
-| 프론트엔드 화면 (mock) | — | ✅ 대시보드·프로젝트·캘린더·검토·법령 개정·자동 도출 |
-| 앱 뼈대 (core, 인증) | 진행 예정 | ⏳ |
-| ③ 사람 검토 + ① 허가증 추출 | ✅ 승인 | ⏳ |
-| ② 법령 개정 모니터링 | ✅ 승인 · 실제 API로 검증 | ⏳ (법제처 API 키 발급 완료) |
-| 인허가 자동 도출 엔진 | ✅ 승인 | ⏳ |
-| ④ 허가증 버전 비교 | ✅ 승인 | ⏳ |
+2026-11-10 `dev` 기준. ✅ 구현(테스트 있음) · 🟡 부분 · ⏳ 미구현. 괄호는 병합된 PR 번호, 테스트는 `backend/src/test/java/com/envpermit/` 아래입니다.
+
+| 영역 | 구현 | 설계와 다르거나 빠진 것 | 테스트 |
+|---|---|---|---|
+| 앱 뼈대: 인증(JWT), 회사·프로젝트·멤버 권한, 인허가 CRUD·상태 이력 (#4, #5) | ✅ | 화면에 인허가 추가·수정 폼 없음(API만) | `core/auth`, `core/project` |
+| 문서 첨부, S3 호환 저장소 (#7) | ✅ | — | `core/document` |
+| `notification` 기한 알림 D-90/60/30/7, 앱 알림, 캘린더 (#6) | 🟡 | 이메일은 `LogMailer`가 로그로만 남김(SMTP 없음) | `notification` |
+| `review` 검토 통로, 상태 전이, 감사 로그(추가 전용 트리거), 일괄 승인 (#9, #13) | ✅ | kind는 `OBLIGATION`, `PERMIT_ITEM`, `OBLIGATION_REVISION` 3개. `DERIVATION_RULE` 없음 | `review` |
+| `extraction` 텍스트 PDF 추출, 인용문 대조, 스캔본 원문 페이지 열람 (#12, #13) | 🟡 | OCR 입력 준비 단계 없음(스캔본은 `UNVERIFIABLE` + 사람이 페이지 확인) | `extraction` |
+| 추출 제공자 Claude / Gemini / OpenAI (#18, #20) | ✅ | Gemini·OpenAI는 실제 API 응답을 녹화해 테스트. Claude 응답 픽스처는 손으로 만든 것(실제 호출 미검증) | `extraction/*ClientTest`, `ProviderTest` |
+| `law` 카탈로그, 인허가↔법령 연결, 법제처 검색 (#8) | ✅ | — | `law/LawApiTest`, `LawApiClientTest` |
+| `law` 매일 개정 감지 배치, 영향 판정, 개정 알림 화면, 2회 연속 실패 시 관리자 알림 (#10, #14) | ✅ | 테스트는 법제처 응답 픽스처로 실행. 개정 이메일 요약도 로그로만 | `law/AmendmentBatchTest`, `ImpactRuleTest`, `LawImpactApiTest` |
+| 의무사항 승인 시 근거 법령 자동 연결 (#15) | ✅ | — | `obligation/ObligationLawLinkApiTest`, `law/LegalBasisTest` |
+| `derivation` 규칙 엔진(참/거짓/모름), 판정 보류, 판정 승인·법령 연결·재실행 (#11, #16) | 🟡 | 규칙은 시드 SQL로만 넣음. AI 규칙 초안, 규칙 관리자(`is_rule_admin`) 승인 없음 | `derivation` |
+| 정답셋 정확도 평가 (§4.3, `golden_case`·`golden_expected`) | ⏳ | 코드·테이블 없음. CI도 없음 | — |
+| `revision` 버전 비교 엔진, 짝 조정, 승인, 현장 반영 추적 (#17, #19, #21) | ✅ | — | `revision/DiffEngineTest`, `extraction/RevisionApiTest`, `RevisionApplyApiTest` |
+| 프론트엔드 | 🟡 | 대시보드 상태 분포 차트·최근 활동은 mock, 카카오 로그인 버튼은 동작 안 함 | — |
+| 배포 (Docker → AWS EC2) | ⏳ | 로컬 `docker compose`만 있음 | — |
 
 v2 후보: 입법예고 사전 경보, 자치법규(조례) 감시, 회사별 규칙 덮어쓰기, 지번으로 용도지역·지목 자동 조회, AI 보조 판정(규칙 밖 추가 검토 후보).
