@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
-import type { PermitStatus } from '../types';
+import type { PermitItem, PermitStatus, Project } from '../types';
+import { api } from '../api/client';
 import { getDeadlines, ymd, type Deadline } from '../api/notifications';
 import { openSiteImplementationCount } from '../api/revisions';
 
@@ -16,30 +17,51 @@ function dDayClasses(dDay: number): string {
   return 'text-gray-500';
 }
 
-interface StatusSlice {
-  status: PermitStatus;
-  label: string;
-  value: number;
-  color: string;
+const STATUSES: { status: PermitStatus; label: string; color: string }[] = [
+  { status: 'COMPLETED', label: '취득완료', color: '#0F6E56' },
+  { status: 'IN_PROGRESS', label: '진행중', color: '#1F4E79' },
+  { status: 'NOT_APPLIED', label: '미신청', color: '#9CA3AF' },
+  { status: 'NEAR_EXPIRY', label: '만료임박', color: '#B45309' },
+  { status: 'EXPIRED', label: '만료', color: '#991B1B' },
+];
+
+interface Activity {
+  key: string;
+  date: string;
+  text: string;
 }
 
-const STATUS_SLICES: StatusSlice[] = [
-  { status: 'COMPLETED', label: '취득완료', value: 36, color: '#0F6E56' },
-  { status: 'IN_PROGRESS', label: '진행중', value: 14, color: '#1F4E79' },
-  { status: 'NOT_APPLIED', label: '미신청', value: 9, color: '#9CA3AF' },
-  { status: 'NEAR_EXPIRY', label: '만료임박', value: 5, color: '#B45309' },
-  { status: 'EXPIRED', label: '만료', value: 1, color: '#991B1B' },
-];
-
-const ACTIVITY = [
-  { id: 1, date: '2026-05-28', text: '청주 자원회수시설 신설 — 대기배출시설 설치허가 신청서 접수' },
-  { id: 2, date: '2026-05-27', text: '부산 하수처리장 증설공사 — 폐기물처리시설 설치승인 취득완료' },
-  { id: 3, date: '2026-05-25', text: '부산 하수처리장 증설공사 — 소방시설 착공신고 상태가 만료임박으로 변경' },
-  { id: 4, date: '2026-05-22', text: '안산 산업단지 폐수처리장 — 프로젝트가 보류로 변경' },
-  { id: 5, date: '2026-05-20', text: '광주 통합바이오가스화시설 — 전체 인허가 취득완료' },
-];
+// Recent activity = latest application / acquisition dates recorded on permits.
+function recentActivity(projects: Project[], permits: PermitItem[]): Activity[] {
+  const names = new Map(projects.map((p) => [p.id, p.name]));
+  return permits
+    .flatMap((p) => [
+      p.applicationDate && { key: `a${p.id}`, date: p.applicationDate, text: `${names.get(p.projectId)} — ${p.name} 신청` },
+      p.acquisitionDate && { key: `q${p.id}`, date: p.acquisitionDate, text: `${names.get(p.projectId)} — ${p.name} 취득완료` },
+    ])
+    .filter((a): a is Activity => !!a && a.date <= ymd(new Date())) // planned future dates are not activity
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 5);
+}
 
 export default function DashboardPage() {
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [permits, setPermits] = useState<PermitItem[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  useEffect(() => {
+    // shortcut: one permits call per project; add a summary endpoint if project counts grow large.
+    api<Project[]>('/api/projects')
+      .then(async (ps) => {
+        const lists = await Promise.all(ps.map((p) => api<PermitItem[]>(`/api/projects/${p.id}/permits`)));
+        setProjects(ps);
+        setPermits(lists.flat());
+      })
+      .catch((e: Error) => setLoadError(e.message));
+  }, []);
+
+  const slices = STATUSES.map((s) => ({ ...s, value: permits.filter((p) => p.status === s.status).length }));
+  const activity = useMemo(() => recentActivity(projects, permits), [projects, permits]);
+
   // Deadlines due within 30 days (API returns them sorted by date).
   const [nearExpiry, setNearExpiry] = useState<Deadline[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -52,31 +74,30 @@ export default function DashboardPage() {
   }, []);
   const [siteOpen, setSiteOpen] = useState(0); // ④ approved revisions not yet carried out on site
 
-  const total = STATUS_SLICES.reduce((sum, s) => sum + s.value, 0);
+  const total = permits.length;
 
-  // Build conic-gradient stops for the donut.
-  const gradient = useMemo(() => {
-    let acc = 0;
-    const stops = STATUS_SLICES.map((s) => {
+  // Build conic-gradient stops for the donut (grey ring when there are no permits yet).
+  let acc = 0;
+  const gradient = total === 0 ? '#E5E3DC' : `conic-gradient(${slices
+    .map((s) => {
       const start = (acc / total) * 360;
       acc += s.value;
-      const end = (acc / total) * 360;
-      return `${s.color} ${start}deg ${end}deg`;
-    });
-    return `conic-gradient(${stops.join(', ')})`;
-  }, [total]);
+      return `${s.color} ${start}deg ${(acc / total) * 360}deg`;
+    })
+    .join(', ')})`;
 
   return (
     <div className="min-h-full bg-[#F8F7F2]">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold text-[#1F4E79]">대시보드</h1>
+        {loadError && <p className="mt-2 text-sm text-[#991B1B]">{loadError}</p>}
 
         {/* Summary cards */}
         <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
-          <SummaryCard label="전체 프로젝트" value={4} tone="text-[#1F4E79]" />
+          <SummaryCard label="전체 프로젝트" value={projects.length} tone="text-[#1F4E79]" />
           <SummaryCard label="전체 인허가" value={total} tone="text-gray-800" />
           <SummaryCard label="만료임박 (D-30 이내)" value={nearExpiry.length} tone="text-[#B45309]" />
-          <SummaryCard label="미신청" value={9} tone="text-[#991B1B]" />
+          <SummaryCard label="미신청" value={slices.find((s) => s.status === 'NOT_APPLIED')!.value} tone="text-[#991B1B]" />
           <SummaryCard label="현장 반영 대기 (건)" value={siteOpen} tone="text-[#0F6E56]" />
         </div>
 
@@ -134,7 +155,7 @@ export default function DashboardPage() {
                 </div>
               </div>
               <ul className="space-y-1.5 text-sm">
-                {STATUS_SLICES.map((s) => (
+                {slices.map((s) => (
                   <li key={s.status} className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
                     <span className="text-gray-600">{s.label}</span>
@@ -150,8 +171,9 @@ export default function DashboardPage() {
         <section className="mt-6 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">최근 활동</h2>
           <ul className="mt-3 divide-y divide-[#E5E3DC]">
-            {ACTIVITY.map((a) => (
-              <li key={a.id} className="flex gap-3 py-2.5 text-sm">
+            {activity.length === 0 && <li className="py-6 text-center text-sm text-gray-400">아직 기록된 신청·취득이 없습니다.</li>}
+            {activity.map((a) => (
+              <li key={a.key} className="flex gap-3 py-2.5 text-sm">
                 <span className="shrink-0 text-gray-400">{a.date}</span>
                 <span className="text-gray-700">{a.text}</span>
               </li>
