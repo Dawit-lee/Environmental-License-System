@@ -90,7 +90,7 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
                     {d === null ? '—' : d === 0 ? 'D-DAY' : d > 0 ? `D-${d}` : `D+${-d}`}
                   </td>
                   <td className="max-w-[120px] truncate px-4 py-2.5 text-gray-600" title={t?.assigneeName ?? ''}>{t ? t.assigneeName ?? '미지정' : '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{t ? `${t.evidenceCount}건` : '—'}</td>
+                  <td className="px-4 py-2.5 text-gray-600">{t ? `${t.evidenceCount + t.measurementCount}건` : '—'}</td>
                   <td className={`px-4 py-2.5 ${t && isOverdue(t) ? 'font-semibold text-[#991B1B]' : 'text-gray-600'}`}>{status(o)}</td>
                 </tr>
               );

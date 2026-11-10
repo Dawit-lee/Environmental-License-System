@@ -143,6 +143,7 @@ public class PermitObligation {
     public String getCitationRaw() { return citationRaw; }
     public String getCitationKey() { return citationKey; }
     public String getSummary() { return summary; }
+    public ObligationPayload.Type getType() { return type; }
     public Frequency getFrequency() { return frequency; }
     public LocalDate getFirstDueDate() { return firstDueDate; }
     public LocalDate getNextDueDate() { return nextDueDate; }

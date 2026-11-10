@@ -8,8 +8,15 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.PositiveOrZero;
 import java.math.BigDecimal;
+import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -18,6 +25,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,8 +37,9 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * F2 §3.1 운영 탭: emission points and their permit limits. Limits are entered by people (no AI path) and never
- * edited: a change closes the row and adds a new one, so the limit in force on any past date stays answerable.
+ * F2 §3.1 운영 탭: emission points, their permit limits and measured values. Limits are entered by people (no AI
+ * path) and never edited: a change closes the row and adds a new one, so the limit in force on any past date
+ * stays answerable. A measurement stores the limit and the judgement of the day it was entered ({@link Judgement}).
  */
 @RestController
 class EmissionController {
@@ -51,12 +60,24 @@ class EmissionController {
             LEFT JOIN permit_obligation o ON o.id = l.obligation_id
             """;
 
+    private static final String MEASUREMENTS = """
+            SELECT m.id, m.emission_point_id, m.pollutant, pl.name AS pollutant_name, m.measured_on, m.value, m.unit,
+                   m.below_detection, m.source, m.task_id, m.limit_id, m.limit_value, m.warn_ratio, m.level,
+                   u.name AS entered_by_name, m.entered_at
+            FROM measurement m
+            JOIN pollutant pl ON pl.code = m.pollutant
+            LEFT JOIN users u ON u.id = m.entered_by
+            WHERE m.deleted_at IS NULL
+            """;
+
     private final JdbcTemplate jdbc;
     private final ProjectAccess access;
+    private final Clock clock;
 
-    EmissionController(JdbcTemplate jdbc, ProjectAccess access) {
+    EmissionController(JdbcTemplate jdbc, ProjectAccess access, Clock clock) {
         this.jdbc = jdbc;
         this.access = access;
+        this.clock = clock;
     }
 
     record PollutantView(String code, String medium, String name, String unit) {
@@ -86,6 +107,26 @@ class EmissionController {
     }
 
     record CloseRequest(@NotNull LocalDate effectiveTo) {
+    }
+
+    /** limitId / limitValue / warnRatio: the limit in force on measuredOn when the value was entered (null: none). */
+    record MeasurementView(long id, long emissionPointId, String pollutant, String pollutantName, LocalDate measuredOn,
+                           BigDecimal value, String unit, boolean belowDetection, String source, Long taskId,
+                           Long limitId, BigDecimal limitValue, BigDecimal warnRatio, Judgement.Level level,
+                           String enteredByName, Instant enteredAt) {
+    }
+
+    /** belowDetection (불검출): value carries the quantitation limit and the judgement is NORMAL. */
+    record MeasurementRow(@NotNull LocalDate measuredOn, @NotBlank String pollutant, @NotNull @PositiveOrZero BigDecimal value,
+                          @NotBlank String unit, boolean belowDetection) {
+    }
+
+    /** taskId: the open task these values fulfil (완료 조건 O2). source defaults to MANUAL. */
+    record MeasurementRequest(@NotEmpty @Size(max = 500) List<@Valid MeasurementRow> rows, Long taskId,
+                              @Pattern(regexp = "MANUAL|PASTE") String source) {
+    }
+
+    record DeleteRequest(@NotBlank @Size(max = 300) String reason) {
     }
 
     @GetMapping("/api/pollutants")
@@ -195,6 +236,71 @@ class EmissionController {
         return limits("l.id = ?", id).get(0);
     }
 
+    // --- measurements ----------------------------------------------------------------------------------------------
+
+    /** Saves all rows or none. Each row is judged against the limit in force on its own measured day. */
+    @PostMapping("/api/emission-points/{id}/measurements")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Transactional
+    List<MeasurementView> addMeasurements(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
+                                          @Validated @RequestBody MeasurementRequest req) {
+        PointView p = point(id, jwt);
+        jdbc.queryForList("SELECT id FROM emission_point WHERE id = ? FOR UPDATE", id); // a limit change cannot slip in between lookup and insert
+        if (req.taskId() != null && jdbc.queryForList("SELECT id FROM obligation_task WHERE id = ? AND project_id = ? "
+                + "AND status = 'OPEN' FOR UPDATE", req.taskId(), p.projectId()).isEmpty()) {
+            throw unprocessable("측정값은 이 프로젝트의 열린 업무에만 연결할 수 있습니다.");
+        }
+        Timestamp now = Timestamp.from(clock.instant());
+        List<Long> ids = new ArrayList<>();
+        for (MeasurementRow r : req.rows()) {
+            String seedUnit = jdbc.queryForList("SELECT unit FROM pollutant WHERE code = ? AND medium = ?", String.class,
+                    r.pollutant(), p.medium()).stream().findFirst().orElseThrow(() -> unprocessable(
+                    "이 배출구(" + (p.medium().equals("AIR") ? "대기" : "수질") + ")에 쓸 수 없는 측정 항목입니다: " + r.pollutant()));
+            LimitView limit = limits("l.emission_point_id = ? AND l.pollutant = ? AND l.effective_from <= ?::date "
+                    + "AND (l.effective_to IS NULL OR l.effective_to >= ?::date)", id, r.pollutant(), r.measuredOn(),
+                    r.measuredOn()).stream().findFirst().orElse(null);
+            String unit = limit == null ? seedUnit : limit.unit();
+            if (!unit.equals(r.unit().trim())) { // v1 has no unit conversion
+                throw unprocessable("단위가 다릅니다: %s은(는) %s 단위로 입력하세요.".formatted(r.pollutant(), unit));
+            }
+            BigDecimal limitValue = limit == null ? null : limit.limitValue();
+            BigDecimal ratio = limit == null ? null : limit.warnRatio();
+            ids.add(jdbc.queryForObject("INSERT INTO measurement (emission_point_id, pollutant, measured_on, value, unit, "
+                            + "below_detection, source, task_id, limit_id, limit_value, warn_ratio, level, entered_by, entered_at) "
+                            + "VALUES (?, ?, ?::date, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id", Long.class,
+                    id, r.pollutant(), r.measuredOn(), r.value(), unit, r.belowDetection(),
+                    req.source() == null ? "MANUAL" : req.source(), req.taskId(), limit == null ? null : limit.id(),
+                    limitValue, ratio, Judgement.judge(r.value(), limitValue, ratio, r.belowDetection()).name(),
+                    userId(jwt), now));
+        }
+        return ids.stream().map(m -> measurements("AND m.id = ?", m).get(0)).toList();
+    }
+
+    /** Live (not deleted) values of the point, newest measured day first. */
+    @GetMapping("/api/emission-points/{id}/measurements")
+    List<MeasurementView> measurements(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
+                                       @RequestParam(required = false) String pollutant,
+                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        point(id, jwt);
+        return measurements("AND m.emission_point_id = ? AND (?::varchar IS NULL OR m.pollutant = ?) "
+                        + "AND (?::date IS NULL OR m.measured_on >= ?::date) AND (?::date IS NULL OR m.measured_on <= ?::date) "
+                        + "ORDER BY m.measured_on DESC, m.id DESC", id, pollutant, pollutant, from, from, to, to);
+    }
+
+    /** 오입력: soft delete with a reason; the row leaves every list and count. Correcting = delete + enter again. */
+    @DeleteMapping("/api/measurements/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    void deleteMeasurement(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @Validated @RequestBody DeleteRequest req) {
+        Long projectId = jdbc.queryForList("SELECT e.project_id FROM measurement m JOIN emission_point e "
+                        + "ON e.id = m.emission_point_id WHERE m.id = ? AND m.deleted_at IS NULL FOR UPDATE OF m", Long.class, id)
+                .stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        access.member(projectId, jwt);
+        jdbc.update("UPDATE measurement SET deleted_at = ?, deleted_by = ?, delete_reason = ? WHERE id = ?",
+                Timestamp.from(clock.instant()), userId(jwt), req.reason().trim(), id);
+    }
+
     // --- lookups: 404 unknown, 403 not a project member ----------------------------------------------------------
 
     private PointView point(long id, Jwt jwt) {
@@ -235,5 +341,14 @@ class EmissionController {
                 rs.getBigDecimal("warn_ratio"), rs.getObject("obligation_id", Long.class), rs.getString("obligation_summary"),
                 rs.getString("basis_text"), rs.getObject("effective_from", LocalDate.class),
                 rs.getObject("effective_to", LocalDate.class), rs.getBoolean("needs_review")), args);
+    }
+
+    private List<MeasurementView> measurements(String and, Object... args) {
+        return jdbc.query(MEASUREMENTS + and, (rs, i) -> new MeasurementView(rs.getLong("id"), rs.getLong("emission_point_id"),
+                rs.getString("pollutant"), rs.getString("pollutant_name"), rs.getObject("measured_on", LocalDate.class),
+                rs.getBigDecimal("value"), rs.getString("unit"), rs.getBoolean("below_detection"), rs.getString("source"),
+                rs.getObject("task_id", Long.class), rs.getObject("limit_id", Long.class), rs.getBigDecimal("limit_value"),
+                rs.getBigDecimal("warn_ratio"), Judgement.Level.valueOf(rs.getString("level")),
+                rs.getString("entered_by_name"), rs.getTimestamp("entered_at").toInstant()), args);
     }
 }

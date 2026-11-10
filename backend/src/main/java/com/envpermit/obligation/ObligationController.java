@@ -50,7 +50,8 @@ class ObligationController {
     }
 
     /** openTask: the current cycle (null: no due date yet, or ended). lastTask: the latest finished or cancelled one. */
-    record ObligationView(long id, long permitItemId, String citationKey, String summary, Frequency frequency,
+    record ObligationView(long id, long permitItemId, String citationKey, String summary, ObligationPayload.Type type,
+                          Frequency frequency,
                           LocalDate firstDueDate, LocalDate nextDueDate, PermitObligation.Status status,
                           Long sourceDocumentId, TaskView openTask, TaskView lastTask) {
     }
@@ -64,7 +65,7 @@ class ObligationController {
             }
         }
         return rows.stream().map(o -> new ObligationView(o.getId(), o.getPermitItemId(), o.getCitationKey(),
-                o.getSummary(), o.getFrequency(), o.getFirstDueDate(), o.getNextDueDate(), o.getStatus(),
+                o.getSummary(), o.getType(), o.getFrequency(), o.getFirstDueDate(), o.getNextDueDate(), o.getStatus(),
                 o.getSourceDocumentId(), open.get(o.getId()), last.get(o.getId()))).toList();
     }
 
