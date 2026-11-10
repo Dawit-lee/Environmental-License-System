@@ -13,6 +13,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,7 +21,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * The caller's own company. Users never see other companies.
- * shortcut: no create/delete endpoint; companies are made at onboarding (seed/SQL) until signup exists.
+ * Companies are created by signup ({@code SignupController}); no delete endpoint.
  */
 @RestController
 public class CompanyController {
@@ -72,6 +73,26 @@ public class CompanyController {
         Company c = myCompany(jwt);
         c.setAiExtraction(req.enabled(), Long.parseLong(jwt.getSubject()), clock.instant());
         return CompanyView.of(c);
+    }
+
+    record InviteCode(String code) {
+    }
+
+    /** The code applicants join with (link: /join/{code}). Master only. */
+    @GetMapping("/api/company/invite-code")
+    InviteCode inviteCode(@AuthenticationPrincipal Jwt jwt) {
+        requireMaster(jwt);
+        return new InviteCode(myCompany(jwt).getInviteCode());
+    }
+
+    /** New code; the old one stops working at once. */
+    @PostMapping("/api/company/invite-code")
+    @Transactional
+    InviteCode regenerateInviteCode(@AuthenticationPrincipal Jwt jwt) {
+        requireMaster(jwt);
+        Company c = myCompany(jwt);
+        c.regenerateInviteCode();
+        return new InviteCode(c.getInviteCode());
     }
 
     private static void requireMaster(Jwt jwt) {

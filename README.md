@@ -247,6 +247,19 @@ cp .env.example .env
 
 > ⚠️ **Gemini 무료 등급은 입력·응답을 Google 제품 개선에 쓸 수 있습니다.** 실제 회사 문서는 결제 계정이 연결된 유료 등급(학습 미사용)에서만 보내세요. 약관은 바뀔 수 있으니 [Gemini API 추가 약관](https://ai.google.dev/gemini-api/terms)을 직접 확인하세요. Claude·OpenAI도 마찬가지로 [Anthropic 약관](https://www.anthropic.com/legal)·[OpenAI 데이터 정책](https://openai.com/enterprise-privacy/)의 데이터 사용·보존 조건을 확인하세요. OpenAI 호출은 `store: false`로 보냅니다.
 
+**메일 (Gmail SMTP)** — `SMTP_HOST`가 있으면 실제로 보내고, 비우면 로그에만 남깁니다(`LogMailer`). 가입 요청·결과, 기한 알림, 법령 개정 메일이 모두 같은 발송기를 씁니다.
+1. 보낼 Gmail 계정에서 [2단계 인증](https://myaccount.google.com/signinoptions/two-step-verification)을 켭니다.
+2. [앱 비밀번호](https://myaccount.google.com/apppasswords)에서 앱 비밀번호(16자)를 만듭니다. 계정 비밀번호는 쓰지 않습니다.
+3. `.env`에 채웁니다:
+   ```
+   SMTP_HOST=smtp.gmail.com
+   SMTP_PORT=587            # STARTTLS
+   SMTP_USERNAME=you@gmail.com
+   SMTP_PASSWORD=앱비밀번호16자
+   SMTP_FROM=               # 비우면 SMTP_USERNAME
+   APP_BASE_URL=http://localhost:5182   # 메일 속 링크가 가리킬 웹 주소
+   ```
+
 ### 2. DB + API 실행 (Docker)
 ```bash
 docker compose up -d --build
@@ -254,7 +267,7 @@ docker compose up -d --build
 - PostgreSQL 16(`localhost:5432`), 문서 저장소(S3 호환 SeaweedFS, `localhost:8333`), API(`localhost:8080`)가 뜹니다. Flyway가 스키마를 만들고, API가 시작할 때 버킷을 만듭니다.
 - 포트가 이미 쓰이고 있으면 바꿔서 띄웁니다: `DB_PORT=15432 API_PORT=18080 docker compose up -d --build`
 - `SPRING_PROFILES_ACTIVE=dev`(기본값)이면 개발용 계정과 가상의 예시 데이터(회사·프로젝트·인허가)가 생깁니다. 로컬 전용, 운영 프로필에서는 만들어지지 않습니다. 비밀번호는 모두 `dev1234!`
-  - **dev@envpermit.local** — A사, 예시 프로젝트 4개의 생성자(어드민)
+  - **dev@envpermit.local** — A사 회사 관리자, 예시 프로젝트 4개의 생성자(어드민)
   - kim@envpermit.local — A사, 프로젝트 1의 일반 멤버(승인 권한 없음)
   - other@envpermit.local — B사. A사 프로젝트에 들어가면 403
 
@@ -292,6 +305,20 @@ Docker가 켜져 있어야 합니다. Testcontainers가 PostgreSQL 16 컨테이�
 
 Access 토큰 30분, Refresh 토큰 14일.
 
+### 회원가입 API
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| POST | `/api/auth/signup` | 새 회사 `{companyName, name, email, password}` → 회사 + 회사 관리자 계정, 바로 로그인 토큰 |
+| GET | `/api/auth/invite/{code}` | 초대 코드의 회사명 (없으면 404) |
+| POST | `/api/auth/join` | 가입 신청 `{code, name, email, password}` → 202. 승인 전에는 로그인 401(대기 안내) |
+| GET/POST | `/api/company/invite-code` | 회사 관리자: 초대 코드 보기 / 재발급(옛 코드 즉시 무효) |
+| GET | `/api/join-requests` | 회사 관리자: 대기 중 신청 |
+| POST | `/api/join-requests/{id}/approve` · `/reject` `{reason}` | 회사 관리자: 승인(계정 생성 + 회사 합류) / 거절. 다른 회사면 403 |
+
+- 회사 관리자 = `users.role = ADMIN`. 새 회사를 만든 사람이 첫 관리자입니다.
+- 신청하면 그 회사 관리자 전원에게 메일(`/join-requests` 링크)과 앱 알림이 갑니다. 한 명이 처리하면 끝나고, 신청자에게 결과 메일이 갑니다.
+- 이메일 중복 불가, 비밀번호 8자 이상, 대기 신청은 14일 후 만료, 같은 코드·IP는 10분에 3건까지.
+
 ### 기한 알림 API
 | 메서드 | 경로 | 설명 |
 |---|---|---|
@@ -302,7 +329,7 @@ Access 토큰 30분, Refresh 토큰 14일.
 
 - 다른 모듈은 `Deadlines.register(kind, targetId, projectId, title, dueDate, assigneeId)`로 기한을 등록합니다. 인허가 만료일은 자동 등록됩니다(`PERMIT_EXPIRY`).
 - 매일 07:00(서버 시작 시에도 한 번) D-90/60/30/7 앱 알림을 만들고, 사용자별 이메일 요약을 1통 보냅니다. 같은 일정·D-day 알림은 다시 만들지 않습니다.
-- 메일은 아직 로그로만 남깁니다(`LogMailer`). SMTP는 나중에 `Mailer` 구현만 바꾸면 됩니다.
+- 메일은 `SMTP_*`가 있으면 실제 발송, 없으면 로그(`LogMailer`). 위 '메일 (Gmail SMTP)' 참고.
 
 ### 문서 첨부 API
 프로젝트 멤버만 쓸 수 있습니다(아니면 403). 경로 앞부분은 `/api/projects/{projectId}/permits/{permitId}/documents`.

@@ -20,6 +20,14 @@ server:
     include-message: always # the UI shows our ResponseStatusException reasons (all user-facing Korean)
 
 app:
+  base-url: ${APP_BASE_URL:http://localhost:5182} # web app address used in mail links
+  # Mail: SMTP_HOST set → real SMTP (STARTTLS); empty → mail is only logged. See README (Gmail app password).
+  mail:
+    host: ${SMTP_HOST:}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:}
+    password: ${SMTP_PASSWORD:}
+    from: ${SMTP_FROM:}
   jwt:
     secret: ${JWT_SECRET}
     access-ttl: 30m
