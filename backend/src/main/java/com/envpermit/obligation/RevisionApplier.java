@@ -97,6 +97,10 @@ class RevisionApplier implements SuggestionApplier {
         switch (type) {
             case "CHANGED" -> {
                 o.revise(next, doc);
+                if (!computed.path("numeric_changes").isEmpty()) { // F2 §2.6: a person re-checks the limit; its value is never changed here
+                    jdbc.update("UPDATE permit_limit SET needs_review = TRUE WHERE obligation_id = ? "
+                            + "AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)", o.getId());
+                }
                 if (dueChanges) {
                     o.moveTo(ctx.firstDueDate());
                 }
