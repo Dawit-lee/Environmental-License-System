@@ -72,7 +72,7 @@ class RevisionApplyApiTest extends IntegrationTest {
                 {"name":"환경영향평가 협의","category":"ENVIRONMENT","status":"COMPLETED"}""")));
         v1 = upload("v1.pdf", null);
 
-        claude.answer("obligations-ok.json");
+        llm.answer("obligations-ok.json");
         long v1Run = runId(call(kim, post(base(v1) + "/extractions")).andExpect(status().isAccepted()));
         Map<String, String> due = Map.of("3-2", "2026-03-31", "5", "2026-06-30");
         for (JsonNode s : suggestions(v1Run)) {
@@ -83,7 +83,7 @@ class RevisionApplyApiTest extends IntegrationTest {
         }
 
         v2 = upload("v2.pdf", v1);
-        claude.answer("revision-v2.json");
+        llm.answer("revision-v2.json");
         runId = runId(call(kim, post(base(v2) + "/revisions")).andExpect(status().isAccepted()));
         reload();
     }
