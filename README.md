@@ -235,6 +235,18 @@ cp .env.example .env
 `.env`를 열어 `DB_PASSWORD`, `JWT_SECRET`(32바이트 이상, 예: `openssl rand -base64 48` 결과), `S3_SECRET_KEY`를 채웁니다.
 법제처 검색(관련 법령 추가)을 쓰려면 `LAW_API_OC`에 법제처 Open API OC를 넣습니다. 비워 두면 그 기능만 503을 돌려주고, 시드 법령 카탈로그와 연결은 그대로 동작합니다.
 
+**허가조건 AI 추출 제공자 (Claude / Gemini)** — 서버당 하나를 씁니다.
+
+| 환경변수 | 내용 |
+|---|---|
+| `EXTRACTION_PROVIDER` | `claude` 또는 `gemini`. 비우면 키가 있는 쪽(둘 다 있으면 Claude) |
+| `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` | API 키. 이 환경변수로만 받고 설정 파일·로그·응답 저장본에는 남기지 않습니다 |
+| `CLAUDE_MODEL` / `GEMINI_MODEL` | 모델 id (기본 `claude-sonnet-5-5` / `gemini-3.6-flash`). PDF 입력과 구조화 출력(JSON 스키마)을 지원하는 모델이어야 합니다 |
+
+회사 설정에서 마스터가 AI 추출을 켜야 실행되며, 실행 전 고지에 선택된 제공자 이름이 나옵니다. 실행마다 제공자·모델·프롬프트 버전·토큰 수가 `ai_run`에 남습니다.
+
+> ⚠️ **Gemini 무료 등급은 입력·응답을 Google 제품 개선에 쓸 수 있습니다.** 실제 회사 문서는 결제 계정이 연결된 유료 등급(학습 미사용)에서만 보내세요. 약관은 바뀔 수 있으니 [Gemini API 추가 약관](https://ai.google.dev/gemini-api/terms)을 직접 확인하세요. Claude도 마찬가지로 [Anthropic 약관](https://www.anthropic.com/legal)의 데이터 사용·보존 조건을 확인하세요.
+
 ### 2. DB + API 실행 (Docker)
 ```bash
 docker compose up -d --build

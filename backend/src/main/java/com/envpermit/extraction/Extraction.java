@@ -59,7 +59,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * ① obligation extraction (design §3.1): start() records a RUNNING ai_run, run() does the slow part off the
- * request thread: prepare input → Claude (1 retry on API error / schema violation) → citation_key + quote_check
+ * request thread: prepare input → LLM (1 retry on API error / schema violation) → citation_key + quote_check
  * → PENDING suggestions and SUCCEEDED in one transaction. A failed run keeps no suggestions.
  */
 @Service
@@ -79,19 +79,17 @@ public class Extraction {
     private final Review review;
     private final RevisionDiff revisions;
     private final ExtractionInputPreparer preparer;
-    private final ClaudeClient claude;
+    private final LlmClient llm;
     private final ObjectMapper json;
     private final Validator validator;
     private final TransactionTemplate tx;
     private final Clock clock;
-    private final String model;
     private final Duration staleAfter;
 
     Extraction(ProjectAccess access, ProjectRepository projects, CompanyRepository companies,
                PermitItemRepository permits, DocumentRepository documents, DocumentStorage storage,
-               AiRunRepository runs, Review review, RevisionDiff revisions, ExtractionInputPreparer preparer, ClaudeClient claude,
+               AiRunRepository runs, Review review, RevisionDiff revisions, ExtractionInputPreparer preparer, LlmClient llm,
                ObjectMapper json, Validator validator, TransactionTemplate tx, Clock clock,
-               @Value("${app.extraction.model}") String model,
                @Value("${app.extraction.stale-after}") Duration staleAfter) {
         this.access = access;
         this.projects = projects;
@@ -103,12 +101,11 @@ public class Extraction {
         this.review = review;
         this.revisions = revisions;
         this.preparer = preparer;
-        this.claude = claude;
+        this.llm = llm;
         this.json = json;
         this.validator = validator;
         this.tx = tx;
         this.clock = clock;
-        this.model = model;
         this.staleAfter = staleAfter;
     }
 
@@ -179,8 +176,8 @@ public class Extraction {
             inputRef.put("prev_document_id", doc.getSupersedesDocumentId());
         }
         long companyId = projects.findById(projectId).orElseThrow().getCompanyId();
-        return runs.save(AiRun.start(companyId, projectId, kind, inputRef, model, ObligationPrompt.VERSION,
-                preparer.name(), userId(jwt), clock.instant()));
+        return runs.save(AiRun.start(companyId, projectId, kind, inputRef, llm.model(), ObligationPrompt.VERSION,
+                preparer.name(), userId(jwt), clock.instant()).provider(llm.provider().name()));
     }
 
     /** The slow part. Never throws: every outcome ends as SUCCEEDED or FAILED on the run. */
@@ -203,10 +200,10 @@ public class Extraction {
             for (int attempt = 1; attempt <= ATTEMPTS && payloads == null; attempt++) {
                 String raw;
                 try {
-                    raw = claude.send(model, ObligationPrompt.SYSTEM, input.llmContent(), ObligationPrompt.INSTRUCTION,
+                    raw = llm.send(ObligationPrompt.SYSTEM, input.llmContent(), ObligationPrompt.INSTRUCTION,
                             ObligationPrompt.SCHEMA);
                 } catch (RuntimeException e) {
-                    log.warn("Claude call failed (run {}, attempt {})", runId, attempt, e);
+                    log.warn("LLM call failed (run {}, attempt {})", runId, attempt, e);
                     error = "AI 서비스 호출에 실패했습니다: " + e.getMessage();
                     continue;
                 }
@@ -215,17 +212,15 @@ public class Extraction {
                 storage.put(rawKey, new ByteArrayInputStream(rawBytes), rawBytes.length, "application/json");
                 try {
                     JsonNode res = json.readTree(raw);
-                    inTokens += res.path("usage").path("input_tokens").asInt()
-                            + res.path("usage").path("cache_read_input_tokens").asInt()
-                            + res.path("usage").path("cache_creation_input_tokens").asInt();
-                    outTokens += res.path("usage").path("output_tokens").asInt();
-                    payloads = payloads(parse(res), input.pageTexts());
+                    inTokens += llm.provider().inputTokens(res);
+                    outTokens += llm.provider().outputTokens(res);
+                    payloads = payloads(parse(llm.provider().text(res)), input.pageTexts());
                     error = null;
                 } catch (BadResponse e) {
-                    log.warn("Unusable Claude response (run {}, attempt {}): {}", runId, attempt, e.getMessage());
+                    log.warn("Unusable LLM response (run {}, attempt {}): {}", runId, attempt, e.getMessage());
                     error = e.getMessage();
                 } catch (Exception e) {
-                    log.warn("Unusable Claude response (run {}, attempt {})", runId, attempt, e);
+                    log.warn("Unusable LLM response (run {}, attempt {})", runId, attempt, e);
                     error = "AI 응답 형식이 올바르지 않습니다.";
                 }
             }
@@ -253,21 +248,8 @@ public class Extraction {
         });
     }
 
-    private ModelOutput parse(JsonNode res) throws Exception {
-        String stop = res.path("stop_reason").asText();
-        if ("refusal".equals(stop)) {
-            throw new BadResponse("AI가 이 문서의 처리를 거절했습니다.");
-        }
-        if ("max_tokens".equals(stop)) {
-            throw new BadResponse("AI 응답이 너무 길어 잘렸습니다.");
-        }
-        StringBuilder text = new StringBuilder();
-        res.path("content").forEach(b -> {
-            if ("text".equals(b.path("type").asText())) {
-                text.append(b.path("text").asText());
-            }
-        });
-        ModelOutput out = json.readValue(text.toString(), ModelOutput.class);
+    private ModelOutput parse(String text) throws Exception {
+        ModelOutput out = json.readValue(text, ModelOutput.class);
         String errors = validator.validate(out).stream().map(v -> v.getPropertyPath() + " " + v.getMessage())
                 .sorted().collect(Collectors.joining(", "));
         if (!errors.isEmpty()) {

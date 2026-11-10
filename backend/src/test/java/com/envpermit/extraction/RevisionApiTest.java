@@ -91,7 +91,7 @@ class RevisionApiTest extends IntegrationTest {
 
     @Test
     void pending_review_of_the_old_version_blocks_the_upload() throws Exception {
-        claude.answer("obligations-ok.json");
+        llm.answer("obligations-ok.json");
         call(kim, post(base(v1) + "/extractions")).andExpect(status().isAccepted());
 
         upload(permitId, "v2.pdf", v1, null).andExpect(status().isUnprocessableEntity())
@@ -115,7 +115,7 @@ class RevisionApiTest extends IntegrationTest {
         jdbc.update("UPDATE permit_obligation SET version = 4 WHERE citation_key = '3-2'");
         long v2 = id(upload(permitId, "v2.pdf", v1, null));
 
-        claude.answer("revision-v2.json");
+        llm.answer("revision-v2.json");
         long runId = runId(call(kim, post(base(v2) + "/revisions")).andExpect(status().isAccepted()));
 
         call(kim, get("/api/ai-runs/" + runId)).andExpect(jsonPath("$.status").value("SUCCEEDED"))
@@ -170,7 +170,7 @@ class RevisionApiTest extends IntegrationTest {
     void a_revision_in_progress_blocks_another_and_the_next_version() throws Exception {
         approveV1();
         long v2 = id(upload(permitId, "v2.pdf", v1, null));
-        claude.answer("revision-v2.json");
+        llm.answer("revision-v2.json");
         call(kim, post(base(v2) + "/revisions")).andExpect(status().isAccepted());
 
         call(kim, post(base(v2) + "/revisions")).andExpect(status().isUnprocessableEntity())
@@ -182,13 +182,13 @@ class RevisionApiTest extends IntegrationTest {
     @Test
     void pending_review_of_the_old_version_blocks_the_revision() throws Exception {
         long v2 = id(upload(permitId, "v2.pdf", v1, null));
-        claude.answer("obligations-ok.json");
+        llm.answer("obligations-ok.json");
         // v1 extracted after v2 was uploaded: its suggestions are still pending
         call(kim, post(base(v1) + "/extractions")).andExpect(status().isAccepted());
 
         call(kim, post(base(v2) + "/revisions")).andExpect(status().isUnprocessableEntity())
                 .andExpect(status().reason(FINISH_V1));
-        assertThat(claude.calls).hasSize(1);
+        assertThat(llm.calls).hasSize(1);
     }
 
     @Test
@@ -199,14 +199,14 @@ class RevisionApiTest extends IntegrationTest {
                 .andExpect(status().reason("개정 문서는 [개정 비교]로 처리합니다."));
         call(kim, post(base(v1) + "/revisions")).andExpect(status().isUnprocessableEntity())
                 .andExpect(status().reason("대체할 이전 버전이 없는 문서입니다."));
-        assertThat(claude.calls).isEmpty();
+        assertThat(llm.calls).isEmpty();
     }
 
     // --- helpers -------------------------------------------------------------------------------------------
 
     /** Extract v1 with the 3-row fixture and approve every suggestion. */
     private void approveV1() throws Exception {
-        claude.answer("obligations-ok.json");
+        llm.answer("obligations-ok.json");
         long runId = runId(call(kim, post(base(v1) + "/extractions")).andExpect(status().isAccepted()));
         for (JsonNode s : suggestions(runId)) {
             call(kim, json(post("/api/suggestions/" + s.get("id").asLong() + "/accept"),
