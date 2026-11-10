@@ -5,6 +5,7 @@ import static com.envpermit.core.project.ProjectAccess.userId;
 import com.envpermit.core.permit.PermitItemRepository;
 import com.envpermit.core.permit.PermitItemRepository.PermitCounts;
 import com.envpermit.core.org.Org;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
 import jakarta.validation.Valid;
@@ -73,7 +74,8 @@ public class ProjectController {
                        BigDecimal capacity, String capacityUnit, LocalDate startDate, LocalDate expectedEndDate,
                        Project.Status status, long permitCount, long acquiredCount, long nearExpiryCount,
                        Long teamId, String teamName, String departmentName,
-                       Long pmUserId, String pmName, Long emUserId, String emName, boolean member) {
+                       Long pmUserId, String pmName, Long emUserId, String emName, boolean member,
+                       JsonNode attributes) {
     }
 
     record MemberView(long userId, String name, String email, boolean isAdmin,
@@ -228,7 +230,7 @@ public class ProjectController {
                     c.total(), c.completed(), c.nearExpiry(),
                     p.getTeamId(), t == null ? null : t.name(), t == null ? null : t.departmentName(),
                     p.getPmUserId(), names.get(p.getPmUserId()), p.getEmUserId(), names.get(p.getEmUserId()),
-                    mine.contains(p.getId()));
+                    mine.contains(p.getId()), p.getAttributes());
         }).toList();
     }
 }

@@ -46,6 +46,8 @@ export interface Project {
   emName: string | null;
   /** false = company-wide view of a project I am not a member of (read-only) */
   member: boolean;
+  /** derivation input keyed by the field dictionary (backend Fields) */
+  attributes: Record<string, unknown> | null;
 }
 
 export interface PermitItem {
@@ -78,6 +80,7 @@ export interface PermitDocument {
   uploadedAt: string;
   supersedesDocumentId: number | null; // ④ new version of this earlier document
   effectiveDate: string | null;
+  permitItemId: number;
 }
 
 export interface PermitHistory {

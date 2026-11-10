@@ -17,5 +17,7 @@ public interface PermitObligationRepository extends JpaRepository<PermitObligati
 
     List<PermitObligation> findByPermitItemIdOrderById(long permitItemId);
 
+    List<PermitObligation> findByPermitItemIdInOrderByNextDueDateAscIdAsc(Collection<Long> permitItemIds);
+
     List<PermitObligation> findByPermitItemIdAndSourceDocumentIdInOrderById(long permitItemId, Collection<Long> documentIds);
 }

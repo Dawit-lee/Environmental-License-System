@@ -1,5 +1,6 @@
 package com.envpermit.core.document;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,8 @@ public interface DocumentRepository extends JpaRepository<Document, Long> {
             + "WHERE d.supersedes_document_id IS NOT NULL) ";
 
     List<Document> findByPermitItemIdOrderByUploadedAtDescIdDesc(long permitItemId);
+
+    List<Document> findByPermitItemIdInOrderByUploadedAtDescIdDesc(Collection<Long> permitItemIds);
 
     Optional<Document> findByIdAndPermitItemId(long id, long permitItemId);
 
