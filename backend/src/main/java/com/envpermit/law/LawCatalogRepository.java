@@ -18,6 +18,11 @@ public interface LawCatalogRepository extends JpaRepository<LawCatalog, Long> {
             + "or replace(coalesce(c.shortName, ''), ' ', '') like %?1% order by c.name")
     List<LawCatalog> autocomplete(String key, Limit limit);
 
+    /** Exact match on name or short name with spaces removed; {@code key} has no spaces. */
+    @Query("select c from LawCatalog c where replace(c.name, ' ', '') = ?1 "
+            + "or replace(coalesce(c.shortName, ''), ' ', '') = ?1")
+    List<LawCatalog> findByNameKey(String key);
+
     /** Attach orphan 시행령·시행규칙 to a newly added 법률 (name convention). */
     @Modifying
     @Query("update LawCatalog c set c.parentId = ?1 where c.parentId is null and c.name in (?2, ?3)")

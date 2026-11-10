@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { PermitDocument, PermitItem } from '../types';
 import { Link } from 'react-router';
 import { api, apiBlob, isMaster, type ApiError } from '../api/client';
-import { getAiProvider, getCompany, getRun, listRuns, setAiExtraction, startExtraction, type AiRun } from '../api/extraction';
-import { listSuggestions } from '../api/review';
+import { getAiProvider, getCompany, getRun, listRuns, setAiExtraction, startExtraction, startRevision, type AiRun } from '../api/extraction';
+import { listRevisions, listSuggestions } from '../api/review';
 
 // Attached files of one permit: list, upload, download, delete, and AI extraction of PDFs. Lives in PermitDetailDrawer.
 
@@ -29,6 +29,9 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
   const TRANSFER_NOTICE = notice(service);
   const [runs, setRuns] = useState<Record<number, AiRun>>({}); // latest run per document id
   const [found, setFound] = useState<Record<number, number>>({}); // run id → suggestions extracted
+  const [supersedes, setSupersedes] = useState(''); // ④ "이전 버전 대체": id of the document the upload replaces
+  const [effectiveDate, setEffectiveDate] = useState('');
+  const latest = docs.filter((d) => !docs.some((x) => x.supersedesDocumentId === d.id)); // one per version line
 
   useEffect(() => {
     getCompany().then((c) => setAiOn(c.aiExtractionEnabled), () => setAiOn(false));
@@ -47,7 +50,8 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
   useEffect(() => {
     const all = Object.values(runs);
     all.filter((r) => r.status === 'SUCCEEDED' && !(r.id in found)).forEach((r) =>
-      listSuggestions(permit.projectId, r.id).then((s) => setFound((f) => ({ ...f, [r.id]: s.length })), () => {}));
+      (r.inputRef?.prev_document_id ? listRevisions : listSuggestions)(permit.projectId, r.id)
+        .then((s) => setFound((f) => ({ ...f, [r.id]: s.length })), () => {}));
     const running = all.filter((r) => r.status === 'RUNNING');
     if (!running.length) return;
     const t = window.setTimeout(async () => {
@@ -62,11 +66,14 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
   }, [runs, found, permit.projectId]);
 
   async function extract(doc: PermitDocument) {
-    if (!window.confirm(`${TRANSFER_NOTICE}\n\n'${doc.fileName}'에서 이행 의무를 추출할까요?`)) return;
+    const revision = doc.supersedesDocumentId != null;
+    const ask = revision ? '이전 버전과 비교해 바뀐 조건을 찾을까요?' : '이행 의무를 추출할까요?';
+    if (!window.confirm(`${TRANSFER_NOTICE}\n\n'${doc.fileName}'에서 ${ask}`)) return;
     setError(null);
     try {
       let res;
-      try {
+      if (revision) res = await startRevision(permit.projectId, permit.id, doc.id);
+      else try {
         res = await startExtraction(permit.projectId, permit.id, doc.id);
       } catch (e) {
         if ((e as ApiError).status !== 409) throw e;
@@ -74,7 +81,8 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
         res = await startExtraction(permit.projectId, permit.id, doc.id, true);
       }
       setRuns((r) => ({ ...r, [doc.id]: { id: res.runId, status: 'RUNNING', errorMessage: null, model: null,
-        inputRef: { document_id: doc.id, permit_item_id: permit.id, sha256: doc.sha256 }, startedAt: '', finishedAt: null } }));
+        inputRef: { document_id: doc.id, permit_item_id: permit.id, sha256: doc.sha256,
+          prev_document_id: doc.supersedesDocumentId ?? undefined }, startedAt: '', finishedAt: null } }));
     } catch (e) {
       setError((e as Error).message);
     }
@@ -103,10 +111,14 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
     if (file.size > MAX_BYTES) return setError('파일은 10MB 이하만 올릴 수 있습니다.');
     const form = new FormData();
     form.append('file', file);
+    if (supersedes) form.append('supersedesDocumentId', supersedes);
+    if (supersedes && effectiveDate) form.append('effectiveDate', effectiveDate);
     setBusy(true);
     try {
       const doc = await api<PermitDocument>(base, { method: 'POST', body: form });
       setDocs((d) => [doc, ...d]);
+      setSupersedes('');
+      setEffectiveDate('');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -159,6 +171,9 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                 </button>
                 <p className="text-xs text-gray-400">
                   {sizeLabel(d.size)} · {d.uploadedBy} · {new Date(d.uploadedAt).toLocaleDateString('sv-SE')}
+                  {d.supersedesDocumentId != null &&
+                    ` · ${docs.find((x) => x.id === d.supersedesDocumentId)?.fileName ?? '이전 문서'} 대체`}
+                  {d.effectiveDate && ` · 시행 ${d.effectiveDate}`}
                 </p>
                 {runs[d.id] && <RunStatus run={runs[d.id]} count={found[runs[d.id].id]} onRetry={() => extract(d)} />}
               </div>
@@ -170,7 +185,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                   title={aiOn ? TRANSFER_NOTICE : '회사 설정에서 AI 추출이 꺼져 있습니다'}
                   className="whitespace-nowrap rounded-lg border border-[#E5E3DC] px-2 py-1 text-xs font-medium text-[#1F4E79] transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  AI 추출
+                  {d.supersedesDocumentId != null ? '개정 비교' : 'AI 추출'}
                 </button>
               )}
               <button
@@ -201,6 +216,25 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
           if (file) upload(file);
         }}
       />
+      {latest.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+          <label className="flex items-center gap-1.5">
+            이전 버전 대체
+            <select value={supersedes} onChange={(e) => setSupersedes(e.target.value)}
+              className="max-w-[12rem] rounded-lg border border-[#E5E3DC] bg-white px-2 py-1 text-xs">
+              <option value="">없음 (새 문서)</option>
+              {latest.map((d) => <option key={d.id} value={d.id}>{d.fileName}</option>)}
+            </select>
+          </label>
+          {supersedes && (
+            <label className="flex items-center gap-1.5">
+              시행일(선택)
+              <input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)}
+                className="rounded-lg border border-[#E5E3DC] px-2 py-1 text-xs" />
+            </label>
+          )}
+        </div>
+      )}
       <button
         type="button"
         disabled={busy}
@@ -227,7 +261,8 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
 }
 
 function RunStatus({ run, count, onRetry }: { run: AiRun; count?: number; onRetry: () => void }) {
-  if (run.status === 'RUNNING') return <p className="text-xs text-[#1F4E79]">AI 추출 중…</p>;
+  const revision = run.inputRef?.prev_document_id != null;
+  if (run.status === 'RUNNING') return <p className="text-xs text-[#1F4E79]">{revision ? '개정 비교 중…' : 'AI 추출 중…'}</p>;
   if (run.status === 'FAILED') {
     return (
       <p className="text-xs text-[#991B1B]">
@@ -237,6 +272,13 @@ function RunStatus({ run, count, onRetry }: { run: AiRun; count?: number; onRetr
     );
   }
   if (count === undefined) return null;
+  if (revision) {
+    return (
+      <p className="text-xs text-[#0F6E56]">
+        비교 결과 {count}건 · <Link to="/review" className="font-medium underline">검토하기</Link>
+      </p>
+    );
+  }
   return count > 0 ? (
     <p className="text-xs text-[#0F6E56]">
       의무사항 {count}건 추출 · <Link to="/review" className="font-medium underline">검토하기</Link>

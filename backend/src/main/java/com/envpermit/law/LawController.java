@@ -21,6 +21,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -66,6 +67,9 @@ public class LawController {
     }
 
     record LinkRequest(@NotNull Long lawCatalogId, String articleNo) {
+    }
+
+    record ArticleRequest(String articleNo) {
     }
 
     record LinkView(long id, long lawCatalogId, String lawId, String name, LawCatalog.Kind kind, String articleNo,
@@ -127,6 +131,29 @@ public class LawController {
         PermitLawLink l = links.save(new PermitLawLink(id, law.getId(), articleNo, PermitLawLink.Source.MANUAL,
                 clock.instant()));
         return ResponseEntity.status(HttpStatus.CREATED).body(view(l, law));
+    }
+
+    /** Changing the article (blank = whole law) makes the link MANUAL. Same law + article as another link → 409. */
+    @PatchMapping("/api/permit-items/{id}/law-links/{linkId}")
+    @Transactional
+    LinkView editArticle(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @PathVariable long linkId,
+                         @RequestBody ArticleRequest req) {
+        checkMember(id, jwt);
+        PermitLawLink l = links.findByIdAndPermitItemId(linkId, id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        String articleNo;
+        try {
+            articleNo = ArticleNo.normalize(req.articleNo());
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage());
+        }
+        links.findByPermitItemIdAndLawCatalogIdAndArticleNo(id, l.getLawCatalogId(), articleNo)
+                .filter(other -> !other.getId().equals(l.getId()))
+                .ifPresent(other -> {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "같은 법령·조문 연결이 이미 있습니다.");
+                });
+        l.editArticle(articleNo);
+        return view(l, catalog.findById(l.getLawCatalogId()).orElseThrow());
     }
 
     @DeleteMapping("/api/permit-items/{id}/law-links/{linkId}")

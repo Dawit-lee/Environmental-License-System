@@ -6,6 +6,7 @@ import {
   type Frequency, type ObligationPayload, type QuoteCheck, type Suggestion, type SuggestionEvent, type SuggestionStatus,
 } from '../api/review';
 import type { PermitItem, Project } from '../types';
+import RevisionSuggestions from '../components/RevisionSuggestions';
 
 // ---------------------------------------------------------------------------
 // ReviewQueuePage — ③ human review of permit conditions (obligations).
@@ -177,6 +178,8 @@ export default function ReviewQueuePage() {
         </div>
 
         {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+
+        {projectId && <RevisionSuggestions projectId={projectId} />}
 
         <div className="mt-5 flex flex-wrap gap-2">
           {(['ALL', 'PENDING', 'SUBMITTED', 'ACCEPTED', 'REJECTED'] as const).map((f) => (

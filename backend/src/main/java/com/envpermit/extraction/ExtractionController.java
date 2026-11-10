@@ -64,6 +64,15 @@ class ExtractionController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("runId", run.getId()));
     }
 
+    /** ④ "개정 비교": the document must supersede an earlier one. 202 + runId like extractions. */
+    @PostMapping("/api/projects/{projectId}/permit-items/{permitId}/documents/{documentId}/revisions")
+    ResponseEntity<Map<String, Long>> revise(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
+                                             @PathVariable long permitId, @PathVariable long documentId) {
+        AiRun run = extraction.startRevision(projectId, permitId, documentId, jwt);
+        executor.execute(() -> extraction.run(run.getId()));
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("runId", run.getId()));
+    }
+
     /** Which external AI documents go to, for the transfer notice shown before extraction (design §3.8). */
     @GetMapping("/api/ai-provider")
     Map<String, String> provider() {

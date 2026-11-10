@@ -13,12 +13,16 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.format.annotation.DateTimeFormat.ISO;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -40,6 +44,7 @@ public class DocumentController {
 
     static final long MAX_BYTES = 10 * 1024 * 1024;
     static final String TOO_LARGE = "파일은 10MB 이하만 올릴 수 있습니다.";
+    static final String ALREADY_SUPERSEDED = "이미 다른 문서로 대체된 문서입니다. 최신 문서를 선택하세요.";
     static final String BAD_TYPE = "PDF, JPG, PNG, XLSX 파일만 올릴 수 있습니다.";
 
     private final DocumentRepository documents;
@@ -60,7 +65,7 @@ public class DocumentController {
     }
 
     record DocumentView(long id, String fileName, String contentType, long size, String sha256,
-                        String uploadedBy, Instant uploadedAt) {
+                        String uploadedBy, Instant uploadedAt, Long supersedesDocumentId, LocalDate effectiveDate) {
     }
 
     @GetMapping("/api/projects/{projectId}/permits/{permitId}/documents")
@@ -75,9 +80,17 @@ public class DocumentController {
 
     @PostMapping("/api/projects/{projectId}/permits/{permitId}/documents")
     ResponseEntity<?> upload(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
-                             @PathVariable long permitId, @RequestParam("file") MultipartFile file)
+                             @PathVariable long permitId, @RequestParam("file") MultipartFile file,
+                             @RequestParam(required = false) Long supersedesDocumentId,
+                             @RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE) LocalDate effectiveDate)
             throws IOException {
         checkPermit(jwt, projectId, permitId);
+        if (supersedesDocumentId != null) {
+            String why = cannotSupersede(permitId, supersedesDocumentId);
+            if (why != null) {
+                return reject(HttpStatus.UNPROCESSABLE_ENTITY, why);
+            }
+        }
         if (file.getSize() > MAX_BYTES) {
             return reject(HttpStatus.PAYLOAD_TOO_LARGE, TOO_LARGE);
         }
@@ -93,8 +106,14 @@ public class DocumentController {
         String key = "permits/" + permitId + "/" + UUID.randomUUID();
         storage.put(key, new ByteArrayInputStream(bytes), bytes.length, type.contentType);
         // shortcut: if this save fails the stored object is orphaned; add a sweep if that ever matters
-        Document d = documents.save(new Document(permitId, name, type.contentType, bytes.length, sha256(bytes),
-                key, userId(jwt), clock.instant()));
+        Document d;
+        try {
+            d = documents.save(new Document(permitId, name, type.contentType, bytes.length, sha256(bytes),
+                    key, userId(jwt), clock.instant(), supersedesDocumentId, effectiveDate));
+        } catch (DataIntegrityViolationException e) { // a concurrent upload superseded the same document first
+            storage.delete(key);
+            return reject(HttpStatus.UNPROCESSABLE_ENTITY, ALREADY_SUPERSEDED);
+        }
         String uploader = users.findById(userId(jwt)).map(User::getName).orElse(null);
         return ResponseEntity.status(HttpStatus.CREATED).body(view(d, uploader));
     }
@@ -119,6 +138,22 @@ public class DocumentController {
         documents.delete(d);
         storage.delete(d.getStorageKey());
         return ResponseEntity.noContent().build();
+    }
+
+    /** ④ "이전 버전 대체" (design §3.2): same permit item, no successor yet, nothing left to review on its line. */
+    private String cannotSupersede(long permitId, long previousId) {
+        if (documents.findByIdAndPermitItemId(previousId, permitId).isEmpty()) {
+            return "같은 인허가 항목의 문서만 대체할 수 있습니다.";
+        }
+        if (documents.existsBySupersedesDocumentId(previousId)) {
+            return ALREADY_SUPERSEDED;
+        }
+        try {
+            documents.requireNoOpenReview(previousId);
+            return null;
+        } catch (ResponseStatusException e) {
+            return e.getReason();
+        }
     }
 
     private void checkPermit(Jwt jwt, long projectId, long permitId) {
@@ -154,6 +189,6 @@ public class DocumentController {
 
     private static DocumentView view(Document d, String uploader) {
         return new DocumentView(d.getId(), d.getFileName(), d.getContentType(), d.getSizeBytes(), d.getSha256(),
-                uploader, d.getUploadedAt());
+                uploader, d.getUploadedAt(), d.getSupersedesDocumentId(), d.getEffectiveDate());
     }
 }

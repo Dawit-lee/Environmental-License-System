@@ -2,20 +2,26 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { api } from '../api/client';
 import {
+  closedBySystem,
   derive,
+  listPermitSuggestions,
+  missingInputs,
   saveAttributes,
   type Attributes,
   type DerivationResult,
   type JudgementRow,
+  type MissingInput,
+  type PermitSuggestion,
   type RuleCategory,
 } from '../api/derivation';
+import { acceptSuggestion, editSuggestion, rejectSuggestion } from '../api/review';
 import type { FacilityType } from '../types';
 
 // ---------------------------------------------------------------------------
 // NewProjectPage — two-step wizard.
 //   Step 1: capture project attributes (field dictionary keys) and create the project.
 //   Step 2: the rule engine's judgement (POST /api/projects/{id}/derivations).
-//           APPLICABLE / ON_HOLD rows are now PENDING suggestions in the review pipeline.
+//           APPLICABLE / ON_HOLD rows are PENDING suggestions; approve/reject them right here.
 // ---------------------------------------------------------------------------
 
 const FACILITY_OPTIONS: { value: FacilityType; label: string }[] = [
@@ -96,21 +102,29 @@ export default function NewProjectPage() {
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<'ALL' | RuleCategory>('ALL');
   const [showNotApplicable, setShowNotApplicable] = useState(false);
+  const [suggestions, setSuggestions] = useState<PermitSuggestion[]>([]);
+  const [missing, setMissing] = useState<MissingInput[]>([]);
+  const [permitNames, setPermitNames] = useState<Set<string>>(new Set());
+  const [showClosed, setShowClosed] = useState(false);
 
   const rows = result?.results ?? [];
   const derived = rows.filter((r) => r.determination === 'APPLICABLE' || r.determination === 'ON_HOLD');
   const notApplicable = rows.filter((r) => r.determination === 'NOT_APPLICABLE');
 
-  // "추가 정보 필요": ON_HOLD rows grouped by the field they wait for
-  const waiting = useMemo(() => {
-    const acc: Record<string, { label: string; permits: string[] }> = {};
-    for (const r of derived) {
-      r.hold_info?.missing_fields.forEach((f, i) => {
-        (acc[f] ??= { label: r.hold_info!.missing_inputs[i], permits: [] }).permits.push(r.permit_name);
-      });
+  // "추가 정보 필요": pending ON_HOLD suggestions grouped by the field they wait for (server-side)
+  const waiting = useMemo(
+    () => Object.fromEntries(missing.map((m) => [m.field, { label: m.label, permits: m.rules }])),
+    [missing],
+  );
+  // latest suggestion per rule: what the review cell acts on
+  const byRule = useMemo(() => {
+    const acc: Record<string, PermitSuggestion> = {};
+    for (const s of suggestions) {
+      if (!closedBySystem(s) && (!acc[s.payload.rule_key] || acc[s.payload.rule_key].id < s.id)) acc[s.payload.rule_key] = s;
     }
     return acc;
-  }, [derived]);
+  }, [suggestions]);
+  const closed = suggestions.filter(closedBySystem);
 
   const canProceed =
     name.trim().length > 0 &&
@@ -132,10 +146,52 @@ export default function NewProjectPage() {
     ...(startDate ? { construction_start: startDate } : {}),
   });
 
-  // shortcut: every run adds a fresh PENDING set; superseding old ones is the re-run policy (permit-derivation/02)
+  const reload = async (pid: number) => {
+    const [s, m, permits] = await Promise.all([
+      listPermitSuggestions(pid),
+      missingInputs(pid),
+      api<{ name: string }[]>(`/api/projects/${pid}/permits`),
+    ]);
+    setSuggestions(s);
+    setMissing(m);
+    setPermitNames(new Set(permits.map((p) => p.name)));
+  };
+
+  // the server applies the re-run policy: unchanged suggestions stay, changed ones are replaced
   const run = async (pid: number, attrs: Attributes) => {
     await saveAttributes(pid, attrs);
     setResult(await derive(pid));
+    await reload(pid);
+  };
+
+  const act = async (fn: () => Promise<unknown>) => {
+    if (!projectId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await fn();
+      await reload(projectId);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const approve = (s: PermitSuggestion) =>
+    act(async () => {
+      const p = s.editedPayload ?? s.payload;
+      if (p.determination !== 'ON_HOLD') return acceptSuggestion(s, null);
+      // ON_HOLD can't be approved as is: the reviewer judges it applicable and says why (EDITED_ACCEPTED)
+      const why = window.prompt('해당으로 판단한 근거를 입력하세요.')?.trim();
+      if (!why) return;
+      const edited = await editSuggestion(s, { ...p, determination: 'APPLICABLE', hold_info: null, reason: why });
+      return acceptSuggestion(edited, null);
+    });
+
+  const reject = (s: PermitSuggestion) => {
+    const why = window.prompt('거절 사유')?.trim();
+    if (why) act(() => rejectSuggestion(s, why));
   };
 
   const handleNext = async () => {
@@ -377,12 +433,23 @@ export default function NewProjectPage() {
               <p className="mt-2 text-sm text-[#991B1B]">규칙 오류 {result.errors}건 — 해당 규칙은 판정하지 못했습니다.</p>
             )}
 
+            {result?.warnings?.map((w) => (
+              <p key={w.rule_key} className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-[#B45309]">
+                {w.permit_name}: {w.message} (등록된 항목은 그대로 둡니다)
+              </p>
+            ))}
+
             {/* Inputs the on-hold rows are waiting for */}
             {Object.keys(waiting).length > 0 && (
               <div className="mt-4 space-y-2">
                 <p className="text-sm font-semibold text-gray-700">추가 정보 필요</p>
                 {Object.entries(waiting).map(([k, w]) => {
-                  const cfg = EXTRA_INPUT[k] ?? { unit: '', placeholder: '' };
+                  const m = missing.find((x) => x.field === k)!;
+                  const cfg = EXTRA_INPUT[k] ?? {
+                    unit: m.unit,
+                    placeholder: '',
+                    options: m.type === 'ENUM' ? Object.entries(m.values).map(([value, label]) => ({ value, label })) : undefined,
+                  };
                   return (
                     <div
                       key={k}
@@ -457,6 +524,7 @@ export default function NewProjectPage() {
                     <th className="px-4 py-3 font-medium">해당 사유</th>
                     <th className="px-4 py-3 font-medium">관련 법규</th>
                     <th className="px-4 py-3 font-medium">승인 시점</th>
+                    <th className="px-4 py-3 font-medium">검토</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E3DC]">
@@ -493,13 +561,51 @@ export default function NewProjectPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {p.approval_stage}
-                        {p.required_by_text && <span className="block text-xs text-gray-400">{p.required_by_text}</span>}
+                        {p.required_by_text && (
+                          <span className="block text-xs text-gray-400">
+                            {p.required_by_text}
+                            {byRule[p.rule_key]?.payload.required_by_date && ` (${byRule[p.rule_key].payload.required_by_date})`}
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <ReviewCell
+                          s={byRule[p.rule_key]}
+                          duplicate={permitNames.has(p.permit_name)}
+                          busy={busy}
+                          onApprove={approve}
+                          onReject={reject}
+                        />
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {/* Suggestions the re-run replaced or closed (SYSTEM), with the reason */}
+            {closed.length > 0 && (
+              <div className="mt-4">
+                <button
+                  type="button"
+                  aria-expanded={showClosed}
+                  onClick={() => setShowClosed((v) => !v)}
+                  className="text-sm font-medium text-[#1F4E79] underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+                >
+                  {showClosed ? '재실행으로 정리된 제안 접기' : `재실행으로 정리된 제안 ${closed.length}건 보기`}
+                </button>
+                {showClosed && (
+                  <ul className="mt-2 divide-y divide-[#E5E3DC] rounded-lg border border-[#E5E3DC] text-sm">
+                    {closed.map((s) => (
+                      <li key={s.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5">
+                        <span className="font-medium text-gray-500">{s.payload.permit_name}</span>
+                        <span className="text-gray-600">시스템 · {s.rejectReason}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
 
             {/* Not-applicable rows, read-only */}
             {notApplicable.length > 0 && (
@@ -547,6 +653,42 @@ export default function NewProjectPage() {
           </section>
         )}
       </div>
+    </div>
+  );
+}
+
+function ReviewCell({
+  s,
+  duplicate,
+  busy,
+  onApprove,
+  onReject,
+}: {
+  s: PermitSuggestion | undefined;
+  duplicate: boolean;
+  busy: boolean;
+  onApprove: (s: PermitSuggestion) => void;
+  onReject: (s: PermitSuggestion) => void;
+}) {
+  if (!s) return <span className="text-gray-400">—</span>;
+  if (s.status === 'ACCEPTED' || s.status === 'EDITED_ACCEPTED') return <span className="text-[#0F6E56]">승인됨</span>;
+  if (s.status === 'REJECTED') return <span className="text-gray-500" title={s.rejectReason ?? ''}>거절됨</span>;
+  const onHold = (s.editedPayload ?? s.payload).determination === 'ON_HOLD';
+  const btn =
+    'rounded-md border px-2 py-1 text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30';
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex gap-1 whitespace-nowrap">
+        <button type="button" disabled={busy} onClick={() => onApprove(s)} className={`${btn} border-[#0F6E56] text-[#0F6E56] hover:bg-emerald-50`}>
+          {onHold ? '해당으로 승인' : '승인'}
+        </button>
+        <button type="button" disabled={busy} onClick={() => onReject(s)} className={`${btn} border-[#E5E3DC] text-gray-600 hover:bg-[#F8F7F2]`}>
+          거절
+        </button>
+      </div>
+      {s.status === 'SUBMITTED' && <span className="text-xs text-gray-500">결재 중</span>}
+      {s.payload.warning && <span className="text-xs text-[#B45309]">{s.payload.warning}</span>}
+      {duplicate && <span className="text-xs text-[#B45309]">중복 가능: 같은 이름의 항목이 있습니다</span>}
     </div>
   );
 }

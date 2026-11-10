@@ -41,6 +41,12 @@ public class PermitLawLink {
         this.createdAt = createdAt;
     }
 
+    /** A person's edit: the link is theirs now, whatever created it. */
+    public void editArticle(String articleNo) {
+        this.articleNo = ArticleNo.normalize(articleNo);
+        this.source = Source.MANUAL;
+    }
+
     public Long getId() { return id; }
     public Long getPermitItemId() { return permitItemId; }
     public Long getLawCatalogId() { return lawCatalogId; }

@@ -3,6 +3,7 @@ package com.envpermit.obligation;
 import com.envpermit.core.permit.PermitItem;
 import com.envpermit.core.permit.PermitItemRepository;
 import com.envpermit.core.project.ProjectAccess;
+import java.time.Clock;
 import java.time.LocalDate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,13 +22,15 @@ class ObligationController {
     private final PermitItemRepository permits;
     private final ProjectAccess access;
     private final ObligationApplier applier;
+    private final Clock clock;
 
     ObligationController(PermitObligationRepository obligations, PermitItemRepository permits, ProjectAccess access,
-                         ObligationApplier applier) {
+                         ObligationApplier applier, Clock clock) {
         this.obligations = obligations;
         this.permits = permits;
         this.access = access;
         this.applier = applier;
+        this.clock = clock;
     }
 
     /** nextDueDate overrides the computed one; required for OTHER and when no due date was set yet. */
@@ -55,7 +58,7 @@ class ObligationController {
         }
         LocalDate typed = req == null ? null : req.nextDueDate();
         if (o.getFrequency() == Frequency.ONCE) {
-            o.close();
+            o.close(clock.instant());
         } else {
             LocalDate next = typed != null ? typed
                     : o.getNextDueDate() == null ? null : o.getFrequency().next(o.getNextDueDate());

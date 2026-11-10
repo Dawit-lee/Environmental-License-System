@@ -30,7 +30,7 @@ public class PermitStatusHistory {
     protected PermitStatusHistory() {
     }
 
-    PermitStatusHistory(Long permitItemId, PermitItem.Status from, PermitItem.Status to, Long changedBy,
+    public PermitStatusHistory(Long permitItemId, PermitItem.Status from, PermitItem.Status to, Long changedBy,
                         Instant changedAt) {
         this.permitItemId = permitItemId;
         this.fromStatus = from;

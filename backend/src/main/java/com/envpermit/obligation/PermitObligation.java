@@ -6,6 +6,8 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Version;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -16,6 +18,8 @@ import org.hibernate.type.SqlTypes;
 public class PermitObligation {
 
     public enum Status { ACTIVE, CLOSED }
+
+    public enum ClosedReason { MANUAL, REVISION_REMOVED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,6 +52,11 @@ public class PermitObligation {
     private LocalDate nextDueDate;
     @Enumerated(EnumType.STRING)
     private Status status;
+    @Enumerated(EnumType.STRING)
+    private ClosedReason closedReason;
+    private Instant closedAt;
+    @Version
+    private long version; // live edits and revision approval both bump it (④ V11)
 
     protected PermitObligation() {
     }
@@ -80,9 +89,18 @@ public class PermitObligation {
         this.nextDueDate = next;
     }
 
-    void close() {
+    void close(Instant now) {
         this.status = Status.CLOSED;
+        this.closedReason = ClosedReason.MANUAL;
+        this.closedAt = now;
         this.nextDueDate = null;
+    }
+
+    /** The row as an OBLIGATION payload (version diff compares these). */
+    public ObligationPayload payload() {
+        return new ObligationPayload(citationRaw, citationKey, citationSynthetic, requirementText, summary, type,
+                category, responsibleParty, frequency, frequencyText, periodText, legalBasis, pageNo, sourceQuote,
+                quoteCheck);
     }
 
     public Long getId() { return id; }
@@ -94,4 +112,6 @@ public class PermitObligation {
     public LocalDate getFirstDueDate() { return firstDueDate; }
     public LocalDate getNextDueDate() { return nextDueDate; }
     public Status getStatus() { return status; }
+    public ClosedReason getClosedReason() { return closedReason; }
+    public long getVersion() { return version; }
 }
