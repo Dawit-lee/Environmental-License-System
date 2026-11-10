@@ -11,6 +11,7 @@ import NewProjectPage from './NewProjectPage';
 import ProjectOverview from '../components/ProjectOverview';
 import ProjectObligations from '../components/ProjectObligations';
 import ProjectDocuments from '../components/ProjectDocuments';
+import ProjectOperations from '../components/ProjectOperations';
 import ProjectMembers from '../components/ProjectMembers';
 
 // ---------------------------------------------------------------------------
@@ -84,7 +85,6 @@ const CATEGORY_TAB_ORDER: PermitCategory[] = [
   'LOCATION', 'FACILITY', 'CONSTRUCTION', 'ELECTRICAL', 'ENVIRONMENT',
 ];
 
-// Planned tab (not built yet): operations(운영, measured values).
 const TABS = [
   { key: 'overview', label: '개요' },
   { key: 'permits', label: '인허가' },
@@ -92,6 +92,7 @@ const TABS = [
   { key: 'review', label: 'AI 검토' },
   { key: 'laws', label: '법령 영향' },
   { key: 'schedule', label: '일정' },
+  { key: 'operations', label: '운영' },
   { key: 'documents', label: '문서' },
   { key: 'settings', label: '설정' },
 ] as const;
@@ -251,6 +252,7 @@ export default function ProjectDetailPage() {
           {tab === 'laws' && <LawAmendmentsPage key={id} projectId={project.id} />}
           {tab === 'schedule' && <CalendarPage key={id} projectId={project.id} />}
           {tab === 'obligations' && <ProjectObligations key={id} projectId={project.id} permits={permits} onOpenPermit={setSelected} />}
+          {tab === 'operations' && <ProjectOperations key={id} projectId={project.id} permits={permits} />}
           {tab === 'documents' && <ProjectDocuments key={id} projectId={project.id} permits={permits} onOpenPermit={setSelected} />}
           {tab === 'settings' && (
             <>

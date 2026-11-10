@@ -74,7 +74,7 @@ public abstract class IntegrationTest {
     protected void truncateAll() {
         String tables = String.join(",", jdbc.queryForList(
                 "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
-                        + "AND tablename NOT IN ('flyway_schema_history', 'law_catalog', 'derivation_rule', 'ruleset_state')",
+                        + "AND tablename NOT IN ('flyway_schema_history', 'law_catalog', 'derivation_rule', 'ruleset_state', 'pollutant')",
                 String.class));
         jdbc.execute("TRUNCATE " + tables + " RESTART IDENTITY CASCADE");
         jdbc.update("DELETE FROM law_catalog WHERE source <> 'SEED'");
