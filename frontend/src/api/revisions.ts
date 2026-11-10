@@ -1,6 +1,7 @@
 // ④ version-diff/03: site implementation of approved revisions, permit obligations and their revision log.
 import { api } from './client';
 import type { Frequency } from './review';
+import type { Task } from './tasks';
 
 export interface SiteImplementation {
   suggestionId: number;
@@ -29,6 +30,10 @@ export interface Obligation {
   nextDueDate: string | null;
   status: 'ACTIVE' | 'CLOSED';
   sourceDocumentId: number | null;
+  /** current cycle; null when there is no due date yet or the obligation ended */
+  openTask: Task | null;
+  /** latest finished or cancelled cycle */
+  lastTask: Task | null;
 }
 
 export interface RevisionLogEntry {
@@ -54,6 +59,6 @@ export const listObligations = (pid: number, permitId: number) =>
   api<Obligation[]>(`/api/projects/${pid}/permits/${permitId}/obligations`);
 export const revisionLog = (obligationId: number) => api<RevisionLogEntry[]>(`/api/obligations/${obligationId}/revision-log`);
 export const listProjectObligations = (pid: number) => api<Obligation[]>(`/api/projects/${pid}/obligations`);
-/** "이행 완료": next due date by frequency; pass nextDueDate when the server can't compute it (OTHER / no date). */
+/** Kept for obligations without a due date: a typed date opens the first cycle. With an open task it completes it. */
 export const completeObligation = (id: number, nextDueDate?: string) =>
   api<Obligation>(`/api/obligations/${id}/complete`, { method: 'POST', body: JSON.stringify({ nextDueDate: nextDueDate ?? null }) });

@@ -1,14 +1,18 @@
 package com.envpermit.obligation;
 
+import static com.envpermit.core.project.ProjectAccess.userId;
+
 import com.envpermit.core.permit.PermitItem;
 import com.envpermit.core.permit.PermitItemRepository;
 import com.envpermit.core.project.ProjectAccess;
+import com.envpermit.obligation.ObligationTasks.TaskView;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,33 +31,41 @@ class ObligationController {
     private final PermitObligationRepository obligations;
     private final PermitItemRepository permits;
     private final ProjectAccess access;
-    private final ObligationApplier applier;
-    private final Clock clock;
+    private final ObligationTasks tasks;
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
 
     ObligationController(PermitObligationRepository obligations, PermitItemRepository permits, ProjectAccess access,
-                         ObligationApplier applier, Clock clock, JdbcTemplate jdbc, ObjectMapper json) {
+                         ObligationTasks tasks, JdbcTemplate jdbc, ObjectMapper json) {
         this.jdbc = jdbc;
         this.json = json;
         this.obligations = obligations;
         this.permits = permits;
         this.access = access;
-        this.applier = applier;
-        this.clock = clock;
+        this.tasks = tasks;
     }
 
     /** nextDueDate overrides the computed one; required for OTHER and when no due date was set yet. */
     record CompleteRequest(LocalDate nextDueDate) {
     }
 
+    /** openTask: the current cycle (null: no due date yet, or ended). lastTask: the latest finished or cancelled one. */
     record ObligationView(long id, long permitItemId, String citationKey, String summary, Frequency frequency,
                           LocalDate firstDueDate, LocalDate nextDueDate, PermitObligation.Status status,
-                          Long sourceDocumentId) {
-        static ObligationView of(PermitObligation o) {
-            return new ObligationView(o.getId(), o.getPermitItemId(), o.getCitationKey(), o.getSummary(), o.getFrequency(),
-                    o.getFirstDueDate(), o.getNextDueDate(), o.getStatus(), o.getSourceDocumentId());
+                          Long sourceDocumentId, TaskView openTask, TaskView lastTask) {
+    }
+
+    private List<ObligationView> views(long projectId, List<PermitObligation> rows) {
+        Map<Long, TaskView> open = new HashMap<>();
+        Map<Long, TaskView> last = new HashMap<>();
+        for (TaskView t : tasks.list(projectId, null)) { // oldest first, so the newest wins
+            if (t.obligationId() != null) {
+                (t.status().equals("OPEN") ? open : last).put(t.obligationId(), t);
+            }
         }
+        return rows.stream().map(o -> new ObligationView(o.getId(), o.getPermitItemId(), o.getCitationKey(),
+                o.getSummary(), o.getFrequency(), o.getFirstDueDate(), o.getNextDueDate(), o.getStatus(),
+                o.getSourceDocumentId(), open.get(o.getId()), last.get(o.getId()))).toList();
     }
 
     record RevisionLogView(long id, String changeType, JsonNode before, Instant at, Long by, String byName) {
@@ -64,7 +76,7 @@ class ObligationController {
         access.member(projectId, jwt);
         permits.findById(permitId).filter(p -> p.getProjectId() == projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        return obligations.findByPermitItemIdOrderById(permitId).stream().map(ObligationView::of).toList();
+        return views(projectId, obligations.findByPermitItemIdOrderById(permitId));
     }
 
     /** Every obligation of the project (프로젝트 › 의무사항 tab), nearest due date first. */
@@ -72,8 +84,7 @@ class ObligationController {
     List<ObligationView> projectList(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
         access.member(projectId, jwt);
         List<Long> permitIds = permits.findByProjectIdOrderById(projectId).stream().map(PermitItem::getId).toList();
-        return obligations.findByPermitItemIdInOrderByNextDueDateAscIdAsc(permitIds).stream()
-                .map(ObligationView::of).toList();
+        return views(projectId, obligations.findByPermitItemIdInOrderByNextDueDateAscIdAsc(permitIds));
     }
 
     /** ④ 변경 이력: what each approved revision overwrote, oldest first. */
@@ -94,7 +105,10 @@ class ObligationController {
         }, id);
     }
 
-    /** "이행 완료": move to the next due date by frequency (month-end clamped); ONCE closes. */
+    /**
+     * "이행 완료" (kept for compatibility): completes the obligation's open task, with the same evidence rule.
+     * An obligation that has no due date yet has no task; a typed date gives it one.
+     */
     @PostMapping("/api/obligations/{id}/complete")
     @Transactional
     ObligationView complete(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
@@ -106,17 +120,16 @@ class ObligationController {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "이미 종료된 의무사항입니다.");
         }
         LocalDate typed = req == null ? null : req.nextDueDate();
-        if (o.getFrequency() == Frequency.ONCE) {
-            o.close(clock.instant());
+        TaskView open = tasks.openTask(id);
+        if (open != null) {
+            tasks.complete(open.id(), userId(jwt), null, typed, null);
+        } else if (typed == null) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, ObligationTasks.NEEDS_NEXT_DUE);
         } else {
-            LocalDate next = typed != null ? typed
-                    : o.getNextDueDate() == null ? null : o.getFrequency().next(o.getNextDueDate());
-            if (next == null) {
-                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "다음 기한일을 입력하세요.");
-            }
-            o.moveTo(next);
+            o.moveTo(typed);
+            tasks.sync(o, permit, "DUE_SET", userId(jwt));
         }
-        applier.registerDeadline(o, permit);
-        return ObligationView.of(o);
+        obligations.flush(); // the view below reads tasks by SQL
+        return views(permit.getProjectId(), List.of(o)).get(0);
     }
 }

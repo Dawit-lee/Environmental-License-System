@@ -33,9 +33,12 @@ class RevisionApplier implements SuggestionApplier {
     private final LawCatalogService laws;
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
+    private final ObligationTasks tasks;
 
     RevisionApplier(ObligationApplier obligationApplier, PermitObligationRepository obligations,
-                    PermitItemRepository permits, LawCatalogService laws, JdbcTemplate jdbc, ObjectMapper json) {
+                    PermitItemRepository permits, LawCatalogService laws, JdbcTemplate jdbc, ObjectMapper json,
+                    ObligationTasks tasks) {
+        this.tasks = tasks;
         this.obligationApplier = obligationApplier;
         this.obligations = obligations;
         this.permits = permits;
@@ -103,7 +106,8 @@ class RevisionApplier implements SuggestionApplier {
             case "REMOVED" -> o.closeByRevision(ctx.now());
             default -> throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "알 수 없는 판정: " + type);
         }
-        obligationApplier.registerDeadline(o, permit); // same (kind, target) → moved, never duplicated; null → removed
+        // one open task + one deadline per obligation: moved with the due date, cancelled/removed when REMOVED
+        tasks.sync(o, permit, "DUE_SET", ctx.actorId());
         return type.equals("CHANGED") ? openSiteImplementation(s, o.getId(), ctx) : o.getId();
     }
 

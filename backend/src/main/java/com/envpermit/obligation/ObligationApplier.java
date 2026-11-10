@@ -3,7 +3,6 @@ package com.envpermit.obligation;
 import com.envpermit.core.permit.PermitItem;
 import com.envpermit.core.permit.PermitItemRepository;
 import com.envpermit.law.LawCatalogService;
-import com.envpermit.notification.Deadlines;
 import com.envpermit.review.AiRun;
 import com.envpermit.review.AiRunRepository;
 import com.envpermit.review.AiSuggestion;
@@ -21,28 +20,26 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * OBLIGATION → permit_obligation + its first deadline + legal_basis law links (design §3.7).
+ * OBLIGATION → permit_obligation + its first task and deadline + legal_basis law links (design §3.7).
  * shortcut: manual rows have no source document.
  */
 @Component
 class ObligationApplier implements SuggestionApplier {
 
-    static final String DEADLINE_KIND = "OBLIGATION";
-
     private final PermitObligationRepository obligations;
     private final PermitItemRepository permits;
-    private final Deadlines deadlines;
+    private final ObligationTasks tasks;
     private final AiRunRepository runs;
     private final ObjectMapper json;
     private final Validator validator;
     private final LawCatalogService laws;
 
-    ObligationApplier(PermitObligationRepository obligations, PermitItemRepository permits, Deadlines deadlines,
+    ObligationApplier(PermitObligationRepository obligations, PermitItemRepository permits, ObligationTasks tasks,
                       AiRunRepository runs, ObjectMapper json, Validator validator, LawCatalogService laws) {
         this.laws = laws;
         this.obligations = obligations;
         this.permits = permits;
-        this.deadlines = deadlines;
+        this.tasks = tasks;
         this.runs = runs;
         this.json = json;
         this.validator = validator;
@@ -71,16 +68,9 @@ class ObligationApplier implements SuggestionApplier {
         PermitItem permit = permits.findById(s.getTargetParentId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "인허가 항목이 삭제되었습니다."));
         PermitObligation o = obligations.save(new PermitObligation(permit.getId(), sourceDocument(s), s.getId(), p, ctx.firstDueDate()));
-        registerDeadline(o, permit);
+        tasks.sync(o, permit, "ACCEPT", ctx.actorId()); // first due date → the first cycle's task + D-day
         laws.linkLegalBasis(permit.getId(), p.legalBasis() == null ? List.of() : p.legalBasis());
         return o.getId();
-    }
-
-    /** Also used by "이행 완료"; a null next due date removes the deadline. */
-    void registerDeadline(PermitObligation o, PermitItem permit) {
-        String title = permit.getName() + " · " + o.getSummary();
-        deadlines.register(DEADLINE_KIND, o.getId(), permit.getProjectId(), title.substring(0, Math.min(300, title.length())),
-                o.getNextDueDate(), null);
     }
 
     /** The extracted document (version diff's old set); null for manually added rows. */

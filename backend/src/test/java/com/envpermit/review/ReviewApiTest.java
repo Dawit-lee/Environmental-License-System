@@ -260,8 +260,10 @@ class ReviewApiTest extends IntegrationTest {
     @Test
     void complete_moves_next_due_date_by_frequency_clamped_to_month_end() throws Exception {
         long obligation = accepted("MONTHLY", "2026-01-31");
+        evidence(obligation);
         call(kim, post("/api/obligations/" + obligation + "/complete"))
                 .andExpect(jsonPath("$.nextDueDate").value("2026-02-28")).andExpect(jsonPath("$.status").value("ACTIVE"));
+        evidence(obligation); // each cycle needs its own
         call(kim, post("/api/obligations/" + obligation + "/complete"))
                 .andExpect(jsonPath("$.nextDueDate").value("2026-03-28"));
         call(kim, get("/api/deadlines?from=2026-01-01&to=2026-12-31"))
@@ -271,10 +273,12 @@ class ReviewApiTest extends IntegrationTest {
     @Test
     void complete_once_closes_and_other_needs_a_typed_date() throws Exception {
         long once = accepted("ONCE", "2026-02-10");
+        evidence(once);
         call(lee, post("/api/obligations/" + once + "/complete")).andExpect(jsonPath("$.status").value("CLOSED"));
         call(lee, post("/api/obligations/" + once + "/complete")).andExpect(status().isConflict());
 
         long other = accepted("OTHER", "2026-02-10");
+        evidence(other);
         call(lee, post("/api/obligations/" + other + "/complete")).andExpect(status().isUnprocessableEntity());
         call(lee, json(post("/api/obligations/" + other + "/complete"), "{\"nextDueDate\":\"2026-07-01\"}"))
                 .andExpect(jsonPath("$.nextDueDate").value("2026-07-01"));
@@ -330,6 +334,16 @@ class ReviewApiTest extends IntegrationTest {
         String body = call(kim, json(post("/api/suggestions/" + id + "/accept"),
                 "{\"firstDueDate\":\"" + firstDue + "\",\"version\":0}")).andReturn().getResponse().getContentAsString();
         return ((Number) JsonPath.read(body, "$.appliedEntityId")).longValue();
+    }
+
+    /** Completion needs an evidence document on the obligation's open task (operations-compliance/01). */
+    private void evidence(long obligation) throws Exception {
+        long doc = id(call(kim, org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                .multipart("/api/projects/" + projectId + "/permits/" + permitId + "/documents")
+                .file(new org.springframework.mock.web.MockMultipartFile("file", "증빙.pdf", "application/pdf", "%PDF-1.4 test".getBytes()))));
+        List<Number> task = JsonPath.read(call(kim, get("/api/projects/" + projectId + "/obligations"))
+                .andReturn().getResponse().getContentAsString(), "$[?(@.id==" + obligation + ")].openTask.id");
+        call(kim, json(post("/api/tasks/" + task.get(0) + "/evidence"), "{\"documentId\":" + doc + "}")).andExpect(status().isOk());
     }
 
     private long addSuggestion(String token, String frequency) throws Exception {

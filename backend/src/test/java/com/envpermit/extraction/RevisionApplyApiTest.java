@@ -128,6 +128,13 @@ class RevisionApplyApiTest extends IntegrationTest {
         assertThat(obligation(id)).containsEntry("status", "CLOSED").containsEntry("closed_reason", "REVISION_REMOVED")
                 .containsEntry("source_document_id", v1);
         assertThat(deadline(id)).isNull();
+        // operations-compliance/01: the open cycle is cancelled with the reason, never left behind
+        call(kim, get("/api/projects/" + projectId + "/tasks?obligationId=" + id))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].status").value("CANCELLED"))
+                .andExpect(jsonPath("$[0].cancelledReason").value("REVISION_REMOVED"));
+        call(kim, get("/api/projects/" + projectId + "/tasks"))
+                .andExpect(jsonPath("$[?(@.status=='OPEN')].length()").value(org.hamcrest.Matchers.hasSize(v1Ids.size() - 1)));
         call(kim, get("/api/suggestions/" + removed.get("id").asLong() + "/events"))
                 .andExpect(jsonPath("$[1].type").value("ACCEPTED"))
                 .andExpect(jsonPath("$[1].data.confirm_absent").value(true));
@@ -200,6 +207,8 @@ class RevisionApplyApiTest extends IntegrationTest {
     @Test
     void obligation_edited_after_the_diff_blocks_approval_until_rediff() throws Exception {
         long id = v1Ids.get("3-2");
+        long task = jdbc.queryForObject("SELECT id FROM obligation_task WHERE obligation_id = ? AND status = 'OPEN'", Long.class, id);
+        call(kim, json(post("/api/tasks/" + task + "/evidence"), "{\"documentId\":" + v1 + "}")).andExpect(status().isOk());
         call(kim, json(post("/api/obligations/" + id + "/complete"), "{}")).andExpect(status().isOk());
         JsonNode changed = byType.get("CHANGED");
 

@@ -148,7 +148,11 @@ public class DocumentController {
     ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                                 @PathVariable long permitId, @PathVariable long id) {
         Document d = find(jwt, projectId, permitId, id);
-        documents.delete(d);
+        try {
+            documents.delete(d);
+        } catch (DataIntegrityViolationException e) { // task_evidence: proof of a fulfilled cycle stays
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "업무 증빙으로 연결된 문서는 삭제할 수 없습니다. 증빙 연결을 먼저 해제하세요.");
+        }
         storage.delete(d.getStorageKey());
         return ResponseEntity.noContent().build();
     }
