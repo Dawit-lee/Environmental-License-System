@@ -1,7 +1,10 @@
 package com.envpermit.law;
 
 import com.envpermit.law.LawApiClient.LawRow;
+import java.time.Clock;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,12 +17,53 @@ public class LawCatalogService {
     static final String DECREE = " 시행령";
     static final String RULE = " 시행규칙";
 
+    /** First article reference in a key: 제N조(의M) or 별표N(의M). Anything after it (제1항 …) is ignored. */
+    private static final Pattern ARTICLE_REF = Pattern.compile("제\\d+조(?:의\\d+)?|별표\\d+(?:의\\d+)?");
+
     private final LawApiClient api;
     private final LawCatalogRepository catalog;
+    private final PermitLawLinkRepository links;
+    private final Clock clock;
 
-    public LawCatalogService(LawApiClient api, LawCatalogRepository catalog) {
+    public LawCatalogService(LawApiClient api, LawCatalogRepository catalog, PermitLawLinkRepository links,
+                             Clock clock) {
         this.api = api;
         this.catalog = catalog;
+        this.links = links;
+        this.clock = clock;
+    }
+
+    /** A legal_basis string as a name key (spaces and 「」 removed) and a normalized article (null = whole law). */
+    record Ref(String key, String articleNo) {
+    }
+
+    static Ref ref(String legalBasis) {
+        String s = key(legalBasis).replaceAll("[「」]", "");
+        Matcher m = ARTICLE_REF.matcher(s);
+        return m.find() ? new Ref(s.substring(0, m.start()), ArticleNo.normalize(m.group())) : new Ref(s, null);
+    }
+
+    /**
+     * Links each legal_basis law that matches exactly one catalog row by name or short name (spaces ignored)
+     * to the permit item as AI_EXTRACTED; an existing link is kept as is. Never throws for a bad string:
+     * a match failure must not block approval, and the string stays on the obligation.
+     * shortcut: no 법제처 search fallback (spec step 4) or field abbreviation dictionary; add when misses show up.
+     */
+    public void linkLegalBasis(long permitItemId, List<String> legalBasis) {
+        for (String raw : legalBasis) {
+            Ref r;
+            try {
+                r = ref(raw);
+            } catch (IllegalArgumentException e) { // e.g. 제0조
+                continue;
+            }
+            List<LawCatalog> hits = catalog.findByNameKey(r.key());
+            if (hits.size() == 1 && links.findByPermitItemIdAndLawCatalogIdAndArticleNo(
+                    permitItemId, hits.get(0).getId(), r.articleNo()).isEmpty()) {
+                links.save(new PermitLawLink(permitItemId, hits.get(0).getId(), r.articleNo(),
+                        PermitLawLink.Source.AI_EXTRACTED, clock.instant()));
+            }
+        }
     }
 
     /** Spaces removed; names are compared on this key. */
