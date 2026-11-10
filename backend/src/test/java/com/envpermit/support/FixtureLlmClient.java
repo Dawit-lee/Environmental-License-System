@@ -10,7 +10,7 @@ import java.util.Deque;
 import java.util.List;
 
 /**
- * LLM fake: answers with response bodies from /claude or /gemini (by the current provider; see their READMEs),
+ * LLM fake: answers with response bodies from /claude, /gemini or /openai (by the current provider; see their READMEs),
  * in the order queued. Queue a RuntimeException to simulate an API error. No network. Claude unless {@link #use}.
  */
 public class FixtureLlmClient implements LlmClient {
@@ -27,7 +27,7 @@ public class FixtureLlmClient implements LlmClient {
         reset();
     }
 
-    /** Fixture file names (in /claude or /gemini) or exceptions, answered in order. */
+    /** Fixture file names (in /claude, /gemini or /openai) or exceptions, answered in order. */
     public void answer(Object... fixturesOrErrors) {
         answers.addAll(List.of(fixturesOrErrors));
     }

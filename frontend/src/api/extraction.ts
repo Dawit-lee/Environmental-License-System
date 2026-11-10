@@ -6,7 +6,7 @@ export interface AiRun {
   status: 'RUNNING' | 'SUCCEEDED' | 'FAILED';
   errorMessage: string | null;
   inputRef: { document_id: number; permit_item_id: number; sha256: string; prev_document_id?: number } | null;
-  provider: 'CLAUDE' | 'GEMINI' | null;
+  provider: 'CLAUDE' | 'GEMINI' | 'OPENAI' | null;
   model: string | null;
   startedAt: string;
   finishedAt: string | null;
@@ -20,7 +20,7 @@ export interface Company {
 
 export const getCompany = () => api<Company>('/api/company');
 /** The external AI this server sends documents to (EXTRACTION_PROVIDER), for the transfer notice. */
-export const getAiProvider = () => api<{ provider: 'CLAUDE' | 'GEMINI'; label: string }>('/api/ai-provider');
+export const getAiProvider = () => api<{ provider: 'CLAUDE' | 'GEMINI' | 'OPENAI'; label: string }>('/api/ai-provider');
 export const setAiExtraction = (enabled: boolean) =>
   api<Company>('/api/company/ai-extraction', { method: 'PUT', body: JSON.stringify({ enabled }) });
 
