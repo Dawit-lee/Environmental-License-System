@@ -1,6 +1,8 @@
 package com.envpermit.notification;
 
+import java.util.Locale;
 import java.util.Properties;
+import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,6 +11,10 @@ import org.springframework.mail.javamail.JavaMailSenderImpl;
 
 /** Sends plain-text mail over SMTP with STARTTLS (e.g. Gmail app password, port 587). */
 class SmtpMailer implements Mailer {
+
+    // Reserved names (RFC 2606/6761/6762) never resolve; sending to them only produces bounces (e.g. dev seed users).
+    private static final Set<String> RESERVED_TLDS = Set.of("local", "localhost", "test", "example", "invalid");
+    private final LogMailer skipped = new LogMailer();
 
     private final JavaMailSenderImpl sender;
     private final String from;
@@ -32,12 +38,22 @@ class SmtpMailer implements Mailer {
 
     @Override
     public void send(String to, String subject, String body) {
+        if (undeliverable(to)) {
+            skipped.send(to, subject, body);
+            return;
+        }
         SimpleMailMessage m = new SimpleMailMessage();
         m.setFrom(from);
         m.setTo(to);
         m.setSubject(subject);
         m.setText(body);
         sender.send(m);
+    }
+
+    static boolean undeliverable(String to) {
+        String domain = to.substring(to.lastIndexOf('@') + 1).toLowerCase(Locale.ROOT);
+        String tld = domain.substring(domain.lastIndexOf('.') + 1);
+        return RESERVED_TLDS.contains(tld) || domain.endsWith(".example.com") || domain.equals("example.com");
     }
 
     @Configuration(proxyBeanMethods = false)
