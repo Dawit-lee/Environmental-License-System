@@ -3,8 +3,9 @@ import { Link } from 'react-router';
 import { apiBlob } from '../api/client';
 import { completeObligation, type Obligation } from '../api/revisions';
 import {
-  addEvidence, completeTask, documentPath, getTask, isOverdue, listObligationTasks, listPermitDocuments, removeEvidence,
-  taskStatusLabel, uploadPermitDocument, type Task, type TaskDetail, type TaskEvent,
+  addEvidence, completeTask, documentPath, getTask, isOverdue, listObligationTasks, listPermitDocuments, listProjectMembers,
+  removeEvidence, setDefaultAssignee, taskStatusLabel, updateTask, uploadPermitDocument,
+  type ProjectMember, type Task, type TaskDetail, type TaskEvent,
 } from '../api/tasks';
 import type { PermitDocument, PermitItem } from '../types';
 import { LEVEL, levelClass } from './PointMeasurements';
@@ -22,12 +23,12 @@ const CANCELLED: Record<string, string> = {
 };
 const day = (iso: string) => new Date(iso).toLocaleDateString('sv-SE');
 
-function eventText(e: TaskEvent): string {
+function eventText(e: TaskEvent, name: (id: unknown) => string): string {
   const d = e.data ?? {};
   switch (e.type) {
     case 'CREATED': return d.source === 'COMPLETE_NEXT' ? '다음 회차 업무 생성' : d.source === 'MIGRATION' ? '업무 생성 (기존 의무사항 이관)' : '업무 생성';
     case 'DUE_CHANGED': return `기한 변경 ${d.from} → ${d.to}`;
-    case 'ASSIGNED': return '담당 변경';
+    case 'ASSIGNED': return `담당 변경 ${name(d.from)} → ${name(d.to)}`;
     case 'EVIDENCE_ADDED': return '증빙 연결';
     case 'EVIDENCE_REMOVED': return '증빙 해제';
     case 'COMPLETED': return d.late ? '지연 완료' : '완료';
@@ -44,6 +45,8 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
   const [pick, setPick] = useState('');
   const [note, setNote] = useState('');
   const [nextDue, setNextDue] = useState('');
+  const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [due, setDue] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const file = useRef<HTMLInputElement>(null);
@@ -54,10 +57,12 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
     setCycles(list);
     const show = list.find((t) => t.id === taskId) ?? list.find((t) => t.status === 'OPEN') ?? list[list.length - 1];
     setDetail(show ? await getTask(show.id) : null);
+    setDue(show?.dueDate ?? '');
   };
   useEffect(() => {
     load().catch((e: Error) => setError(e.message));
     listPermitDocuments(projectId, obligation.permitItemId).then(setDocs, () => {});
+    listProjectMembers(projectId).then(setMembers, () => {});
   }, [projectId, obligation.id]);
 
   const run = async (fn: () => Promise<unknown>, changed = true) => {
@@ -100,6 +105,14 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
     await load(task!.id); // stay on the finished cycle; the next one shows up in the list below
   });
 
+  const memberName = (id: unknown) => (id == null ? '미지정' : members.find((m) => m.userId === id)?.name ?? '멤버 아님');
+  const change = (body: { assigneeId?: number | null; dueDate?: string }) => run(async () => {
+    await updateTask(task!.id, { ...body, version: task!.version });
+    await load(task!.id);
+  });
+  const field = 'rounded-lg border border-[#E5E3DC] px-2 py-1 text-sm';
+  const memberOptions = members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>);
+
   const row = 'flex justify-between gap-4 py-1 text-sm';
   const button = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
 
@@ -140,8 +153,42 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
               <section>
                 <h3 className="text-sm font-semibold text-gray-800">{open ? '현재 회차' : `${task.dueDate} 회차`}</h3>
                 <dl className="mt-2 divide-y divide-[#F0EEE7]">
-                  <div className={row}><dt className="text-gray-500">기한</dt><dd>{task.dueDate}</dd></div>
-                  <div className={row}><dt className="text-gray-500">담당</dt><dd>{task.assigneeName ?? '미지정 (프로젝트 멤버 전체)'}</dd></div>
+                  <div className={`${row} items-center`}>
+                    <dt className="text-gray-500">기한</dt>
+                    <dd className="flex items-center gap-2">
+                      {open ? (
+                        <>
+                          <input type="date" value={due} onChange={(e) => setDue(e.target.value)} aria-label="기한" className={field} />
+                          {due && due !== task.dueDate
+                            && <button type="button" disabled={busy} className={button} onClick={() => change({ dueDate: due })}>기한 변경</button>}
+                        </>
+                      ) : task.dueDate}
+                    </dd>
+                  </div>
+                  <div className={`${row} items-center`}>
+                    <dt className="text-gray-500">담당</dt>
+                    <dd>
+                      {open ? (
+                        <select value={task.assigneeId ?? ''} disabled={busy} aria-label="담당" className={field}
+                          onChange={(e) => change({ assigneeId: e.target.value ? Number(e.target.value) : null })}>
+                          <option value="">미지정 (프로젝트 멤버 전체)</option>
+                          {memberOptions}
+                        </select>
+                      ) : task.assigneeName ?? '미지정'}
+                    </dd>
+                  </div>
+                  {open && (
+                    <div className={`${row} items-center`}>
+                      <dt className="text-gray-500" title="다음 회차부터 새 업무의 담당자. 비우면 프로젝트 EM, 없으면 PM">기본 담당 (다음 회차부터)</dt>
+                      <dd>
+                        <select value={obligation.defaultAssigneeId ?? ''} disabled={busy} aria-label="기본 담당" className={field}
+                          onChange={(e) => run(() => setDefaultAssignee(obligation.id, e.target.value ? Number(e.target.value) : null))}>
+                          <option value="">프로젝트 EM → PM</option>
+                          {memberOptions}
+                        </select>
+                      </dd>
+                    </div>
+                  )}
                   <div className={row}>
                     <dt className="text-gray-500">상태</dt>
                     <dd className={isOverdue(task) ? 'font-semibold text-[#991B1B]' : ''}>
@@ -262,7 +309,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                 <h3 className="text-sm font-semibold text-gray-800">변경 기록</h3>
                 <ul className="mt-2 space-y-1 text-xs text-gray-600">
                   {detail.events.map((e, i) => (
-                    <li key={i} className="truncate">{day(e.at)} · {e.byName ?? '시스템'} · {eventText(e)}</li>
+                    <li key={i} className="truncate">{day(e.at)} · {e.byName ?? '시스템'} · {eventText(e, memberName)}</li>
                   ))}
                 </ul>
               </section>

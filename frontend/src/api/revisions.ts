@@ -32,6 +32,8 @@ export interface Obligation {
   nextDueDate: string | null;
   status: 'ACTIVE' | 'CLOSED';
   sourceDocumentId: number | null;
+  /** assignee of each new cycle; null → project EM → PM */
+  defaultAssigneeId: number | null;
   /** current cycle; null when there is no due date yet or the obligation ended */
   openTask: Task | null;
   /** latest finished or cancelled cycle */

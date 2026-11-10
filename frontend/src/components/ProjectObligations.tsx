@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { sessionUserId } from '../api/client';
 import { listProjectObligations, type Obligation } from '../api/revisions';
 import { isOverdue, taskStatusLabel } from '../api/tasks';
 import type { PermitItem } from '../types';
@@ -23,6 +24,8 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
   const [showClosed, setShowClosed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [who, setWho] = useState<'all' | 'me' | 'none'>('all');
+  const [state, setState] = useState<'all' | 'open' | 'overdue' | 'done'>('all');
 
   const load = () => listProjectObligations(projectId).then(setItems, (e: Error) => setError(e.message));
   useEffect(() => {
@@ -38,19 +41,43 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
   if (!items) return <p className="text-sm text-gray-400">{error ?? '불러오는 중…'}</p>;
 
   const permitById = new Map(permits.map((p) => [p.id, p]));
-  const rows = items.filter((o) => showClosed || o.status === 'ACTIVE');
+  const me = sessionUserId();
+  const rows = items.filter((o) => {
+    const t = o.openTask;
+    if (who === 'me' && (o.openTask ?? o.lastTask)?.assigneeId !== me) return false;
+    if (who === 'none' && !(t && t.assigneeId === null)) return false;
+    if (state === 'open') return !!t && !isOverdue(t);
+    if (state === 'overdue') return !!t && isOverdue(t);
+    if (state === 'done') return !t && o.lastTask?.status === 'DONE'; // finished for good; earlier cycles are in the row's detail
+    return showClosed || o.status === 'ACTIVE';
+  });
+  const select = 'rounded-lg border border-[#E5E3DC] bg-white px-2 py-1 text-sm text-gray-700';
   const closedCount = items.length - items.filter((o) => o.status === 'ACTIVE').length;
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-gray-500">AI 검토에서 승인된 의무사항입니다. 행을 누르면 이번 회차 업무에 증빙을 붙이고 완료할 수 있습니다.</p>
-        {closedCount > 0 && (
-          <label className="flex items-center gap-2 text-sm text-gray-600">
-            <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} className="accent-[#1F4E79]" />
-            종료된 의무사항 보기 ({closedCount})
+        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+          <label className="flex items-center gap-2">
+            담당
+            <select value={who} onChange={(e) => setWho(e.target.value as typeof who)} className={select}>
+              <option value="all">전체</option><option value="me">나</option><option value="none">미지정</option>
+            </select>
           </label>
-        )}
+          <label className="flex items-center gap-2">
+            상태
+            <select value={state} onChange={(e) => setState(e.target.value as typeof state)} className={select}>
+              <option value="all">전체</option><option value="open">열림</option><option value="overdue">기한 경과</option><option value="done">완료</option>
+            </select>
+          </label>
+          {closedCount > 0 && state === 'all' && (
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} className="accent-[#1F4E79]" />
+              종료된 의무사항 보기 ({closedCount})
+            </label>
+          )}
+        </div>
       </div>
       {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
 
@@ -97,7 +124,8 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
             })}
           </tbody>
         </table>
-        {rows.length === 0 && (
+        {rows.length === 0 && items.length > 0 && <p className="py-10 text-center text-sm text-gray-400">조건에 맞는 의무사항이 없습니다.</p>}
+        {items.length === 0 && (
           <p className="py-10 text-center text-sm text-gray-400">승인된 의무사항이 없습니다. 허가증을 올리고 AI 검토에서 승인하면 여기에 나옵니다.</p>
         )}
       </div>

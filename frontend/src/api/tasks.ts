@@ -79,6 +79,17 @@ export const removeEvidence = (id: number, documentId: number) =>
 export const completeTask = (id: number, body: { note?: string; nextDueDate?: string; version: number }) =>
   api<TaskDetail>(`/api/tasks/${id}/complete`, { method: 'POST', body: JSON.stringify(body) });
 
+/** 담당·기한 변경. A key left out stays as is; assigneeId null unassigns. */
+export const updateTask = (id: number, body: { assigneeId?: number | null; dueDate?: string; version: number }) =>
+  api<TaskDetail>(`/api/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(body) });
+/** My open tasks across projects (내 할 일). */
+export const listMyTasks = () => api<Task[]>('/api/tasks/mine');
+/** Who gets the cycles opened from now on; null falls back to the project EM, then PM. */
+export const setDefaultAssignee = (obligationId: number, defaultAssigneeId: number | null) =>
+  api<unknown>(`/api/obligations/${obligationId}`, { method: 'PATCH', body: JSON.stringify({ defaultAssigneeId }) });
+export interface ProjectMember { userId: number; name: string }
+export const listProjectMembers = (pid: number) => api<ProjectMember[]>(`/api/projects/${pid}/members`);
+
 const docs = (pid: number, permitId: number) => `/api/projects/${pid}/permits/${permitId}/documents`;
 export const listPermitDocuments = (pid: number, permitId: number) => api<PermitDocument[]>(docs(pid, permitId));
 /** Evidence uploaded from a task is stored as a document of the task's permit item. */

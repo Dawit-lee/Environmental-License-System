@@ -3,8 +3,9 @@ import { api } from './client';
 import { getLawImpacts } from './lawImpacts';
 import { getDeadlines, ymd } from './notifications';
 import { listSiteImplementations } from './revisions';
+import { listMyTasks } from './tasks';
 
-export type TodoKind = 'REVIEW' | 'LAW' | 'SITE' | 'DEADLINE';
+export type TodoKind = 'REVIEW' | 'LAW' | 'SITE' | 'TASK' | 'DEADLINE';
 
 export interface Todo {
   key: string;
@@ -18,7 +19,7 @@ export interface Todo {
 }
 
 export const TODO_LABEL: Record<TodoKind, string> = {
-  REVIEW: 'AI 검토 대기', LAW: '법령 개정 미확인', SITE: '현장 반영 대기', DEADLINE: '기한 임박',
+  REVIEW: 'AI 검토 대기', LAW: '법령 개정 미확인', SITE: '현장 반영 대기', TASK: '이행 업무', DEADLINE: '기한 임박',
 };
 
 interface OpenSuggestion {
@@ -30,7 +31,7 @@ interface OpenSuggestion {
 }
 
 /**
- * Open review items, unreviewed law impacts, site work and deadlines within `days` for the given projects
+ * Open review items, unreviewed law impacts, site work, my open tasks and deadlines within `days` for the given projects
  * (must be projects I am a member of), soonest due first, undated last.
  * shortcut: two calls per project; add a server-side inbox endpoint if project counts grow large.
  */
@@ -39,12 +40,15 @@ export async function loadTodos(projects: { id: number; name: string }[], days =
   const today = new Date();
   const until = new Date(today);
   until.setDate(until.getDate() + days);
-  const [suggestions, site, impacts, deadlines] = await Promise.all([
+  const [suggestions, site, impacts, deadlines, tasks] = await Promise.all([
     Promise.all(projects.map((p) => api<OpenSuggestion[]>(`/api/projects/${p.id}/suggestions`).then((l) => l.map((s) => ({ ...s, projectId: p.id }))))),
     Promise.all(projects.map((p) => listSiteImplementations(p.id, 'open'))),
     getLawImpacts(),
     getDeadlines(ymd(today), ymd(until)),
+    listMyTasks(),
   ]);
+  // a task of mine is listed as 이행 업무, so its own D-day entry would be a duplicate
+  const myObligations = new Set(tasks.map((t) => t.obligationId));
   const todos: Todo[] = [
     ...suggestions.flat()
       // same rows the review tab shows: obligations and version-diff revisions
@@ -62,7 +66,11 @@ export async function loadTodos(projects: { id: number; name: string }[], days =
       key: `s${s.suggestionId}`, kind: 'SITE', projectId: s.projectId, projectName: names.get(s.projectId)!,
       text: `${s.summary} — ${s.permitName}`, due: s.targetDate, to: `/projects/${s.projectId}/review`,
     })),
-    ...deadlines.filter((d) => names.has(d.projectId)).map((d): Todo => ({
+    ...tasks.filter((t) => names.has(t.projectId)).map((t): Todo => ({
+      key: `t${t.id}`, kind: 'TASK', projectId: t.projectId, projectName: names.get(t.projectId)!,
+      text: t.title, due: t.dueDate, to: `/projects/${t.projectId}/obligations`,
+    })),
+    ...deadlines.filter((d) => names.has(d.projectId) && !(d.kind === 'OBLIGATION' && myObligations.has(d.targetId))).map((d): Todo => ({
       key: `d${d.id}`, kind: 'DEADLINE', projectId: d.projectId, projectName: d.projectName,
       text: d.title, due: d.dueDate, to: `/projects/${d.projectId}/${d.kind === 'OBLIGATION' ? 'obligations' : 'schedule'}`,
     })),

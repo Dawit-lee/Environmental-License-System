@@ -98,7 +98,7 @@ export default function NotificationBell() {
                           n.readAt ? '' : n.offsetDays <= 7 ? 'text-[#991B1B]' : 'text-[#B45309]'
                         }`}
                       >
-                        D-{n.offsetDays}
+                        {n.offsetDays < 0 ? '기한 경과' : `D-${n.offsetDays}`}
                       </span>
                     )}
                     <span>{n.message}</span>
