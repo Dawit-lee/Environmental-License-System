@@ -16,6 +16,8 @@ export interface ObligationPayload {
   type: string;
   category: string;
   frequency: Frequency;
+  frequency_text?: string | null;
+  period_text?: string | null;
   responsible_party?: string | null;
   page_no?: number | null;
   source_quote?: string | null;
@@ -42,7 +44,8 @@ export interface SuggestionEvent {
   id: number;
   actorId: number | null;
   at: string;
-  type: 'CREATED' | 'EDITED' | 'PAGE_VIEWED' | 'SUBMITTED' | 'RETURNED' | 'ACCEPTED' | 'REJECTED' | 'REOPENED';
+  type: 'CREATED' | 'EDITED' | 'PAGE_VIEWED' | 'SUBMITTED' | 'RETURNED' | 'ACCEPTED' | 'REJECTED' | 'REOPENED'
+    | 'UNPAIRED' | 'PAIRED' | 'REDIFFED';
   data: { page_no?: number } | null;
 }
 
@@ -71,6 +74,7 @@ export interface RevisionPayload {
 export type RevisionSuggestion = Omit<Suggestion, 'kind' | 'payload' | 'editedPayload'> & {
   kind: 'OBLIGATION_REVISION';
   payload: RevisionPayload;
+  editedPayload: RevisionPayload | null;
 };
 export const listRevisions = (pid: number, runId?: number) =>
   api<(Suggestion | RevisionSuggestion)[]>(`/api/projects/${pid}/suggestions${runId ? `?runId=${runId}` : ''}`).then(
@@ -98,3 +102,13 @@ export const bulkAccept = (ids: number[]) =>
 // D7: opening a scan's page in the viewer is what allows approving it
 export const recordPageView = (id: number, pageNo: number) => post<void>(`/api/suggestions/${id}/page-views`, { pageNo });
 export const pageImage = (id: number, pageNo: number) => apiBlob(`/api/suggestions/${id}/pages/${pageNo}`);
+
+// ④ version-diff/02: approving a revision, pair restructure and rediff
+export const acceptRevision = (s: Ref, firstDueDate: string | null, confirmAbsent: boolean) =>
+  post<RevisionSuggestion>(`/api/suggestions/${s.id}/accept`, { firstDueDate, confirmAbsent, version: s.version });
+export const unpairRevision = (s: Ref) => post<RevisionSuggestion[]>(`/api/suggestions/${s.id}/unpair`, { version: s.version });
+export const pairRevisions = (added: Ref, removed: Ref) =>
+  post<RevisionSuggestion>('/api/suggestions/pair', {
+    addedId: added.id, removedId: removed.id, addedVersion: added.version, removedVersion: removed.version,
+  });
+export const rediffRevision = (s: Ref) => post<RevisionSuggestion>(`/api/suggestions/${s.id}/rediff`, { version: s.version });

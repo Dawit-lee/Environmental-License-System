@@ -21,6 +21,7 @@ public interface SuggestionApplier {
     /** Create the live row(s); returns the live row id. */
     long apply(AiSuggestion s, JsonNode effectivePayload, ApplyContext ctx);
 
-    record ApplyContext(Long actorId, LocalDate firstDueDate, Instant now) {
+    /** confirmAbsent: ④ "v2 원문에 없음을 확인함" checked. bulk: decided by bulk approval (no per-item input). */
+    record ApplyContext(Long actorId, LocalDate firstDueDate, Instant now, boolean confirmAbsent, boolean bulk) {
     }
 }

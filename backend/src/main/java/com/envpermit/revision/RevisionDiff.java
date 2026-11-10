@@ -41,14 +41,16 @@ public class RevisionDiff {
         List<Snapshot> old = obligations
                 .findByPermitItemIdAndSourceDocumentIdInOrderById(permitId, documents.versionLine(prevDocumentId))
                 .stream().filter(o -> o.getClosedReason() != ClosedReason.REVISION_REMOVED)
-                .map(o -> new Snapshot(o.getId(), o.getVersion(), o.getStatus() == PermitObligation.Status.CLOSED,
-                        o.payload()))
-                .toList();
+                .map(RevisionDiff::snapshot).toList();
         List<ObligationPayload> rows = extracted.stream().map(n -> json.convertValue(n, ObligationPayload.class)).toList();
         return DiffEngine.diff(rows, old, cfg).stream().map(this::payload).toList();
     }
 
-    private JsonNode payload(Change c) {
+    static Snapshot snapshot(PermitObligation o) {
+        return new Snapshot(o.getId(), o.getVersion(), o.getStatus() == PermitObligation.Status.CLOSED, o.payload());
+    }
+
+    JsonNode payload(Change c) {
         ObjectNode p = json.createObjectNode();
         p.put("change_type", c.type().name());
         p.put("prev_obligation_id", c.old() == null ? null : c.old().id());

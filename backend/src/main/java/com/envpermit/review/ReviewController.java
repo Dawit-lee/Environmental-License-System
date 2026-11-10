@@ -49,7 +49,7 @@ class ReviewController {
     record SubmitRequest(@NotNull Decision proposedDecision, @Size(max = 500) String reason, @NotNull Long version) {
     }
 
-    record AcceptRequest(LocalDate firstDueDate, @NotNull Long version) {
+    record AcceptRequest(LocalDate firstDueDate, boolean confirmAbsent, @NotNull Long version) {
     }
 
     record ReasonRequest(@NotBlank @Size(max = 500) String reason, @NotNull Long version) {
@@ -117,7 +117,7 @@ class ReviewController {
     @PostMapping("/api/suggestions/{id}/accept")
     SuggestionView accept(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
                           @Valid @RequestBody AcceptRequest req) {
-        return SuggestionView.of(review.accept(id, jwt, req.firstDueDate(), req.version(), false));
+        return SuggestionView.of(review.accept(id, jwt, req.firstDueDate(), req.confirmAbsent(), req.version(), false));
     }
 
     @PostMapping("/api/suggestions/{id}/reject")
@@ -152,7 +152,7 @@ class ReviewController {
         List<BulkResult> out = new ArrayList<>();
         for (long id : req.ids()) {
             try {
-                review.accept(id, jwt, null, null, true);
+                review.accept(id, jwt, null, false, null, true);
                 out.add(new BulkResult(id, true, null));
             } catch (ResponseStatusException e) {
                 out.add(new BulkResult(id, false, e.getReason() != null ? e.getReason() : e.getStatusCode().toString()));

@@ -19,7 +19,8 @@ import org.hibernate.type.SqlTypes;
 @Table(name = "ai_suggestion_event")
 public class SuggestionEvent {
 
-    public enum Type { CREATED, EDITED, PAGE_VIEWED, SUBMITTED, RETURNED, ACCEPTED, REJECTED, REOPENED }
+    public enum Type { CREATED, EDITED, PAGE_VIEWED, SUBMITTED, RETURNED, ACCEPTED, REJECTED, REOPENED,
+        UNPAIRED, PAIRED, REDIFFED } // ④ pair restructure / rediff
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

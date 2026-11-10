@@ -84,12 +84,12 @@ class ObligationApplier implements SuggestionApplier {
     }
 
     /** The extracted document (version diff's old set); null for manually added rows. */
-    private Long sourceDocument(AiSuggestion s) {
+    Long sourceDocument(AiSuggestion s) {
         JsonNode ref = runs.findById(s.getRunId()).map(AiRun::getInputRef).orElse(null);
         return ref != null && ref.path("document_id").isNumber() ? ref.get("document_id").asLong() : null;
     }
 
-    private ObligationPayload parse(JsonNode payload) {
+    ObligationPayload parse(JsonNode payload) {
         ObligationPayload p;
         try {
             p = json.treeToValue(payload, ObligationPayload.class);

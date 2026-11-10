@@ -96,6 +96,39 @@ public class PermitObligation {
         this.nextDueDate = null;
     }
 
+    /** ④ CHANGED: every payload field and the source document; id (and so the fulfilment history) stays. */
+    void revise(ObligationPayload p, Long sourceDocumentId) {
+        reword(p, sourceDocumentId);
+        this.type = p.type();
+        this.category = p.category();
+        this.responsibleParty = p.responsibleParty();
+        this.frequency = p.frequency();
+        this.frequencyText = p.frequencyText();
+        this.periodText = p.periodText();
+        this.legalBasis = p.legalBasis() == null ? List.of() : p.legalBasis();
+    }
+
+    /** ④ MINOR / UNCHANGED: wording, citation and source move to the new version; deadlines are untouched. */
+    void reword(ObligationPayload p, Long sourceDocumentId) {
+        this.sourceDocumentId = sourceDocumentId;
+        this.citationRaw = p.citationRaw();
+        this.citationKey = p.citationKey();
+        this.citationSynthetic = p.citationSynthetic();
+        this.requirementText = p.requirementText();
+        this.summary = p.summary();
+        this.pageNo = p.pageNo();
+        this.sourceQuote = p.sourceQuote();
+        this.quoteCheck = p.quoteCheck();
+    }
+
+    /** ④ REMOVED: closed for good by the revision; the row (and what was fulfilled) is kept. */
+    void closeByRevision(Instant now) {
+        this.status = Status.CLOSED;
+        this.closedReason = ClosedReason.REVISION_REMOVED;
+        this.closedAt = now;
+        this.nextDueDate = null;
+    }
+
     /** The row as an OBLIGATION payload (version diff compares these). */
     public ObligationPayload payload() {
         return new ObligationPayload(citationRaw, citationKey, citationSynthetic, requirementText, summary, type,
@@ -105,6 +138,7 @@ public class PermitObligation {
 
     public Long getId() { return id; }
     public Long getPermitItemId() { return permitItemId; }
+    public Long getSourceDocumentId() { return sourceDocumentId; }
     public Long getSuggestionId() { return suggestionId; }
     public String getCitationRaw() { return citationRaw; }
     public String getSummary() { return summary; }
