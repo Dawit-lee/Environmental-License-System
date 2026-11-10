@@ -44,6 +44,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      # Local dev DB: parallel branches merge migrations out of version order (e.g. V210 after V220).
+      SPRING_FLYWAY_OUT_OF_ORDER: "true"
       DB_URL: jdbc:postgresql://db:5432/envpermit
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
