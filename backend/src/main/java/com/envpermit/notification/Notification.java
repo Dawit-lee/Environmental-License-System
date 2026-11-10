@@ -38,6 +38,15 @@ public class Notification {
         this.createdAt = now;
     }
 
+    /** A one-off notice that was already mailed on its own, so the daily digest skips it. */
+    Notification(long userId, String message, String link, Instant now) {
+        this.userId = userId;
+        this.message = message;
+        this.link = link;
+        this.createdAt = now;
+        this.emailedAt = now;
+    }
+
     void markRead(Instant now) {
         if (readAt == null) readAt = now;
     }

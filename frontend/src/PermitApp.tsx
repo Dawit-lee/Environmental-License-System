@@ -6,10 +6,13 @@ import NewProjectPage from './pages/NewProjectPage';
 import ProjectDetailPage from './pages/ProjectDetailPage';
 import CalendarPage from './pages/CalendarPage';
 import LoginPage from './pages/LoginPage';
+import SignupPage from './pages/SignupPage';
+import JoinRequestsPage from './pages/JoinRequestsPage';
 import ReviewQueuePage from './pages/ReviewQueuePage';
 import LawAmendmentsPage from './pages/LawAmendmentsPage';
 import NotificationBell from './components/NotificationBell';
 import type { Session } from './api/auth';
+import { isMaster } from './api/client';
 
 // ---------------------------------------------------------------------------
 // PermitApp — shell for the permit management UI. Login is real (JWT session in
@@ -33,10 +36,12 @@ const NAV = [
   { to: '/review', label: '허가조건 검토', icon: '✅' },
   { to: '/laws', label: '법령 개정', icon: '⚖️' },
 ];
+const ADMIN_NAV = [{ to: '/join-requests', label: '가입 요청', icon: '👥' }];
 
 export default function PermitApp() {
   const [session, setSession] = useState<Session | null>(loadSession);
   const user = session?.user.email ?? null;
+  const nav = isMaster() ? [...NAV, ...ADMIN_NAV] : NAV;
 
   const handleLogin = (s: Session) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
@@ -53,6 +58,8 @@ export default function PermitApp() {
       {!user ? (
         <Routes>
           <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
+          <Route path="/signup" element={<SignupPage onLogin={handleLogin} />} />
+          <Route path="/join/:code" element={<SignupPage onLogin={handleLogin} />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       ) : (
@@ -67,7 +74,7 @@ export default function PermitApp() {
               <span className="text-sm font-bold text-[#1F4E79]">환경시설 인허가 관리</span>
             </div>
             <nav className="flex flex-col gap-1 p-3">
-              {NAV.map((item) => (
+              {nav.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -92,7 +99,7 @@ export default function PermitApp() {
               <div className="flex items-center gap-3 sm:hidden">
                 <span className="text-lg">🌿</span>
                 <nav className="flex gap-1">
-                  {NAV.map((item) => (
+                  {nav.map((item) => (
                     <NavLink
                       key={item.to}
                       to={item.to}
@@ -134,6 +141,7 @@ export default function PermitApp() {
                 <Route path="/calendar" element={<CalendarPage />} />
                 <Route path="/review" element={<ReviewQueuePage />} />
                 <Route path="/laws" element={<LawAmendmentsPage />} />
+                <Route path="/join-requests" element={<JoinRequestsPage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </main>

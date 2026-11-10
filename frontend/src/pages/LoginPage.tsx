@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { Link } from 'react-router';
 import { login, type Session } from '../api/auth';
 
 // ---------------------------------------------------------------------------
@@ -24,14 +25,6 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
       setError((err as Error).message);
       setSubmitting(false);
     }
-  };
-
-  const handleKakaoLogin = () => {
-    // TODO: replace with real Kakao OAuth.
-    //   1) redirect to https://kauth.kakao.com/oauth/authorize
-    //      ?client_id=${KAKAO_REST_API_KEY}&redirect_uri=${REDIRECT_URI}&response_type=code
-    //   2) handle the code callback → exchange for token → fetch profile
-    setError('카카오 로그인은 아직 준비 중입니다.');
   };
 
   const inputClasses =
@@ -79,23 +72,9 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
             {submitting ? '로그인 중…' : '로그인'}
           </button>
 
-          {/* Divider */}
-          <div className="my-4 flex items-center gap-3">
-            <span className="h-px flex-1 bg-[#E5E3DC]" />
-            <span className="text-xs text-gray-400">또는</span>
-            <span className="h-px flex-1 bg-[#E5E3DC]" />
-          </div>
-
-          {/* Kakao OAuth (mock) */}
-          <button
-            type="button"
-            onClick={handleKakaoLogin}
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#FEE500] px-4 py-2.5 text-sm font-semibold text-[#191600] transition hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-[#FEE500]/60"
-          >
-            <span aria-hidden className="text-base leading-none">💬</span>
-            카카오 로그인
-          </button>
-
+          <p className="mt-4 text-center text-sm text-gray-500">
+            계정이 없나요? <Link to="/signup" className="font-medium text-[#1F4E79] hover:underline">회원가입</Link>
+          </p>
         </form>
       </div>
     </div>

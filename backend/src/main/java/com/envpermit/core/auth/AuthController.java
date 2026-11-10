@@ -1,9 +1,12 @@
 package com.envpermit.core.auth;
 
+import com.envpermit.core.signup.JoinRequest;
+import com.envpermit.core.signup.JoinRequestRepository;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import java.time.Clock;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
@@ -26,11 +29,16 @@ public class AuthController {
     private final UserRepository users;
     private final PasswordEncoder passwordEncoder;
     private final TokenService tokens;
+    private final JoinRequestRepository joinRequests;
+    private final Clock clock;
 
-    public AuthController(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokens) {
+    public AuthController(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokens,
+                          JoinRequestRepository joinRequests, Clock clock) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
+        this.joinRequests = joinRequests;
+        this.clock = clock;
     }
 
     record LoginRequest(@NotBlank String email, @NotBlank String password) {
@@ -39,13 +47,13 @@ public class AuthController {
     record RefreshRequest(@NotBlank String refreshToken) {
     }
 
-    record LoginResponse(String accessToken, String refreshToken, Me user) {
-        LoginResponse(TokenService.Tokens t, User u) {
+    public record LoginResponse(String accessToken, String refreshToken, Me user) {
+        public LoginResponse(TokenService.Tokens t, User u) {
             this(t.accessToken(), t.refreshToken(), Me.of(u));
         }
     }
 
-    record Me(long id, String email, String name, String role) {
+    public record Me(long id, String email, String name, String role) {
         static Me of(User u) {
             return new Me(u.getId(), u.getEmail(), u.getName(), u.getRole().name());
         }
@@ -53,9 +61,20 @@ public class AuthController {
 
     @PostMapping("/api/auth/login")
     ResponseEntity<Object> login(@Valid @RequestBody LoginRequest req) {
-        Optional<User> user = users.findByEmail(req.email().trim().toLowerCase())
+        String email = req.email().trim().toLowerCase();
+        Optional<User> user = users.findByEmail(email)
                 .filter(u -> passwordEncoder.matches(req.password(), u.getPasswordHash()));
         return user.<ResponseEntity<Object>>map(u -> ResponseEntity.ok(new LoginResponse(tokens.issue(u), u)))
+                .orElseGet(() -> joinRequestLogin(email, req.password()));
+    }
+
+    /** An applicant with the right password learns why they can't log in yet; anyone else gets the generic error. */
+    private ResponseEntity<Object> joinRequestLogin(String email, String password) {
+        return joinRequests.findFirstByEmailOrderByIdDesc(email)
+                .filter(r -> passwordEncoder.matches(password, r.getPasswordHash()))
+                .map(r -> r.isOpen(clock.instant()) ? error("가입 승인 대기 중입니다. 회사 관리자가 승인하면 로그인할 수 있습니다.")
+                        : r.getStatus() == JoinRequest.Status.REJECTED ? error("가입 신청이 거절되었습니다.")
+                        : BAD_LOGIN)
                 .orElse(BAD_LOGIN);
     }
 

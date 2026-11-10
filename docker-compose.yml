@@ -57,6 +57,13 @@ services:
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6.1-terra}
+      # Mail: SMTP_HOST empty = log only. Gmail = smtp.gmail.com:587 (STARTTLS) + app password.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:5182}
     ports:
       - "${API_PORT:-8080}:8080"
 
