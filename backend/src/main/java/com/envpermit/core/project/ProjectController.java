@@ -4,6 +4,7 @@ import static com.envpermit.core.project.ProjectAccess.userId;
 
 import com.envpermit.core.permit.PermitItemRepository;
 import com.envpermit.core.permit.PermitItemRepository.PermitCounts;
+import com.envpermit.core.org.Org;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
 import jakarta.validation.Valid;
@@ -14,6 +15,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Stream;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.http.HttpStatus;
@@ -28,6 +32,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -39,9 +44,11 @@ public class ProjectController {
     private final PermitItemRepository permits;
     private final UserRepository users;
     private final ProjectAccess access;
+    private final Org org;
 
     public ProjectController(ProjectRepository projects, ProjectMemberRepository members,
-                             PermitItemRepository permits, UserRepository users, ProjectAccess access) {
+                             PermitItemRepository permits, UserRepository users, ProjectAccess access, Org org) {
+        this.org = org;
         this.projects = projects;
         this.members = members;
         this.permits = permits;
@@ -56,17 +63,17 @@ public class ProjectController {
                           @Size(max = 20) String capacityUnit,
                           LocalDate startDate,
                           LocalDate expectedEndDate,
-                          Project.Status status) {
+                          Project.Status status,
+                          Long teamId,
+                          Long pmUserId,
+                          Long emUserId) {
     }
 
     record ProjectView(long id, String name, Project.FacilityType facilityType, String location,
                        BigDecimal capacity, String capacityUnit, LocalDate startDate, LocalDate expectedEndDate,
-                       Project.Status status, long permitCount, long acquiredCount, long nearExpiryCount) {
-        static ProjectView of(Project p, PermitCounts c) {
-            return new ProjectView(p.getId(), p.getName(), p.getFacilityType(), p.getLocation(), p.getCapacity(),
-                    p.getCapacityUnit(), p.getStartDate(), p.getExpectedEndDate(), p.getStatus(),
-                    c.total(), c.completed(), c.nearExpiry());
-        }
+                       Project.Status status, long permitCount, long acquiredCount, long nearExpiryCount,
+                       Long teamId, String teamName, String departmentName,
+                       Long pmUserId, String pmName, Long emUserId, String emName, boolean member) {
     }
 
     record MemberView(long userId, String name, String email, boolean isAdmin,
@@ -85,14 +92,13 @@ public class ProjectController {
 
     // --- projects ---------------------------------------------------------
 
+    /** My projects; {@code scope=company} lists every project of my company (read-only unless {@code member}). */
     @GetMapping("/api/projects")
-    List<ProjectView> list(@AuthenticationPrincipal Jwt jwt) {
-        List<Project> mine = projects.findByMember(userId(jwt));
-        Map<Long, PermitCounts> counts = permits.countByProject(mine.stream().map(Project::getId).toList())
-                .stream().collect(Collectors.toMap(PermitCounts::projectId, Function.identity()));
-        return mine.stream()
-                .map(p -> ProjectView.of(p, counts.getOrDefault(p.getId(), PermitCounts.none(p.getId()))))
-                .toList();
+    List<ProjectView> list(@AuthenticationPrincipal Jwt jwt, @RequestParam(defaultValue = "mine") String scope) {
+        List<Project> list = "company".equals(scope)
+                ? projects.findByCompanyIdOrderById(org.companyOf(jwt))
+                : projects.findByMember(userId(jwt));
+        return views(list, userId(jwt));
     }
 
     @PostMapping("/api/projects")
@@ -100,17 +106,18 @@ public class ProjectController {
     ResponseEntity<ProjectView> create(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody ProjectRequest req) {
         Long companyId = users.findById(userId(jwt)).map(User::getCompanyId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "소속 회사가 없습니다."));
+        checkOrg(companyId, req);
         Project p = new Project(companyId);
         p.apply(req);
         projects.save(p);
         members.save(ProjectMember.creator(p.getId(), userId(jwt)));
-        return ResponseEntity.status(HttpStatus.CREATED).body(ProjectView.of(p, PermitCounts.none(p.getId())));
+        return ResponseEntity.status(HttpStatus.CREATED).body(views(List.of(p), userId(jwt)).get(0));
     }
 
     @GetMapping("/api/projects/{id}")
     ProjectView get(@AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
-        access.member(id, jwt);
-        return view(projects.findById(id).orElseThrow());
+        access.viewer(id, jwt);
+        return views(List.of(projects.findById(id).orElseThrow()), userId(jwt)).get(0);
     }
 
     @PutMapping("/api/projects/{id}")
@@ -119,8 +126,9 @@ public class ProjectController {
                        @Valid @RequestBody ProjectRequest req) {
         access.member(id, jwt);
         Project p = projects.findById(id).orElseThrow();
+        checkOrg(p.getCompanyId(), req);
         p.apply(req);
-        return view(p);
+        return views(List.of(p), userId(jwt)).get(0);
     }
 
     @DeleteMapping("/api/projects/{id}")
@@ -135,7 +143,7 @@ public class ProjectController {
 
     @GetMapping("/api/projects/{id}/members")
     List<MemberView> members(@AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
-        access.member(id, jwt);
+        access.viewer(id, jwt);
         List<ProjectMember> list = members.findByIdProjectIdOrderByIdUserId(id);
         Map<Long, User> byId = users.findAllById(list.stream().map(ProjectMember::getUserId).toList())
                 .stream().collect(Collectors.toMap(User::getId, Function.identity()));
@@ -194,8 +202,33 @@ public class ProjectController {
         }
     }
 
-    private ProjectView view(Project p) {
-        return ProjectView.of(p, permits.countByProject(List.of(p.getId())).stream().findFirst()
-                .orElse(PermitCounts.none(p.getId())));
+    private void checkOrg(long companyId, ProjectRequest req) {
+        org.requireTeam(companyId, req.teamId());
+        org.requireUser(companyId, req.pmUserId());
+        org.requireUser(companyId, req.emUserId());
+    }
+
+    private List<ProjectView> views(List<Project> list, long userId) {
+        if (list.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = list.stream().map(Project::getId).toList();
+        Map<Long, PermitCounts> counts = permits.countByProject(ids).stream()
+                .collect(Collectors.toMap(PermitCounts::projectId, Function.identity()));
+        Set<Long> mine = projects.findByMember(userId).stream().map(Project::getId).collect(Collectors.toSet());
+        Map<Long, Org.Team> teams = org.teams(list.get(0).getCompanyId());
+        Map<Long, String> names = users.findAllById(list.stream()
+                        .flatMap(p -> Stream.of(p.getPmUserId(), p.getEmUserId())).filter(Objects::nonNull).toList())
+                .stream().collect(Collectors.toMap(User::getId, User::getName));
+        return list.stream().map(p -> {
+            PermitCounts c = counts.getOrDefault(p.getId(), PermitCounts.none(p.getId()));
+            Org.Team t = p.getTeamId() == null ? null : teams.get(p.getTeamId());
+            return new ProjectView(p.getId(), p.getName(), p.getFacilityType(), p.getLocation(), p.getCapacity(),
+                    p.getCapacityUnit(), p.getStartDate(), p.getExpectedEndDate(), p.getStatus(),
+                    c.total(), c.completed(), c.nearExpiry(),
+                    p.getTeamId(), t == null ? null : t.name(), t == null ? null : t.departmentName(),
+                    p.getPmUserId(), names.get(p.getPmUserId()), p.getEmUserId(), names.get(p.getEmUserId()),
+                    mine.contains(p.getId()));
+        }).toList();
     }
 }

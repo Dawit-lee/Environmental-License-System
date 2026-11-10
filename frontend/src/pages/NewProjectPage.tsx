@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
-import { api } from '../api/client';
+import { api, sessionUserId } from '../api/client';
+import { getCompanyUsers, getDepartments, type CompanyUser, type Department } from '../api/org';
 import {
   closedBySystem,
   derive,
@@ -93,6 +94,22 @@ export default function NewProjectPage() {
   const [wasteTypes, setWasteTypes] = useState<string[]>([]);
   const [capacity, setCapacity] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [depts, setDepts] = useState<Department[]>([]);
+  const [people, setPeople] = useState<CompanyUser[]>([]);
+  const [teamId, setTeamId] = useState<number | null>(null);
+  const [pmUserId, setPmUserId] = useState<number | null>(null);
+  const [emUserId, setEmUserId] = useState<number | null>(null);
+
+  useEffect(() => {
+    // defaults: my team, me as PM
+    Promise.all([getDepartments(), getCompanyUsers()]).then(([ds, us]) => {
+      setDepts(ds);
+      setPeople(us);
+      const me = us.find((u) => u.id === sessionUserId());
+      setTeamId((t) => t ?? me?.teamId ?? null);
+      setPmUserId((u) => u ?? me?.id ?? null);
+    }, () => {});
+  }, []);
 
   // ---- Step 2 state ------------------------------------------------------
   const [projectId, setProjectId] = useState<number | null>(null);
@@ -205,6 +222,9 @@ export default function NewProjectPage() {
         capacity: Number(capacity),
         capacityUnit: '톤/일',
         startDate: startDate || null,
+        teamId,
+        pmUserId,
+        emUserId,
       });
       const pid =
         projectId ??
@@ -400,6 +420,26 @@ export default function NewProjectPage() {
               <Field label="착공예정일">
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} />
               </Field>
+
+              <Field label="부서/팀">
+                <select value={teamId ?? ''} onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : null)} className={input}>
+                  <option value="">미지정</option>
+                  {depts.map((d) => (
+                    <optgroup key={d.id} label={d.name}>
+                      {d.teams.map((t) => <option key={t.id} value={t.id}>{d.name} / {t.name}</option>)}
+                    </optgroup>
+                  ))}
+                </select>
+              </Field>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="PM">
+                  <PersonSelect people={people} value={pmUserId} onChange={setPmUserId} />
+                </Field>
+                <Field label="EM">
+                  <PersonSelect people={people} value={emUserId} onChange={setEmUserId} />
+                </Field>
+              </div>
             </div>
 
             <div className="mt-8 flex justify-end">
@@ -784,5 +824,16 @@ function CategoryTab({
     >
       {label}
     </button>
+  );
+}
+
+function PersonSelect({ people, value, onChange }: {
+  people: CompanyUser[]; value: number | null; onChange: (id: number | null) => void;
+}) {
+  return (
+    <select value={value ?? ''} onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)} className={input}>
+      <option value="">미지정</option>
+      {people.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+    </select>
   );
 }

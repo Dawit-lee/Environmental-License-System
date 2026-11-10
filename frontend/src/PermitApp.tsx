@@ -7,6 +7,7 @@ import ProjectDetailPage from './pages/ProjectDetailPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import JoinRequestsPage from './pages/JoinRequestsPage';
+import OrgPage from './pages/OrgPage';
 import LegacyRedirect from './pages/LegacyRedirect';
 import NotificationBell from './components/NotificationBell';
 import type { Session } from './api/auth';
@@ -31,7 +32,10 @@ const NAV = [
   { to: '/dashboard', label: '대시보드', icon: '📊' },
   { to: '/projects', label: '프로젝트', icon: '📁' },
 ];
-const ADMIN_NAV = [{ to: '/join-requests', label: '가입 요청', icon: '👥' }];
+const ADMIN_NAV = [
+  { to: '/join-requests', label: '가입 요청', icon: '👥' },
+  { to: '/org', label: '조직 관리', icon: '🏢' },
+];
 
 export default function PermitApp() {
   const [session, setSession] = useState<Session | null>(loadSession);
@@ -138,6 +142,7 @@ export default function PermitApp() {
                 <Route path="/review" element={<LegacyRedirect tab="review" />} />
                 <Route path="/laws" element={<LegacyRedirect tab="laws" />} />
                 <Route path="/join-requests" element={<JoinRequestsPage />} />
+                <Route path="/org" element={<OrgPage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </main>

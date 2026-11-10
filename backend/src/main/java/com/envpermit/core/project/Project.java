@@ -39,6 +39,10 @@ public class Project {
     @Enumerated(EnumType.STRING)
     private Status status;
 
+    private Long teamId;
+    private Long pmUserId;
+    private Long emUserId;
+
     /** Derivation input, keyed by the field dictionary (com.envpermit.derivation.Fields). */
     @JdbcTypeCode(SqlTypes.JSON)
     private JsonNode attributes;
@@ -60,6 +64,9 @@ public class Project {
         startDate = r.startDate();
         expectedEndDate = r.expectedEndDate();
         status = r.status() == null ? Status.IN_PROGRESS : r.status();
+        teamId = r.teamId();
+        pmUserId = r.pmUserId();
+        emUserId = r.emUserId();
     }
 
     public Long getId() { return id; }
@@ -73,6 +80,9 @@ public class Project {
     public LocalDate getExpectedEndDate() { return expectedEndDate; }
     public Status getStatus() { return status; }
     public JsonNode getAttributes() { return attributes; }
+    public Long getTeamId() { return teamId; }
+    public Long getPmUserId() { return pmUserId; }
+    public Long getEmUserId() { return emUserId; }
 
     public void setAttributes(JsonNode attributes) {
         this.attributes = attributes;
