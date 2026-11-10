@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { getDeadlines, ymd, type Deadline } from '../api/notifications';
 
 // ---------------------------------------------------------------------------
-// CalendarPage — month grid of permit due-dates with color-coded dot badges
+// CalendarPage — month grid of permit due-dates; each day lists up to 3 titles with a color-coded dot
 // and a click-to-open day popover. Pure React + Tailwind, no chart/date libs.
 // ---------------------------------------------------------------------------
 
@@ -132,13 +132,13 @@ export default function CalendarPage() {
           <div className="grid grid-cols-7">
             {cells.map((day, idx) => {
               if (day === null) {
-                return <div key={`b-${idx}`} className="min-h-[88px] border-b border-r border-[#E5E3DC] bg-[#F8F7F2]/40" />;
+                return <div key={`b-${idx}`} className="min-h-[104px] border-b border-r border-[#E5E3DC] bg-[#F8F7F2]/40" />;
               }
               const key = dateKey(day);
               const items = byDate[key] ?? [];
               const isOpen = openDay === key;
               return (
-                <div key={key} className="relative min-h-[88px] border-b border-r border-[#E5E3DC] p-1.5">
+                <div key={key} className="relative min-h-[104px] border-b border-r border-[#E5E3DC] p-1.5">
                   <button
                     type="button"
                     onClick={() => setOpenDay(isOpen ? null : key)}
@@ -151,10 +151,14 @@ export default function CalendarPage() {
                   >
                     <span className="text-sm text-gray-700">{day}</span>
                     {items.length > 0 && (
-                      <span className="mt-1 flex flex-wrap gap-1">
-                        {items.map((it) => (
-                          <span key={it.id} className={`h-2 w-2 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
+                      <span className="mt-1 flex w-full min-w-0 flex-col gap-0.5">
+                        {items.slice(0, 3).map((it) => (
+                          <span key={it.id} className="flex w-full min-w-0 items-start gap-1 text-[11px] leading-4 text-gray-700" title={`${it.projectName} — ${it.title}`}>
+                            <span className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
+                            <span className="line-clamp-2 break-all">{it.title}</span>
+                          </span>
                         ))}
+                        {items.length > 3 && <span className="text-[11px] text-gray-400">+{items.length - 3}건 더</span>}
                       </span>
                     )}
                   </button>
