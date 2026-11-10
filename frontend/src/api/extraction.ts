@@ -5,7 +5,7 @@ export interface AiRun {
   id: number;
   status: 'RUNNING' | 'SUCCEEDED' | 'FAILED';
   errorMessage: string | null;
-  inputRef: { document_id: number; permit_item_id: number; sha256: string } | null;
+  inputRef: { document_id: number; permit_item_id: number; sha256: string; prev_document_id?: number } | null;
   model: string | null;
   startedAt: string;
   finishedAt: string | null;
@@ -27,5 +27,8 @@ export const startExtraction = (pid: number, permitId: number, docId: number, co
     method: 'POST',
     body: JSON.stringify({ confirmDuplicate }),
   });
+/** ④ "개정 비교": extraction of a new version, diffed against the version it supersedes. */
+export const startRevision = (pid: number, permitId: number, docId: number) =>
+  api<{ runId: number }>(`/api/projects/${pid}/permit-items/${permitId}/documents/${docId}/revisions`, { method: 'POST' });
 export const getRun = (id: number) => api<AiRun>(`/api/ai-runs/${id}`);
 export const listRuns = (pid: number) => api<AiRun[]>(`/api/projects/${pid}/ai-runs`);
