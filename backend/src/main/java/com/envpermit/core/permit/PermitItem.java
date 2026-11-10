@@ -50,6 +50,20 @@ public class PermitItem {
         this.projectId = projectId;
     }
 
+    /** An approved derived suggestion (PERMIT_ITEM applier): not applied for yet. */
+    public static PermitItem derived(long projectId, String name, Category category, String regulation, String reason,
+                                     String approvalDate, String nextAction) {
+        PermitItem p = new PermitItem(projectId);
+        p.name = name.trim();
+        p.category = category;
+        p.regulation = regulation;
+        p.reason = reason;
+        p.approvalDate = approvalDate;
+        p.nextAction = nextAction;
+        p.status = Status.NOT_APPLIED;
+        return p;
+    }
+
     void apply(PermitController.PermitRequest r) {
         name = r.name().trim();
         category = r.category();
