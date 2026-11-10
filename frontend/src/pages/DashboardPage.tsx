@@ -101,12 +101,11 @@ export default function DashboardPage() {
           <SummaryCard label="현장 반영 대기 (건)" value={siteOpen} tone="text-[#0F6E56]" />
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          {/* Near-expiry table */}
-          <section className="lg:col-span-2 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+        {/* Near-expiry table — full width so each row stays on one line */}
+        <section className="mt-6 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">기한 임박 (D-30 이내)</h2>
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[480px] text-left text-sm">
+              <table className="w-full min-w-[480px] whitespace-nowrap text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
                   <tr>
                     <th className="px-3 py-2.5 font-medium">프로젝트명</th>
@@ -129,7 +128,7 @@ export default function DashboardPage() {
                           {row.projectName}
                         </Link>
                       </td>
-                      <td className="px-3 py-2.5 font-medium text-gray-800">{row.title}</td>
+                      <td className="w-full max-w-0 truncate px-3 py-2.5 font-medium text-gray-800" title={row.title}>{row.title}</td>
                       <td className="px-3 py-2.5 text-gray-600">{row.dueDate}</td>
                       <td className={`px-3 py-2.5 ${dDayClasses(row.dDay)}`}>{row.dDay === 0 ? 'D-day' : `D-${row.dDay}`}</td>
                     </tr>
@@ -139,10 +138,11 @@ export default function DashboardPage() {
             </div>
           </section>
 
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Donut */}
           <section className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">인허가 상태 분포</h2>
-            <div className="mt-4 flex items-center gap-5">
+            <div className="mt-4 flex flex-wrap items-center gap-5">
               <div
                 className="relative h-32 w-32 shrink-0 rounded-full"
                 style={{ background: gradient }}
@@ -158,28 +158,28 @@ export default function DashboardPage() {
                 {slices.map((s) => (
                   <li key={s.status} className="flex items-center gap-2">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                    <span className="text-gray-600">{s.label}</span>
+                    <span className="whitespace-nowrap text-gray-600">{s.label}</span>
                     <span className="ml-auto font-medium text-gray-800">{s.value}</span>
                   </li>
                 ))}
               </ul>
             </div>
           </section>
-        </div>
 
-        {/* Recent activity */}
-        <section className="mt-6 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+          {/* Recent activity */}
+          <section className="lg:col-span-2 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">최근 활동</h2>
           <ul className="mt-3 divide-y divide-[#E5E3DC]">
             {activity.length === 0 && <li className="py-6 text-center text-sm text-gray-400">아직 기록된 신청·취득이 없습니다.</li>}
             {activity.map((a) => (
               <li key={a.key} className="flex gap-3 py-2.5 text-sm">
                 <span className="shrink-0 text-gray-400">{a.date}</span>
-                <span className="text-gray-700">{a.text}</span>
+                <span className="truncate text-gray-700" title={a.text}>{a.text}</span>
               </li>
             ))}
           </ul>
-        </section>
+          </section>
+        </div>
       </div>
     </div>
   );
@@ -191,7 +191,7 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
   return (
     <div className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm transition hover:shadow-md">
       <div className={`text-3xl font-bold ${tone}`}>{value}</div>
-      <div className="mt-1 text-sm text-gray-500">{label}</div>
+      <div className="mt-1 truncate text-sm text-gray-500" title={label}>{label}</div>
     </div>
   );
 }
