@@ -19,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -52,7 +53,7 @@ class ObligationController {
     /** openTask: the current cycle (null: no due date yet, or ended). lastTask: the latest finished or cancelled one. */
     record ObligationView(long id, long permitItemId, String citationKey, String summary, Frequency frequency,
                           LocalDate firstDueDate, LocalDate nextDueDate, PermitObligation.Status status,
-                          Long sourceDocumentId, TaskView openTask, TaskView lastTask) {
+                          Long sourceDocumentId, Long defaultAssigneeId, TaskView openTask, TaskView lastTask) {
     }
 
     private List<ObligationView> views(long projectId, List<PermitObligation> rows) {
@@ -65,7 +66,7 @@ class ObligationController {
         }
         return rows.stream().map(o -> new ObligationView(o.getId(), o.getPermitItemId(), o.getCitationKey(),
                 o.getSummary(), o.getFrequency(), o.getFirstDueDate(), o.getNextDueDate(), o.getStatus(),
-                o.getSourceDocumentId(), open.get(o.getId()), last.get(o.getId()))).toList();
+                o.getSourceDocumentId(), o.getDefaultAssigneeId(), open.get(o.getId()), last.get(o.getId()))).toList();
     }
 
     record RevisionLogView(long id, String changeType, JsonNode before, Instant at, Long by, String byName) {
@@ -103,6 +104,22 @@ class ObligationController {
                 throw new IllegalStateException(e);
             }
         }, id);
+    }
+
+    record DefaultAssigneeRequest(Long defaultAssigneeId) {
+    }
+
+    /** 기본 담당자 of the cycles opened from now on (null clears it); the current open task keeps its assignee. */
+    @PatchMapping("/api/obligations/{id}")
+    @Transactional
+    ObligationView assignDefault(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
+                                 @RequestBody DefaultAssigneeRequest req) {
+        PermitObligation o = obligations.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        long projectId = permits.findById(o.getPermitItemId()).orElseThrow().getProjectId();
+        access.member(projectId, jwt);
+        tasks.requireMember(projectId, req.defaultAssigneeId());
+        o.assignDefault(req.defaultAssigneeId());
+        return views(projectId, List.of(o)).get(0);
     }
 
     /**

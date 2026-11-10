@@ -55,6 +55,7 @@ public class PermitObligation {
     @Enumerated(EnumType.STRING)
     private ClosedReason closedReason;
     private Instant closedAt;
+    private Long defaultAssigneeId; // assignee of each new cycle's task; null → project EM → PM
     @Version
     private long version; // live edits and revision approval both bump it (④ V11)
 
@@ -83,6 +84,10 @@ public class PermitObligation {
         this.quoteCheck = p.quoteCheck();
         this.firstDueDate = this.nextDueDate = firstDueDate;
         this.status = Status.ACTIVE;
+    }
+
+    void assignDefault(Long userId) {
+        this.defaultAssigneeId = userId;
     }
 
     void moveTo(LocalDate next) {
@@ -146,6 +151,7 @@ public class PermitObligation {
     public Frequency getFrequency() { return frequency; }
     public LocalDate getFirstDueDate() { return firstDueDate; }
     public LocalDate getNextDueDate() { return nextDueDate; }
+    public Long getDefaultAssigneeId() { return defaultAssigneeId; }
     public Status getStatus() { return status; }
     public ClosedReason getClosedReason() { return closedReason; }
     public long getVersion() { return version; }

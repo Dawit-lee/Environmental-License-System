@@ -12,19 +12,28 @@ import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-/** Daily: deadline events → D-90/60/30/7 in-app notifications, then one digest mail per user. */
+/**
+ * Daily: deadline events → D-90/60/30/7 in-app notifications (plus one "기한 경과" the day after a task's due date),
+ * then one digest mail per user.
+ */
 @Component
 public class NotificationJob {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationJob.class);
     private static final int[] OFFSETS = {7, 30, 60, 90}; // ascending
+    /** offset_days of the overdue notice. */
+    public static final int OVERDUE = -1;
+    // a task's deadline exists exactly while the task is open, so "due yesterday" means an open task went overdue
+    private static final Set<String> TASK_KINDS = Set.of("OBLIGATION", "CORRECTIVE_TASK");
 
     private final DeadlineEventRepository events;
     private final NotificationRepository notifications;
@@ -66,20 +75,27 @@ public class NotificationJob {
     public void createDueNotifications() {
         LocalDate today = LocalDate.now(clock);
         List<DeadlineEvent> due = events.findByDueDateBetween(today, today.plusDays(OFFSETS[OFFSETS.length - 1]));
-        Map<Long, String> projectNames = projects.findAllById(due.stream().map(DeadlineEvent::getProjectId).toList())
+        List<DeadlineEvent> overdue = events.findByDueDateAndKindIn(today.minusDays(1), TASK_KINDS);
+        Map<Long, String> projectNames = projects.findAllById(
+                        Stream.concat(due.stream(), overdue.stream()).map(DeadlineEvent::getProjectId).toList())
                 .stream().collect(Collectors.toMap(Project::getId, Project::getName));
         for (DeadlineEvent e : due) {
-            int offset = crossedOffset(ChronoUnit.DAYS.between(today, e.getDueDate()));
-            List<Long> recipients = e.getAssigneeId() != null ? List.of(e.getAssigneeId())
-                    : members.findByIdProjectIdOrderByIdUserId(e.getProjectId()).stream()
-                            .map(ProjectMember::getUserId).toList();
             String message = "%s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
-            for (long userId : recipients) {
-                if (!notifications.existsByDeadlineEventIdAndDueDateAndOffsetDaysAndUserId(
-                        e.getId(), e.getDueDate(), offset, userId)) {
-                    notifications.save(new Notification(userId, e, offset, message,
-                            "/projects/" + e.getProjectId(), clock.instant()));
-                }
+            remind(e, crossedOffset(ChronoUnit.DAYS.between(today, e.getDueDate())), message, "/projects/" + e.getProjectId());
+        }
+        for (DeadlineEvent e : overdue) { // once: only on the day after, and the unique key stops a rerun
+            String message = "기한 경과 · %s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
+            remind(e, OVERDUE, message, "/projects/" + e.getProjectId() + "/obligations");
+        }
+    }
+
+    /** To the assignee, or to every project member when nobody is assigned; never twice for the same due date and offset. */
+    private void remind(DeadlineEvent e, int offset, String message, String link) {
+        List<Long> recipients = e.getAssigneeId() != null ? List.of(e.getAssigneeId())
+                : members.findByIdProjectIdOrderByIdUserId(e.getProjectId()).stream().map(ProjectMember::getUserId).toList();
+        for (long userId : recipients) {
+            if (!notifications.existsByDeadlineEventIdAndDueDateAndOffsetDaysAndUserId(e.getId(), e.getDueDate(), offset, userId)) {
+                notifications.save(new Notification(userId, e, offset, message, link, clock.instant()));
             }
         }
     }
@@ -110,7 +126,7 @@ public class NotificationJob {
                 n -> n.getOffsetDays() == null ? Integer.MAX_VALUE : n.getOffsetDays(),
                 LinkedHashMap::new, Collectors.toList()));
         byOffset.forEach((offset, group) -> {
-            b.append('\n').append(offset == Integer.MAX_VALUE ? "[기타]" : "[D-" + offset + "]").append('\n');
+            b.append('\n').append(offset == Integer.MAX_VALUE ? "[기타]" : offset == OVERDUE ? "[기한 경과]" : "[D-" + offset + "]").append('\n');
             group.forEach(n -> b.append("- ").append(n.getMessage()).append('\n'));
         });
         return b.toString();

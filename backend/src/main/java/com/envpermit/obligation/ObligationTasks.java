@@ -33,6 +33,7 @@ public class ObligationTasks {
     static final String NEEDS_NEXT_DUE = "다음 기한일을 입력하세요.";
     static final String NOT_OPEN = "이미 완료되었거나 취소된 업무입니다.";
     static final String OTHER_PERMIT = "같은 인허가 항목의 문서만 증빙으로 연결할 수 있습니다.";
+    static final String NOT_MEMBER = "담당자는 이 프로젝트의 멤버여야 합니다.";
 
     private static final String SELECT = """
             SELECT t.id, t.project_id, t.kind, t.obligation_id, o.permit_item_id, COALESCE(o.summary, t.title) AS title,
@@ -99,9 +100,10 @@ public class ObligationTasks {
                 event(open.id(), actorId, "CANCELLED", Map.of("reason", reason));
             }
         } else if (open == null) {
+            assignee = defaultAssignee(o, permit.getProjectId());
             Long id = jdbc.queryForObject("INSERT INTO obligation_task (project_id, kind, obligation_id, title, due_date, "
-                            + "status) VALUES (?, 'OBLIGATION', ?, ?, ?, 'OPEN') RETURNING id", Long.class,
-                    permit.getProjectId(), o.getId(), o.getSummary(), due);
+                            + "assignee_id, status) VALUES (?, 'OBLIGATION', ?, ?, ?, ?::bigint, 'OPEN') RETURNING id", Long.class,
+                    permit.getProjectId(), o.getId(), o.getSummary(), due, assignee);
             event(id, actorId, "CREATED", Map.of("source", source));
         } else if (!due.equals(open.dueDate())) {
             jdbc.update("UPDATE obligation_task SET due_date = ?, version = version + 1 WHERE id = ?", due, open.id());
@@ -110,6 +112,54 @@ public class ObligationTasks {
         String title = permit.getName() + " · " + o.getSummary();
         deadlines.register(DEADLINE_KIND, o.getId(), permit.getProjectId(), title.substring(0, Math.min(300, title.length())),
                 due, assignee);
+    }
+
+    /** The obligation's default assignee → project EM → PM, skipping anyone who is not a project member; else null. */
+    private Long defaultAssignee(PermitObligation o, long projectId) {
+        return jdbc.queryForList("""
+                SELECT c.id FROM project p
+                CROSS JOIN LATERAL (VALUES (1, ?::bigint), (2, p.em_user_id), (3, p.pm_user_id)) c(ord, id)
+                JOIN project_member m ON m.project_id = p.id AND m.user_id = c.id
+                WHERE p.id = ? ORDER BY c.ord LIMIT 1""", Long.class, o.getDefaultAssigneeId(), projectId)
+                .stream().findFirst().orElse(null);
+    }
+
+    /** 422 unless the user is a member of the project; null (nobody) is always allowed. */
+    void requireMember(long projectId, Long userId) {
+        if (userId != null && jdbc.queryForObject("SELECT count(*) FROM project_member WHERE project_id = ? AND user_id = ?",
+                Integer.class, projectId, userId) == 0) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, NOT_MEMBER);
+        }
+    }
+
+    /**
+     * 담당·기한 변경 of an open task. An obligation task's due date is the obligation's next due date, so both
+     * (and the D-day deadline with its recipient) move together.
+     *
+     * @param setAssignee false leaves the assignee as is; true with a null assigneeId unassigns
+     */
+    @Transactional
+    public void update(long taskId, long actorId, boolean setAssignee, Long assigneeId, LocalDate dueDate, Long version) {
+        TaskView t = lockOpen(taskId, version);
+        if (setAssignee && !java.util.Objects.equals(assigneeId, t.assigneeId())) {
+            requireMember(t.projectId(), assigneeId);
+            jdbc.update("UPDATE obligation_task SET assignee_id = ?::bigint, version = version + 1 WHERE id = ?", assigneeId, taskId);
+            Map<String, Object> change = new java.util.HashMap<>(); // Map.of rejects null
+            change.put("from", t.assigneeId());
+            change.put("to", assigneeId);
+            event(taskId, actorId, "ASSIGNED", change);
+        }
+        boolean moved = dueDate != null && !dueDate.equals(t.dueDate());
+        if (t.kind().equals("OBLIGATION")) {
+            PermitObligation o = obligations.findById(t.obligationId()).orElseThrow();
+            if (moved) {
+                o.moveTo(dueDate);
+            }
+            sync(o, permits.findById(o.getPermitItemId()).orElseThrow(), "DUE_SET", actorId); // task, deadline, recipient
+        } else if (moved) {
+            jdbc.update("UPDATE obligation_task SET due_date = ?, version = version + 1 WHERE id = ?", dueDate, taskId);
+            event(taskId, actorId, "DUE_CHANGED", Map.of("from", t.dueDate().toString(), "to", dueDate.toString()));
+        }
     }
 
     /**
@@ -180,6 +230,14 @@ public class ObligationTasks {
     public List<TaskView> list(long projectId, Long obligationId) {
         return jdbc.query(SELECT + "WHERE t.project_id = ? AND (?::bigint IS NULL OR t.obligation_id = ?) ORDER BY t.id",
                 this::view, projectId, obligationId, obligationId);
+    }
+
+    /** 내 할 일: my open tasks in projects I am still a member of, soonest due first. */
+    public List<TaskView> mine(long userId) {
+        return jdbc.query(SELECT + """
+                WHERE t.assignee_id = ? AND t.status = 'OPEN' AND EXISTS (SELECT 1 FROM project_member m
+                      WHERE m.project_id = t.project_id AND m.user_id = t.assignee_id)
+                ORDER BY t.due_date, t.id""", this::view, userId);
     }
 
     public TaskDetail detail(long taskId) {
