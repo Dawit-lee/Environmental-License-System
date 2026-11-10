@@ -50,11 +50,13 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       LAW_API_OC: ${LAW_API_OC:-} # 법제처 OC; empty = law search returns 503, rest of the app works
-      # AI extraction: one provider per server. Empty EXTRACTION_PROVIDER = whichever key is set (Claude when both).
+      # AI extraction: one provider per server. Empty EXTRACTION_PROVIDER = first with a key set (Claude, Gemini, OpenAI).
       EXTRACTION_PROVIDER: ${EXTRACTION_PROVIDER:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-} # empty = Claude runs fail with a clear message
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.6-flash}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-6.1-terra}
     ports:
       - "${API_PORT:-8080}:8080"
 

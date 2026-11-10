@@ -21,6 +21,7 @@ class ProviderTest {
     void the_setting_wins_in_any_case() {
         assertThat(Provider.choose("gemini", CLAUDE_KEY::get)).isEqualTo(Provider.GEMINI);
         assertThat(Provider.choose(" CLAUDE ", GEMINI_KEY::get)).isEqualTo(Provider.CLAUDE);
+        assertThat(Provider.choose("openai", CLAUDE_KEY::get)).isEqualTo(Provider.OPENAI);
     }
 
     @Test
@@ -30,12 +31,13 @@ class ProviderTest {
         assertThat(Provider.choose("", BOTH::get)).isEqualTo(Provider.CLAUDE);
         assertThat(Provider.choose("", NONE::get)).isEqualTo(Provider.CLAUDE);
         assertThat(Provider.choose("", Map.of("GEMINI_API_KEY", " ")::get)).isEqualTo(Provider.CLAUDE);
+        assertThat(Provider.choose("", Map.of("OPENAI_API_KEY", "o")::get)).isEqualTo(Provider.OPENAI);
     }
 
     @Test
     void unknown_provider_stops_startup() {
-        assertThatThrownBy(() -> Provider.choose("openai", NONE::get))
-                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("claude|gemini");
+        assertThatThrownBy(() -> Provider.choose("mistral", NONE::get))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("claude|gemini|openai");
     }
 
     @Test
@@ -74,6 +76,32 @@ class ProviderTest {
         assertThat(Provider.CLAUDE.inputTokens(res)).isEqualTo(16);
         assertThat(Provider.CLAUDE.outputTokens(res)).isEqualTo(7);
         assertThatThrownBy(() -> Provider.CLAUDE.text(json.readTree("{\"stop_reason\":\"refusal\"}")))
+                .isInstanceOf(Extraction.BadResponse.class).hasMessage("AI가 이 문서의 처리를 거절했습니다.");
+    }
+
+    @Test
+    void openai_text_joins_output_text_skipping_reasoning_and_tokens_include_reasoning() throws Exception {
+        JsonNode res = json.readTree("""
+                {"status":"completed","output":[{"type":"reasoning","summary":[]},
+                 {"type":"message","content":[{"type":"output_text","text":"{\\"obligations\\""},{"type":"output_text","text":":[]}"}]}],
+                 "usage":{"input_tokens":900,"input_tokens_details":{"cached_tokens":100},"output_tokens":420,
+                  "output_tokens_details":{"reasoning_tokens":300}}}""");
+
+        assertThat(Provider.OPENAI.text(res)).isEqualTo("{\"obligations\":[]}");
+        assertThat(Provider.OPENAI.inputTokens(res)).isEqualTo(900);
+        assertThat(Provider.OPENAI.outputTokens(res)).isEqualTo(420);
+    }
+
+    @Test
+    void openai_truncation_refusal_and_filter_are_bad_responses() {
+        assertThatThrownBy(() -> Provider.OPENAI.text(json.readTree(
+                "{\"status\":\"incomplete\",\"incomplete_details\":{\"reason\":\"max_output_tokens\"}}")))
+                .isInstanceOf(Extraction.BadResponse.class).hasMessage("AI 응답이 너무 길어 잘렸습니다.");
+        assertThatThrownBy(() -> Provider.OPENAI.text(json.readTree(
+                "{\"status\":\"incomplete\",\"incomplete_details\":{\"reason\":\"content_filter\"}}")))
+                .isInstanceOf(Extraction.BadResponse.class).hasMessage("AI가 이 문서의 처리를 거절했습니다(content_filter).");
+        assertThatThrownBy(() -> Provider.OPENAI.text(json.readTree("""
+                {"status":"completed","output":[{"type":"message","content":[{"type":"refusal","refusal":"no"}]}]}""")))
                 .isInstanceOf(Extraction.BadResponse.class).hasMessage("AI가 이 문서의 처리를 거절했습니다.");
     }
 }

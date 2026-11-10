@@ -24,10 +24,13 @@ class ExtractionConfig {
     LlmClient llmClient(ObjectMapper json, @Value("${app.extraction.provider:}") String provider,
                         @Value("${app.extraction.claude.model}") String claudeModel,
                         @Value("${app.extraction.gemini.model}") String geminiModel,
-                        @Value("${app.extraction.gemini.base-url}") String geminiBaseUrl) {
+                        @Value("${app.extraction.gemini.base-url}") String geminiBaseUrl,
+                        @Value("${app.extraction.openai.model}") String openAiModel,
+                        @Value("${app.extraction.openai.base-url}") String openAiBaseUrl) {
         LlmClient client = switch (Provider.choose(provider, System::getenv)) {
             case CLAUDE -> new AnthropicClaudeClient(json, claudeModel);
             case GEMINI -> new GeminiClient(json, geminiBaseUrl, geminiModel, System.getenv(Provider.GEMINI.keyEnv));
+            case OPENAI -> new OpenAiClient(json, openAiBaseUrl, openAiModel, System.getenv(Provider.OPENAI.keyEnv));
         };
         LoggerFactory.getLogger(ExtractionConfig.class).info("AI extraction provider: {} ({})", client.provider(), client.model());
         return client;

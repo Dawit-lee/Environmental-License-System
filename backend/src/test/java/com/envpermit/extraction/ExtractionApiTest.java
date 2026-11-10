@@ -48,7 +48,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 /**
- * Text-PDF extraction through the REST API: real PostgreSQL, LLM answered from /claude or /gemini fixtures, run inline.
+ * Text-PDF extraction through the REST API: real PostgreSQL, LLM answered from /claude, /gemini or /openai fixtures, run inline.
  * master = company ADMIN (may switch AI extraction), kim = project creator, park = other company.
  */
 class ExtractionApiTest extends IntegrationTest {
@@ -66,6 +66,9 @@ class ExtractionApiTest extends IntegrationTest {
     // usage of the recorded Gemini response: promptTokenCount, candidatesTokenCount + thoughtsTokenCount
     static final int GEMINI_IN = 960;
     static final int GEMINI_OUT = 617 + 954;
+    // usage of the recorded OpenAI response: input_tokens, output_tokens (reasoning included)
+    static final int OPENAI_IN = 873;
+    static final int OPENAI_OUT = 731;
 
     @Autowired UserRepository users;
     @Autowired CompanyRepository companies;
@@ -200,6 +203,32 @@ class ExtractionApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.promptVersion").value("obligation-v1"))
                 .andExpect(jsonPath("$.inputTokens").value(GEMINI_IN))
                 .andExpect(jsonPath("$.outputTokens").value(GEMINI_OUT));
+        assertThat(((PreparedInput.Pdf) llm.calls.get(0).content()).bytes()).isEqualTo(pdf);
+        call(kim, get("/api/projects/" + projectId + "/suggestions?runId=" + runId))
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[*].payload.citation_key", containsInAnyOrder("3-2", "4-1", "5-3")))
+                .andExpect(jsonPath("$[*].payload.quote_check", contains("VERIFIED", "VERIFIED", "VERIFIED")));
+    }
+
+    @Test
+    void openai_reads_the_same_pdf_into_the_same_rows_and_the_run_records_provider_and_tokens() throws Exception {
+        enable();
+        llm.use(Provider.OPENAI, "gpt-6.1-terra");
+        call(kim, get("/api/ai-provider")).andExpect(jsonPath("$.provider").value("OPENAI"))
+                .andExpect(jsonPath("$.label").value("OpenAI"));
+        byte[] pdf = ExtractionApiTest.class.getResourceAsStream("/gemini/consultation-opinion.pdf").readAllBytes();
+        docId = upload("합성-협의의견서.pdf", pdf);
+        llm.answer("obligations-recorded.json"); // recorded from the real API on that PDF (see /openai/README.md)
+
+        long runId = runId(extract(kim).andExpect(status().isAccepted()));
+
+        call(kim, get("/api/ai-runs/" + runId))
+                .andExpect(jsonPath("$.status").value("SUCCEEDED"))
+                .andExpect(jsonPath("$.provider").value("OPENAI"))
+                .andExpect(jsonPath("$.model").value("gpt-6.1-terra"))
+                .andExpect(jsonPath("$.promptVersion").value("obligation-v1"))
+                .andExpect(jsonPath("$.inputTokens").value(OPENAI_IN))
+                .andExpect(jsonPath("$.outputTokens").value(OPENAI_OUT));
         assertThat(((PreparedInput.Pdf) llm.calls.get(0).content()).bytes()).isEqualTo(pdf);
         call(kim, get("/api/projects/" + projectId + "/suggestions?runId=" + runId))
                 .andExpect(jsonPath("$.length()").value(3))
