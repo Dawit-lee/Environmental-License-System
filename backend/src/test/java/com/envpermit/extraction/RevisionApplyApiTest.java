@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -13,10 +14,12 @@ import com.envpermit.core.company.Company;
 import com.envpermit.core.company.CompanyRepository;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
+import com.envpermit.notification.NotificationJob;
 import com.envpermit.support.IntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,10 +45,12 @@ class RevisionApplyApiTest extends IntegrationTest {
     @Autowired CompanyRepository companies;
     @Autowired PasswordEncoder encoder;
     @Autowired ObjectMapper mapper;
+    @Autowired NotificationJob job;
 
     String kim;
     String lee;
     long leeId;
+    long kimId;
     long projectId;
     long permitId;
     long v1;
@@ -59,7 +64,7 @@ class RevisionApplyApiTest extends IntegrationTest {
         truncateAll();
         long companyId = companies.save(new Company("A환경")).getId();
         users.save(new User("master@a.com", encoder.encode("pw"), "마스터", User.Role.ADMIN, companyId));
-        users.save(new User("kim@a.com", encoder.encode("pw"), "김에이", User.Role.USER, companyId));
+        kimId = users.save(new User("kim@a.com", encoder.encode("pw"), "김에이", User.Role.USER, companyId)).getId();
         leeId = users.save(new User("lee@a.com", encoder.encode("pw"), "이에이", User.Role.USER, companyId)).getId();
         call(login("master@a.com"), json(put("/api/company/ai-extraction"), "{\"enabled\":true}")).andExpect(status().isOk());
         kim = login("kim@a.com");
@@ -310,7 +315,106 @@ class RevisionApplyApiTest extends IntegrationTest {
                 .rootCause().hasMessageContaining("append-only");
     }
 
+    // --- site implementation (version-diff/03) -------------------------------------------------------------------
+
+    @Test
+    void approving_changed_or_added_opens_a_site_row_for_the_approver_and_nothing_else_does() throws Exception {
+        accept(kim, byType.get("CHANGED"), "\"firstDueDate\":\"2026-02-15\"").andExpect(status().isOk());
+        accept(kim, byType.get("REMOVED"), "\"confirmAbsent\":true").andExpect(status().isOk());
+        accept(kim, byType.get("UNCHANGED"), null).andExpect(status().isOk());
+        long added = applied(accept(kim, byType.get("ADDED"), "\"firstDueDate\":\"2026-07-31\"").andExpect(status().isOk()));
+
+        JsonNode rows = implementations("open");
+        assertThat(rows).hasSize(2);
+        assertThat(rows.findValuesAsText("obligationId")).containsExactlyInAnyOrder(
+                String.valueOf(v1Ids.get("3-2")), String.valueOf(added));
+        assertThat(rows.findValuesAsText("assigneeId")).containsOnly(String.valueOf(kimId));
+        assertThat(rows.findValuesAsText("changeType")).containsExactlyInAnyOrder("CHANGED", "ADDED");
+        assertThat(rows.get(0).get("targetDate").isNull()).isTrue();
+        assertThat(implementations("done")).isEmpty();
+        call(lee, get("/api/revision-implementations/count")).andExpect(jsonPath("$.count").value(2));
+    }
+
+    @Test
+    void target_date_reminds_the_assignee_until_done_and_progress_counts_follow() throws Exception {
+        long sid = byType.get("CHANGED").get("id").asLong();
+        accept(kim, byType.get("CHANGED"), "\"firstDueDate\":\"2026-02-15\"").andExpect(status().isOk());
+        accept(kim, byType.get("ADDED"), "\"firstDueDate\":\"2026-07-31\"").andExpect(status().isOk());
+
+        call(kim, json(patch("/api/revision-implementations/" + sid), "{\"assigneeId\":999999,\"targetDate\":\"2026-02-20\"}"))
+                .andExpect(status().isUnprocessableEntity());
+        call(kim, json(patch("/api/revision-implementations/" + sid), """
+                {"assigneeId":%d,"targetDate":"2026-02-20","note":"CO 50→30ppm 운영팀 설정 변경"}""".formatted(leeId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.assigneeId").value(leeId))
+                .andExpect(jsonPath("$.note").value("CO 50→30ppm 운영팀 설정 변경"));
+        assertThat(jdbc.queryForMap("SELECT due_date::text AS d, assignee_id FROM deadline_event "
+                + "WHERE kind = 'SITE_IMPLEMENTATION' AND target_id = ?", sid))
+                .containsEntry("d", "2026-02-20").containsEntry("assignee_id", leeId);
+
+        job.createDueNotifications(); // D-46 → the D-60 reminder
+        assertThat(siteNotifications(leeId)).isEqualTo(1);
+        assertThat(siteNotifications(kimId)).isZero();
+
+        call(lee, post("/api/revision-implementations/" + sid + "/complete")).andExpect(status().isOk())
+                .andExpect(jsonPath("$.doneBy").value(leeId))
+                .andExpect(jsonPath("$.doneAt").isNotEmpty());
+        call(lee, post("/api/revision-implementations/" + sid + "/complete")).andExpect(status().isConflict());
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM deadline_event WHERE kind = 'SITE_IMPLEMENTATION'", Long.class))
+                .isZero();
+
+        clock.set(Instant.parse("2026-02-15T00:00:00Z")); // would be D-7 of the site target
+        job.createDueNotifications();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM notification n JOIN deadline_event e ON e.id = n.deadline_event_id "
+                + "WHERE n.user_id = ? AND e.kind <> 'OBLIGATION'", Long.class, leeId)).isZero();
+        kim = login("kim@a.com"); // the old token expired with the clock jump
+
+        assertThat(implementations("open")).hasSize(1);
+        assertThat(implementations("done")).hasSize(1);
+        assertThat(implementations(null)).hasSize(2);
+        call(kim, get("/api/revision-implementations/count")).andExpect(jsonPath("$.count").value(1));
+    }
+
+    @Test
+    void outsiders_cannot_see_or_touch_site_rows() throws Exception {
+        long sid = byType.get("ADDED").get("id").asLong();
+        accept(kim, byType.get("ADDED"), "\"firstDueDate\":\"2026-07-31\"").andExpect(status().isOk());
+        users.save(new User("park@a.com", encoder.encode("pw"), "박에이", User.Role.USER,
+                users.findById(kimId).orElseThrow().getCompanyId()));
+        String park = login("park@a.com");
+
+        call(park, get("/api/projects/" + projectId + "/revision-implementations")).andExpect(status().isForbidden());
+        call(park, post("/api/revision-implementations/" + sid + "/complete")).andExpect(status().isForbidden());
+        call(park, get("/api/revision-implementations/count")).andExpect(jsonPath("$.count").value(0));
+    }
+
+    @Test
+    void permit_obligations_carry_their_revision_log() throws Exception {
+        accept(kim, byType.get("CHANGED"), "\"firstDueDate\":\"2026-02-15\"").andExpect(status().isOk());
+        long id = v1Ids.get("3-2");
+
+        call(kim, get("/api/projects/" + projectId + "/permits/" + permitId + "/obligations"))
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[?(@.id == %d)].sourceDocumentId".formatted(id)).value(org.hamcrest.Matchers.contains((int) v2)))
+                .andExpect(jsonPath("$[?(@.id == %d)].citationKey".formatted(id)).value(org.hamcrest.Matchers.contains("3-2")));
+        call(kim, get("/api/obligations/" + id + "/revision-log"))
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].changeType").value("CHANGED"))
+                .andExpect(jsonPath("$[0].before.frequency").value("QUARTERLY"))
+                .andExpect(jsonPath("$[0].byName").value("김에이"));
+    }
+
     // --- helpers ---------------------------------------------------------------------------------------------------
+
+    private JsonNode implementations(String status) throws Exception {
+        return mapper.readTree(call(kim, get("/api/projects/" + projectId + "/revision-implementations"
+                + (status == null ? "" : "?status=" + status))).andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+    }
+
+    private long siteNotifications(long userId) {
+        return jdbc.queryForObject("SELECT count(*) FROM notification n JOIN deadline_event e ON e.id = n.deadline_event_id "
+                + "WHERE e.kind = 'SITE_IMPLEMENTATION' AND n.user_id = ?", Long.class, userId);
+    }
 
     /** Re-read this run's PENDING suggestions by change type. */
     private void reload() throws Exception {

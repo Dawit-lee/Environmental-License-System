@@ -141,6 +141,7 @@ public class PermitObligation {
     public Long getSourceDocumentId() { return sourceDocumentId; }
     public Long getSuggestionId() { return suggestionId; }
     public String getCitationRaw() { return citationRaw; }
+    public String getCitationKey() { return citationKey; }
     public String getSummary() { return summary; }
     public Frequency getFrequency() { return frequency; }
     public LocalDate getFirstDueDate() { return firstDueDate; }

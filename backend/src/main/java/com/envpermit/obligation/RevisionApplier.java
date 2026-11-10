@@ -66,7 +66,7 @@ class RevisionApplier implements SuggestionApplier {
         JsonNode computed = s.getPayload();
         String type = computed.path("change_type").asText();
         if (type.equals("ADDED")) {
-            return obligationApplier.apply(s, payload.get("new"), ctx);
+            return openSiteImplementation(s, obligationApplier.apply(s, payload.get("new"), ctx), ctx);
         }
         PermitObligation o = obligations.lock(computed.path("prev_obligation_id").asLong())
                 .filter(r -> r.getPermitItemId().equals(s.getTargetParentId()))
@@ -104,7 +104,14 @@ class RevisionApplier implements SuggestionApplier {
             default -> throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "알 수 없는 판정: " + type);
         }
         obligationApplier.registerDeadline(o, permit); // same (kind, target) → moved, never duplicated; null → removed
-        return o.getId();
+        return type.equals("CHANGED") ? openSiteImplementation(s, o.getId(), ctx) : o.getId();
+    }
+
+    /** ④ §4.8: CHANGED/ADDED still has to be carried out on site; the approver owns it until reassigned. */
+    private long openSiteImplementation(AiSuggestion s, long obligationId, ApplyContext ctx) {
+        jdbc.update("INSERT INTO revision_implementation (suggestion_id, obligation_id, assignee_id) VALUES (?, ?, ?)",
+                s.getId(), obligationId, ctx.actorId());
+        return obligationId;
     }
 
     /** frequency, frequency_text, period_text: any change needs a new next due date. */

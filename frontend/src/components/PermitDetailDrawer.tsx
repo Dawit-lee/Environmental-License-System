@@ -3,6 +3,7 @@ import type { PermitCategory, PermitHistory, PermitItem, PermitStatus } from '..
 import { api } from '../api/client';
 import PermitDocuments from './PermitDocuments';
 import PermitLawLinks from './PermitLawLinks';
+import PermitVersions from './PermitVersions';
 
 // ---------------------------------------------------------------------------
 // PermitDetailDrawer — slide-in panel (480px) showing a single permit's
@@ -198,6 +199,11 @@ export default function PermitDetailDrawer({
               {/* 첨부 문서 */}
               <Section title="첨부 문서">
                 <PermitDocuments permit={permit} />
+              </Section>
+
+              {/* ④ 문서 버전 · 의무사항 변경 이력 */}
+              <Section title="문서 버전 · 의무사항">
+                <PermitVersions permit={permit} />
               </Section>
 
               {/* 변경 이력 */}

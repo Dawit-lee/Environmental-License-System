@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import type { PermitStatus } from '../types';
 import { getDeadlines, ymd, type Deadline } from '../api/notifications';
+import { openSiteImplementationCount } from '../api/revisions';
 
 // ---------------------------------------------------------------------------
 // DashboardPage — portfolio-wide overview: summary cards, near-expiry table,
@@ -47,7 +48,9 @@ export default function DashboardPage() {
     const to = new Date(today);
     to.setDate(to.getDate() + 30);
     getDeadlines(ymd(today), ymd(to)).then(setNearExpiry, (e: Error) => setError(e.message));
+    openSiteImplementationCount().then((r) => setSiteOpen(r.count), () => {});
   }, []);
+  const [siteOpen, setSiteOpen] = useState(0); // ④ approved revisions not yet carried out on site
 
   const total = STATUS_SLICES.reduce((sum, s) => sum + s.value, 0);
 
@@ -69,11 +72,12 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold text-[#1F4E79]">대시보드</h1>
 
         {/* Summary cards */}
-        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-5">
           <SummaryCard label="전체 프로젝트" value={4} tone="text-[#1F4E79]" />
           <SummaryCard label="전체 인허가" value={total} tone="text-gray-800" />
           <SummaryCard label="만료임박 (D-30 이내)" value={nearExpiry.length} tone="text-[#B45309]" />
           <SummaryCard label="미신청" value={9} tone="text-[#991B1B]" />
+          <SummaryCard label="현장 반영 대기 (건)" value={siteOpen} tone="text-[#0F6E56]" />
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">

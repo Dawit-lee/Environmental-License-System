@@ -15,5 +15,7 @@ public interface PermitObligationRepository extends JpaRepository<PermitObligati
     @Query("select o from PermitObligation o where o.id = ?1")
     Optional<PermitObligation> lock(long id);
 
+    List<PermitObligation> findByPermitItemIdOrderById(long permitItemId);
+
     List<PermitObligation> findByPermitItemIdAndSourceDocumentIdInOrderById(long permitItemId, Collection<Long> documentIds);
 }
