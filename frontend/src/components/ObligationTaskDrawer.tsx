@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Link } from 'react-router';
 import { apiBlob } from '../api/client';
 import { completeObligation, type Obligation } from '../api/revisions';
 import {
@@ -7,14 +8,16 @@ import {
   type ProjectMember, type Task, type TaskDetail, type TaskEvent,
 } from '../api/tasks';
 import type { PermitDocument, PermitItem } from '../types';
+import { LEVEL, levelClass } from './PointMeasurements';
 
 // ---------------------------------------------------------------------------
 // ObligationTaskDrawer — 업무 상세 of one obligation (operations-compliance/01): the current cycle's evidence
-// and [완료], plus past cycles. Evidence is always a document of the obligation's own permit item.
+// and [완료], plus past cycles. Evidence is always a document of the obligation's own permit item; a 측정·조사
+// task can also be fulfilled by measured values entered in the 운영 tab (operations-compliance/04).
 // ---------------------------------------------------------------------------
 
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.xlsx';
-const NEEDS_EVIDENCE = '증빙 문서를 1건 이상 첨부해야 완료할 수 있습니다.';
+const NEEDS_EVIDENCE = '증빙 문서나 측정값이 1건 이상 있어야 완료할 수 있습니다.';
 const CANCELLED: Record<string, string> = {
   OBLIGATION_CLOSED: '의무사항 종료', REVISION_REMOVED: '허가증 개정으로 삭제', MANUAL: '수동 취소',
 };
@@ -79,6 +82,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
   const open = task?.status === 'OPEN';
   const attached = new Set(detail?.evidence.map((e) => e.documentId));
   const choices = docs.filter((d) => !attached.has(d.id));
+  const proof = (detail?.evidence.length ?? 0) + (detail?.measurements.length ?? 0);
 
   const upload = (f: File) => run(async () => {
     const doc = await uploadPermitDocument(projectId, obligation.permitItemId, f);
@@ -233,6 +237,28 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                 )}
               </section>
 
+              {(detail.measurements.length > 0 || (open && obligation.type === 'MEASURE_SURVEY')) && (
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-800">측정값 ({detail.measurements.length})</h3>
+                  <ul className="mt-2 divide-y divide-[#F0EEE7]">
+                    {detail.measurements.map((m) => (
+                      <li key={m.id} className="flex items-center gap-3 py-1.5 text-sm">
+                        <span className="shrink-0 text-gray-600">{m.measuredOn}</span>
+                        <span className="min-w-0 flex-1 truncate" title={`${m.pointName} · ${m.pollutantName}`}>{m.pointName} · {m.pollutantName}</span>
+                        <span className="shrink-0 tabular-nums">{m.value} {m.unit}{m.belowDetection ? ' (불검출)' : ''}</span>
+                        <span className={`shrink-0 ${levelClass(m.level)}`}>{LEVEL[m.level]}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {open && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Link to={`/projects/${projectId}/operations?task=${task.id}`} className={button}>측정값 입력</Link>
+                      <p className="w-full text-xs text-gray-400">운영 탭에서 넣은 측정값이 이 업무에 연결되고, 증빙 문서 없이도 완료할 수 있습니다.</p>
+                    </div>
+                  )}
+                </section>
+              )}
+
               {open && (
                 <section>
                   <h3 className="text-sm font-semibold text-gray-800">완료</h3>
@@ -248,10 +274,10 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                   )}
                   <div className="mt-3 flex items-center gap-3">
                     <button type="button" onClick={complete}
-                      disabled={busy || detail.evidence.length === 0 || (obligation.frequency === 'OTHER' && !nextDue)}
+                      disabled={busy || proof === 0 || (obligation.frequency === 'OTHER' && !nextDue)}
                       className="rounded-lg bg-[#1F4E79] px-4 py-2 text-sm font-medium text-white hover:bg-[#173B5C] disabled:opacity-40">완료</button>
-                    {detail.evidence.length === 0 && <span className="text-xs text-gray-500">{NEEDS_EVIDENCE}</span>}
-                    {detail.evidence.length > 0 && task.dueDate < new Date().toLocaleDateString('sv-SE')
+                    {proof === 0 && <span className="text-xs text-gray-500">{NEEDS_EVIDENCE}</span>}
+                    {proof > 0 && task.dueDate < new Date().toLocaleDateString('sv-SE')
                       && <span className="text-xs text-[#991B1B]">기한이 지나 "지연 완료"로 기록됩니다.</span>}
                   </div>
                 </section>
@@ -271,7 +297,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                         <td className="py-1.5">{c.dueDate}</td>
                         <td className={`py-1.5 ${isOverdue(c) ? 'text-[#991B1B]' : ''}`}>{taskStatusLabel(c)}</td>
                         <td className="py-1.5 text-gray-600">{c.doneAt ? day(c.doneAt) : '—'}</td>
-                        <td className="py-1.5 text-gray-600">{c.evidenceCount}</td>
+                        <td className="py-1.5 text-gray-600" title="증빙 문서 + 측정값">{c.evidenceCount + c.measurementCount}</td>
                         <td className="truncate py-1.5 text-gray-600" title={c.note ?? ''}>{c.note ?? '—'}</td>
                       </tr>
                     ))}

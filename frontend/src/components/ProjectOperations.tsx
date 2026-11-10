@@ -2,11 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api/client';
 import { listProjectObligations, type Obligation } from '../api/revisions';
 import type { PermitItem } from '../types';
+import PointMeasurements from './PointMeasurements';
 
 // ---------------------------------------------------------------------------
-// ProjectOperations — 프로젝트 › 운영: emission points and their permit limits (operations-compliance F2).
+// ProjectOperations — 프로젝트 › 운영: emission points, their permit limits and measured values (operations-compliance F2).
 // A limit is never edited: [한도 변경] closes the current row and adds a new one, so history stays.
-// Planned (ticket 04): measured values and trends go in this tab.
+// Measured values of the selected point: PointMeasurements. Planned (ticket 05): paste and trends.
 // ---------------------------------------------------------------------------
 
 type Medium = 'AIR' | 'WATER';
@@ -320,6 +321,8 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
               <p className="py-10 text-center text-sm text-gray-400">등록된 한도가 없습니다. 허가증의 항목별 배출 한도를 추가하세요.</p>
             )}
           </div>
+
+          <PointMeasurements projectId={projectId} point={selected} limits={limits} />
         </>
       )}
     </div>

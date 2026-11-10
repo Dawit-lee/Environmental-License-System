@@ -6,6 +6,7 @@ import com.envpermit.notification.Deadlines;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -29,7 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class ObligationTasks {
 
     static final String DEADLINE_KIND = "OBLIGATION";
-    static final String NEEDS_EVIDENCE = "증빙 문서를 1건 이상 첨부해야 완료할 수 있습니다.";
+    static final String NEEDS_EVIDENCE = "증빙 문서나 측정값이 1건 이상 있어야 완료할 수 있습니다.";
     static final String NEEDS_NEXT_DUE = "다음 기한일을 입력하세요.";
     static final String NOT_OPEN = "이미 완료되었거나 취소된 업무입니다.";
     static final String OTHER_PERMIT = "같은 인허가 항목의 문서만 증빙으로 연결할 수 있습니다.";
@@ -39,7 +40,8 @@ public class ObligationTasks {
             SELECT t.id, t.project_id, t.kind, t.obligation_id, o.permit_item_id, COALESCE(o.summary, t.title) AS title,
                    t.due_date, t.assignee_id, a.name AS assignee_name, t.status, t.note, d.name AS done_by_name,
                    t.done_at, t.cancelled_reason, t.version,
-                   (SELECT count(*) FROM task_evidence e WHERE e.task_id = t.id) AS evidence_count
+                   (SELECT count(*) FROM task_evidence e WHERE e.task_id = t.id) AS evidence_count,
+                   (SELECT count(*) FROM measurement m WHERE m.task_id = t.id AND m.deleted_at IS NULL) AS measurement_count
             FROM obligation_task t
             LEFT JOIN permit_obligation o ON o.id = t.obligation_id
             LEFT JOIN users a ON a.id = t.assignee_id
@@ -67,7 +69,12 @@ public class ObligationTasks {
     public record TaskView(long id, long projectId, String kind, Long obligationId, Long permitItemId, String title,
                            LocalDate dueDate, Long assigneeId, String assigneeName, String status, String note,
                            String doneByName, Instant doneAt, boolean late, String cancelledReason, long version,
-                           int evidenceCount) {
+                           int evidenceCount, int measurementCount) {
+    }
+
+    /** A live measured value entered for the task (operations-compliance/04); it counts like an evidence document. */
+    public record MeasurementView(long id, String pointName, String pollutantName, LocalDate measuredOn, BigDecimal value,
+                                  String unit, boolean belowDetection, String level) {
     }
 
     public record EvidenceView(long documentId, long permitItemId, String fileName, String addedByName, Instant addedAt) {
@@ -76,7 +83,8 @@ public class ObligationTasks {
     public record EventView(String type, JsonNode data, Instant at, String byName) {
     }
 
-    public record TaskDetail(TaskView task, List<EvidenceView> evidence, List<EventView> events) {
+    public record TaskDetail(TaskView task, List<EvidenceView> evidence, List<MeasurementView> measurements,
+                             List<EventView> events) {
     }
 
     // --- lifecycle --------------------------------------------------------------------------------------------
@@ -163,13 +171,13 @@ public class ObligationTasks {
     }
 
     /**
-     * [완료]: needs at least one evidence document. The obligation moves to its next due date by frequency
+     * [완료]: needs at least one evidence document or one measured value entered for the task (O2). The obligation moves to its next due date by frequency
      * (month-end clamped; OTHER needs a typed date; ONCE closes it) and the next cycle's task opens.
      */
     @Transactional
     public void complete(long taskId, long actorId, String note, LocalDate typedNext, Long version) {
         TaskView t = lockOpen(taskId, version);
-        if (t.evidenceCount() == 0) {
+        if (t.evidenceCount() == 0 && t.measurementCount() == 0) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, NEEDS_EVIDENCE);
         }
         PermitObligation o = t.obligationId() == null ? null : obligations.findById(t.obligationId()).orElseThrow();
@@ -252,7 +260,14 @@ public class ObligationTasks {
                 WHERE e.task_id = ? ORDER BY e.id""",
                 (rs, i) -> new EventView(rs.getString(1), tree(rs.getString(2)), rs.getTimestamp(3).toInstant(),
                         rs.getString(4)), taskId);
-        return new TaskDetail(get(taskId), evidence, events);
+        List<MeasurementView> measurements = jdbc.query("""
+                SELECT m.id, p.name, pl.name, m.measured_on, m.value, m.unit, m.below_detection, m.level
+                FROM measurement m JOIN emission_point p ON p.id = m.emission_point_id JOIN pollutant pl ON pl.code = m.pollutant
+                WHERE m.task_id = ? AND m.deleted_at IS NULL ORDER BY m.measured_on, m.id""",
+                (rs, i) -> new MeasurementView(rs.getLong(1), rs.getString(2), rs.getString(3),
+                        rs.getObject(4, LocalDate.class), rs.getBigDecimal(5), rs.getString(6), rs.getBoolean(7),
+                        rs.getString(8)), taskId);
+        return new TaskDetail(get(taskId), evidence, measurements, events);
     }
 
     TaskView openTask(long obligationId) {
@@ -303,6 +318,7 @@ public class ObligationTasks {
                 rs.getString("status"), rs.getString("note"), rs.getString("done_by_name"),
                 done == null ? null : done.toInstant(),
                 done != null && done.toInstant().atZone(clock.getZone()).toLocalDate().isAfter(due),
-                rs.getString("cancelled_reason"), rs.getLong("version"), rs.getInt("evidence_count"));
+                rs.getString("cancelled_reason"), rs.getLong("version"), rs.getInt("evidence_count"),
+                rs.getInt("measurement_count"));
     }
 }

@@ -21,6 +21,8 @@ export interface Task {
   cancelledReason: 'OBLIGATION_CLOSED' | 'REVISION_REMOVED' | 'MANUAL' | null;
   version: number;
   evidenceCount: number;
+  /** live measured values entered for this task; they count like evidence */
+  measurementCount: number;
 }
 
 export interface TaskEvidence {
@@ -29,6 +31,17 @@ export interface TaskEvidence {
   fileName: string;
   addedByName: string | null;
   addedAt: string;
+}
+
+export interface TaskMeasurement {
+  id: number;
+  pointName: string;
+  pollutantName: string;
+  measuredOn: string;
+  value: number;
+  unit: string;
+  belowDetection: boolean;
+  level: 'NORMAL' | 'NEAR' | 'EXCEEDED' | 'NO_LIMIT';
 }
 
 export interface TaskEvent {
@@ -41,6 +54,7 @@ export interface TaskEvent {
 export interface TaskDetail {
   task: Task;
   evidence: TaskEvidence[];
+  measurements: TaskMeasurement[];
   events: TaskEvent[];
 }
 

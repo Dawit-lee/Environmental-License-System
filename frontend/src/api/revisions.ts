@@ -25,6 +25,8 @@ export interface Obligation {
   permitItemId: number;
   citationKey: string | null;
   summary: string;
+  /** MEASURE_SURVEY: the task can be fulfilled by measured values (운영 탭) */
+  type: string;
   frequency: Frequency;
   firstDueDate: string | null;
   nextDueDate: string | null;
