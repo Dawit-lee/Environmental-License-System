@@ -1,6 +1,7 @@
 package com.envpermit.derivation;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -36,6 +37,11 @@ class DerivationController {
     @GetMapping("/api/projects/{projectId}/derivations/latest")
     JsonNode latest(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
         return derivation.latest(projectId, jwt);
+    }
+
+    @GetMapping("/api/projects/{projectId}/derivations/missing-inputs")
+    List<Derivation.Missing> missingInputs(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
+        return derivation.missingInputs(projectId, jwt);
     }
 
     @ExceptionHandler(Derivation.MissingInputs.class)

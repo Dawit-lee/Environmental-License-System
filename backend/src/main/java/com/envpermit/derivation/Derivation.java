@@ -12,11 +12,15 @@ import com.envpermit.law.LawCatalog;
 import com.envpermit.law.LawCatalogRepository;
 import com.envpermit.review.AiRun;
 import com.envpermit.review.AiRunRepository;
+import com.envpermit.review.AiSuggestion;
+import com.envpermit.review.AiSuggestion.Status;
 import com.envpermit.review.Kind;
 import com.envpermit.review.Review;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.NullNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -24,9 +28,14 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -40,8 +49,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 /**
  * Derive flow (design §4.1): validate attributes → ACTIVE rules for this facility/kind → evaluate each →
- * store the full judgement (incl. NOT_APPLICABLE) in object storage → ai_run + PENDING PERMIT_ITEM suggestions.
- * shortcut: no re-run policy yet — every derive adds a fresh set of PENDING suggestions (permit-derivation/02).
+ * store the full judgement (incl. NOT_APPLICABLE) in object storage → ai_run + PENDING PERMIT_ITEM suggestions,
+ * filtered by the re-run policy ({@link Rerun}) against the previous suggestion of each rule_key.
  */
 @Service
 class Derivation {
@@ -57,6 +66,11 @@ class Derivation {
             super("필수 속성이 없습니다: " + fields.stream().map(f -> Fields.get(f).label()).collect(Collectors.joining(", ")));
             this.fields = fields;
         }
+    }
+
+    /** One line of the "추가 정보 필요" panel: a field and the PENDING ON_HOLD permits waiting for it. */
+    record Missing(String field, String label, Fields.Type type, String unit, Map<String, String> values,
+                   List<String> rules) {
     }
 
     private final ProjectRepository projects;
@@ -98,8 +112,30 @@ class Derivation {
                 clean.set(e.getKey(), e.getValue());
             }
         });
-        projects.findById(projectId).orElseThrow().setAttributes(clean);
+        Project project = projects.findById(projectId).orElseThrow();
+        boolean startChanged = !Objects.equals(project.getAttributes().get("construction_start"),
+                clean.get("construction_start"));
+        project.setAttributes(clean);
+        if (startChanged) {
+            refreshRequiredByDates(projectId, date(clean));
+        }
         return clean;
+    }
+
+    /** PENDING suggestions only; edited_payload is left alone, approved items are edited live (design §4.5). */
+    private void refreshRequiredByDates(long projectId, LocalDate start) {
+        for (Map<String, Object> row : jdbc.queryForList("SELECT id, payload::text AS payload FROM ai_suggestion "
+                + "WHERE project_id = ? AND kind = 'PERMIT_ITEM' AND status = 'PENDING'", projectId)) {
+            ObjectNode p = (ObjectNode) read((String) row.get("payload"));
+            LocalDate d = Rerun.requiredByDate(p.get("required_by"), start);
+            JsonNode value = d == null ? NullNode.getInstance() : TextNode.valueOf(d.toString());
+            if (!value.equals(p.get("required_by_date"))) {
+                p.set("required_by_date", value);
+                // version bump: an approval screen still showing the old date gets 409 instead of approving it
+                jdbc.update("UPDATE ai_suggestion SET payload = ?::jsonb, version = version + 1 WHERE id = ?",
+                        p.toString(), row.get("id"));
+            }
+        }
     }
 
     @Transactional
@@ -121,19 +157,39 @@ class Derivation {
         }
         ObjectNode snapshot = Fields.withDerived(attrs);
         Map<Long, String> lawNames = lawNames(active);
+        LocalDate start = date(attrs);
+        Instant now = clock.instant();
+        AiRun run = runs.save(AiRun.start(project.getCompanyId(), projectId, Kind.PERMIT_ITEM, snapshot, "rule-engine",
+                "ruleset-v" + rulesetVersion, "RULE_ENGINE", userId(jwt), now));
+        Map<String, AiSuggestion> previous = previousByRule(projectId, jwt);
 
         ArrayNode results = json.createArrayNode();
+        ArrayNode warnings = json.createArrayNode();
         List<JsonNode> payloads = new ArrayList<>();
         for (DerivationRule r : active) {
             Judgement j = Evaluator.judge(r.getCondition(), snapshot, r.getFacilityTypes(), r.getProjectKinds());
-            ObjectNode row = row(r, j, rulesetVersion, lawNames);
+            ObjectNode row = row(r, j, rulesetVersion, lawNames, start);
             results.add(row);
-            if (j.determination() == Determination.APPLICABLE || j.determination() == Determination.ON_HOLD) {
-                payloads.add(row);
+            if (j.determination() == Determination.ERROR) {
+                continue; // a broken rule must not close what people are reviewing
+            }
+            AiSuggestion prev = previous.get(r.getRuleKey());
+            switch (Rerun.decide(prev(prev), j.determination(), j.reason())) {
+                case CREATE -> payloads.add(row);
+                case CREATE_WITH_WARNING -> payloads.add(row.deepCopy().put("warning", "결재 중인 이전 판정 있음"));
+                case SUPERSEDE -> {
+                    review.rejectBySystem(prev.getId(), "재실행으로 대체: " + label(j.determination()) + " (run "
+                            + run.getId() + ")");
+                    payloads.add(row);
+                }
+                case CLOSE -> review.rejectBySystem(prev.getId(), "재실행으로 대체: 해당없음 — " + j.reason());
+                case WARN_NOT_APPLICABLE -> warnings.addObject().put("rule_key", r.getRuleKey())
+                        .put("permit_name", r.getPermitName()).put("permit_item_id", prev.getAppliedEntityId())
+                        .put("message", "현재 규칙상 해당없음: " + j.reason());
+                case NONE -> { }
             }
         }
 
-        Instant now = clock.instant();
         ObjectNode record = json.createObjectNode();
         record.put("rulesetVersion", rulesetVersion);
         record.put("ranAt", now.toString());
@@ -143,12 +199,11 @@ class Derivation {
         }
         record.set("attributes", snapshot);
         record.set("results", results);
+        record.set("warnings", warnings);
 
         String key = "derivations/" + projectId + "/" + UUID.randomUUID() + ".json";
         byte[] bytes = bytes(record);
         storage.put(key, new ByteArrayInputStream(bytes), bytes.length, "application/json");
-        AiRun run = runs.save(AiRun.start(project.getCompanyId(), projectId, Kind.PERMIT_ITEM, snapshot, "rule-engine",
-                "ruleset-v" + rulesetVersion, "RULE_ENGINE", userId(jwt), now));
         review.addAi(run, null, payloads);
         run.finish(null, key, 0, 0, now); // deterministic: no tokens
         return record.put("runId", run.getId());
@@ -169,8 +224,59 @@ class Derivation {
         }
     }
 
+    /** Grouped by field, most-waited first (design §4.4). Saving a value + re-deriving is the client's two calls. */
+    List<Missing> missingInputs(long projectId, Jwt jwt) {
+        Map<String, List<String>> byField = new TreeMap<>();
+        for (AiSuggestion s : review.list(projectId, jwt, null, Status.PENDING)) {
+            JsonNode p = s.effectivePayload();
+            if (s.getKind() == Kind.PERMIT_ITEM && "ON_HOLD".equals(p.path("determination").asText())) {
+                for (JsonNode f : p.path("hold_info").path("missing_fields")) {
+                    byField.computeIfAbsent(f.asText(), k -> new ArrayList<>()).add(p.path("permit_name").asText());
+                }
+            }
+        }
+        return byField.entrySet().stream()
+                .sorted(Comparator.comparingInt((Map.Entry<String, List<String>> e) -> -e.getValue().size()))
+                .map(e -> {
+                    Fields.Field f = Fields.get(e.getKey());
+                    return new Missing(f.key(), f.label(), f.type(), f.unit(), f.values(), e.getValue());
+                })
+                .toList();
+    }
+
+    /** The latest AI suggestion per rule_key in this project (what the re-run policy compares against). */
+    private Map<String, AiSuggestion> previousByRule(long projectId, Jwt jwt) {
+        Map<String, AiSuggestion> out = new HashMap<>();
+        for (AiSuggestion s : review.list(projectId, jwt, null, null)) {
+            if (s.getKind() == Kind.PERMIT_ITEM && s.getOrigin() == AiSuggestion.Origin.AI) {
+                out.merge(s.getPayload().path("rule_key").asText(), s, (a, b) -> a.getId() > b.getId() ? a : b);
+            }
+        }
+        return out;
+    }
+
+    private static Rerun.Prev prev(AiSuggestion s) {
+        if (s == null) {
+            return null;
+        }
+        JsonNode p = s.getPayload();
+        // reviewed_by null on a REJECTED row = the SYSTEM re-run path (review exception 1)
+        return new Rerun.Prev(s.getStatus(), s.getReviewedBy() == null,
+                Determination.valueOf(p.path("determination").asText()), p.path("reason").asText(null));
+    }
+
+    private static String label(Determination d) {
+        return d == Determination.APPLICABLE ? "해당" : "판정 보류";
+    }
+
+    private static LocalDate date(JsonNode attrs) {
+        JsonNode v = attrs.get("construction_start");
+        return v == null || v.isNull() ? null : LocalDate.parse(v.asText());
+    }
+
     /** PERMIT_ITEM payload (review contract §2.5 + derivation additions §4.2); also the judgement record row. */
-    private ObjectNode row(DerivationRule r, Judgement j, int rulesetVersion, Map<Long, String> lawNames) {
+    private ObjectNode row(DerivationRule r, Judgement j, int rulesetVersion, Map<Long, String> lawNames,
+                           LocalDate start) {
         ObjectNode p = json.createObjectNode();
         p.put("permit_name", r.getPermitName());
         p.put("field", r.getField());
@@ -193,7 +299,8 @@ class Derivation {
         p.put("category", r.getCategory());
         p.set("law_refs", r.getLawRefs());
         p.set("required_by", r.getRequiredBy());
-        p.putNull("required_by_date"); // computed from construction_start in permit-derivation/02
+        LocalDate due = Rerun.requiredByDate(r.getRequiredBy(), start);
+        p.put("required_by_date", due == null ? null : due.toString());
         p.put("criterion", r.getCriterionText());
         p.put("note", r.getNote());
         ArrayNode names = p.putArray("law_names");
@@ -215,6 +322,14 @@ class Derivation {
             case NOT_APPLICABLE -> "notApplicable";
             case ERROR -> "errors";
         };
+    }
+
+    private JsonNode read(String s) {
+        try {
+            return json.readTree(s);
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private byte[] bytes(JsonNode n) {
