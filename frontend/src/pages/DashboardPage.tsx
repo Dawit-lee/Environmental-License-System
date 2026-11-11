@@ -6,8 +6,9 @@ import { getDeadlines, ymd, type Deadline } from '../api/notifications';
 import { openSiteImplementationCount } from '../api/revisions';
 import { getNewLawImpactCount } from '../api/lawImpacts';
 import {
-  ActivityList, DeadlineTimeline, PendingRow, STATUSES, StatusDonut, dDayClasses, deadlineLink, isOpen, recentActivity,
+  ActivityList, DeadlineTimeline, PendingRow, STAGES, STATUSES, StatusDonut, dDayClasses, deadlineLink, isOpen, lifecycleStage, recentActivity,
 } from '../components/dashboard';
+import { CompanyCompliance } from '../components/Compliance';
 
 // ---------------------------------------------------------------------------
 // DashboardPage — portfolio-wide overview: summary cards, near-expiry table,
@@ -66,6 +67,12 @@ export default function DashboardPage() {
           <SummaryCard label="만료임박 (D-30 이내)" value={nearExpiry.length} tone="text-[#B45309]" />
           <SummaryCard label="미신청" value={permits.filter((p) => p.status === 'NOT_APPLIED').length} tone="text-[#991B1B]" />
         </div>
+
+        {/* 규제 대응 현황 (F4); the stage is the same rough one the project page shows */}
+        <CompanyCompliance stageOf={(id) => {
+          const p = projects.find((x) => x.id === id);
+          return p ? STAGES[lifecycleStage(p, permits.filter((x) => x.projectId === id))] : '—';
+        }} />
 
         {/* Near-expiry table — full width so each row stays on one line */}
         <section className="mt-6 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">

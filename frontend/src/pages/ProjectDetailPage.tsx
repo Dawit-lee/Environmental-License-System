@@ -9,6 +9,7 @@ import LawAmendmentsPage from './LawAmendmentsPage';
 import CalendarPage from './CalendarPage';
 import NewProjectPage from './NewProjectPage';
 import ProjectOverview from '../components/ProjectOverview';
+import { STAGES, lifecycleStage } from '../components/dashboard';
 import ProjectObligations from '../components/ProjectObligations';
 import ProjectDocuments from '../components/ProjectDocuments';
 import ProjectOperations from '../components/ProjectOperations';
@@ -96,19 +97,6 @@ const TABS = [
   { key: 'documents', label: '문서' },
   { key: 'settings', label: '설정' },
 ] as const;
-
-const STAGES = ['입지', '설계', '착공', '준공', '운영'] as const;
-
-/** shortcut: rough stage from permit status + planned dates; replace when projects store a real stage. */
-function lifecycleStage(project: Project, permits: PermitItem[], today = new Date().toISOString().slice(0, 10)): number {
-  const done = (cats: PermitCategory[]) =>
-    permits.filter((p) => cats.includes(p.category)).every((p) => p.status === 'COMPLETED');
-  if (!done(['LOCATION', 'ENVIRONMENT'])) return 0;
-  if (!project.startDate || today < project.startDate) return 1;
-  if (!project.expectedEndDate || today < project.expectedEndDate) return 2;
-  if (!permits.every((p) => p.status === 'COMPLETED')) return 3;
-  return 4;
-}
 
 export default function ProjectDetailPage() {
   const { id, tab = 'overview' } = useParams();
