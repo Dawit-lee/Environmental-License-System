@@ -214,7 +214,7 @@ public class Extraction {
                     JsonNode res = json.readTree(raw);
                     inTokens += llm.provider().inputTokens(res);
                     outTokens += llm.provider().outputTokens(res);
-                    payloads = payloads(parse(llm.provider().text(res)), input.pageTexts());
+                    payloads = payloads(parse(json, validator, llm.provider().text(res)), input.pageTexts());
                     error = null;
                 } catch (BadResponse e) {
                     log.warn("Unusable LLM response (run {}, attempt {}): {}", runId, attempt, e.getMessage());
@@ -248,7 +248,8 @@ public class Extraction {
         });
     }
 
-    private ModelOutput parse(String text) throws Exception {
+    /** Static so the manual quality eval (ExtractionEval, test sources) reads responses exactly as a run does. */
+    static ModelOutput parse(ObjectMapper json, Validator validator, String text) throws Exception {
         ModelOutput out = json.readValue(text, ModelOutput.class);
         String errors = validator.validate(out).stream().map(v -> v.getPropertyPath() + " " + v.getMessage())
                 .sorted().collect(Collectors.joining(", "));
