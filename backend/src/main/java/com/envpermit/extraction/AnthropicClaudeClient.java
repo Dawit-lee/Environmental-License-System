@@ -3,32 +3,35 @@ package com.envpermit.extraction;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.client.okhttp.AnthropicOkHttpClient;
 import com.anthropic.core.JsonValue;
-import com.anthropic.core.http.HttpResponseFor;
+import com.anthropic.core.ObjectMappers;
+import com.anthropic.core.http.StreamResponse;
+import com.anthropic.helpers.MessageAccumulator;
 import com.anthropic.models.messages.Base64PdfSource;
 import com.anthropic.models.messages.ContentBlockParam;
 import com.anthropic.models.messages.DocumentBlockParam;
 import com.anthropic.models.messages.JsonOutputFormat;
-import com.anthropic.models.messages.Message;
 import com.anthropic.models.messages.MessageCreateParams;
 import com.anthropic.models.messages.OutputConfig;
+import com.anthropic.models.messages.RawMessageStreamEvent;
 import com.anthropic.models.messages.TextBlockParam;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Real Messages API call: PDF document block + JSON-schema-constrained output (structured outputs).
+ * Real Messages API call (streamed): PDF document block + JSON-schema-constrained output (structured outputs).
  * The key comes only from env var ANTHROPIC_API_KEY (ANTHROPIC_BASE_URL is honoured for a local stub).
  * SDK retries are off: {@link Extraction} retries once, as design §3.9 says.
  */
 class AnthropicClaudeClient implements LlmClient {
 
-    private static final long MAX_TOKENS = 16_000;
+    // Thinking shares this budget (on by default on current models). 16,000 was cut off on a 23-page 협의내용:
+    // 8,138 went to thinking and the answer stopped at page 5 (review-extraction/04).
+    private static final long MAX_TOKENS = 64_000;
 
     private final ObjectMapper json;
     private final String model;
@@ -68,8 +71,14 @@ class AnthropicClaudeClient implements LlmClient {
                 .addUserMessageOfContentBlockParams(List.of(input,
                         ContentBlockParam.ofText(TextBlockParam.builder().text(instruction).build())))
                 .build();
-        try (HttpResponseFor<Message> res = client().messages().withRawResponse().create(params)) {
-            return new String(res.body().readAllBytes(), StandardCharsets.UTF_8);
+        // streamed: a long answer would hit the HTTP timeout otherwise. The events are put back into one Message,
+        // whose JSON has the same fields Provider.CLAUDE reads from a plain response.
+        MessageAccumulator message = MessageAccumulator.create();
+        try (StreamResponse<RawMessageStreamEvent> events = client().messages().createStreaming(params)) {
+            events.stream().forEach(message::accumulate);
+        }
+        try {
+            return ObjectMappers.jsonMapper().writeValueAsString(message.message());
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
