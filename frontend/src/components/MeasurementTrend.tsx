@@ -1,17 +1,17 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import { api } from '../api/client';
-import { LEVEL, levelClass, type Level } from './PointMeasurements';
+import { LEVEL, levelClass, limitText, nearLines, type Level } from './PointMeasurements';
 
 // ---------------------------------------------------------------------------
 // MeasurementTrend — 운영 탭 "측정 추이" of one emission point (operations-compliance/05): one item over a period as
-// a line chart with the permit limit (solid) and the 근접 line (dashed), plus the same values as a table.
+// a line chart with the permit limit (solid) and the 근접 line (dashed; both bounds of a range limit), plus the same values as a table.
 // Limit, 근접 line and the level of each point are the snapshot stored with the value, not today's limit, so a
 // limit change shows as a step. Drawn as plain SVG: no chart library in this project.
 // ---------------------------------------------------------------------------
 
 interface Measurement {
   id: number; measuredOn: string; value: number; unit: string; belowDetection: boolean;
-  limitValue: number | null; warnRatio: number | null; level: Level;
+  limitLower: number | null; limitValue: number | null; warnRatio: number | null; level: Level;
 }
 
 const INPUT = 'rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
@@ -21,7 +21,7 @@ const W = 720, H = 260, LEFT = 52, RIGHT = 16, TOP = 14, BOTTOM = 28;
 const iso = (d: Date) => d.toLocaleDateString('sv-SE');
 const day = (s: string) => Date.parse(s) / 86_400_000;
 const num = (n: number) => String(+n.toPrecision(6));
-const near = (m: Measurement) => (m.limitValue === null || m.warnRatio === null ? null : +(m.limitValue * m.warnRatio).toPrecision(12));
+const near = (m: Measurement) => (m.limitValue === null || m.warnRatio === null ? [null, null] : nearLines(m.limitLower, m.limitValue, m.warnRatio));
 
 export default function MeasurementTrend({ point, pollutants, limits, rev }: {
   point: { id: number; name: string; medium: string };
@@ -100,8 +100,8 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
           <text x={LEFT} y={H - 8} fontSize="11" fill="#6B7280">{from}</text>
           <text x={W - RIGHT} y={H - 8} textAnchor="end" fontSize="11" fill="#6B7280">{to}</text>
           <text x={LEFT} y={10} fontSize="11" fill="#6B7280">{unit}</text>
-          <path d={steps((m) => m.limitValue)} stroke={RED} strokeWidth="1.5" fill="none" />
-          <path d={steps(near)} stroke="#6B7280" strokeWidth="1.5" strokeDasharray="5 4" fill="none" />
+          <path d={steps((m) => m.limitValue) + steps((m) => m.limitLower)} stroke={RED} strokeWidth="1.5" fill="none" />
+          <path d={steps((m) => near(m)[1]) + steps((m) => near(m)[0])} stroke="#6B7280" strokeWidth="1.5" strokeDasharray="5 4" fill="none" />
           <polyline points={data.map((m) => `${x(m)},${y(m.value)}`).join(' ')} stroke={NAVY} strokeWidth="1.5" fill="none" />
           {hover && <line x1={x(hover)} x2={x(hover)} y1={TOP} y2={H - BOTTOM} stroke="#9CA3AF" strokeWidth="1" />}
           {data.map((m) => (m.level === 'EXCEEDED'
@@ -115,7 +115,7 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
             style={{ left: `clamp(90px, ${(x(hover) / W) * 100}%, calc(100% - 90px))`, top: `${(y(hover.value) / H) * 100}%`, marginTop: -4 }}>
             <p className="font-medium text-gray-800">{hover.measuredOn}</p>
             <p>{num(hover.value)} {hover.unit}{hover.belowDetection ? ' (불검출)' : ''} · <span className={levelClass(hover.level)}>{LEVEL[hover.level]}</span></p>
-            <p className="text-gray-500">{hover.limitValue === null ? '한도 없음' : `한도 ${num(hover.limitValue)} · 근접 ${num(near(hover)!)}`}</p>
+            <p className="text-gray-500">{hover.limitValue === null ? '한도 없음' : `한도 ${limitText(hover.limitLower, hover.limitValue)} · 근접 ${near(hover).filter((v) => v !== null).join(' / ')}`}</p>
           </div>
         )}
         {data.length === 0 && <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-400">이 기간에 측정값이 없습니다.</p>}
@@ -136,7 +136,7 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
               <th className="px-4 py-3 text-right font-medium">측정값</th>
               <th className="px-4 py-3 font-medium">단위</th>
               <th className="px-4 py-3 text-right font-medium" title="입력 시점에 적용된 한도">한도</th>
-              <th className="px-4 py-3 text-right font-medium" title="한도 × 근접 비율">근접선</th>
+              <th className="px-4 py-3 text-right font-medium" title="한도 × 근접 비율. 범위 한도는 하한 쪽 / 상한 쪽">근접선</th>
               <th className="px-4 py-3 text-right font-medium">한도 대비</th>
               <th className="px-4 py-3 font-medium">판정</th>
             </tr>
@@ -147,9 +147,9 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
                 <td className="px-4 py-2 text-gray-800">{m.measuredOn}</td>
                 <td className="px-4 py-2 text-right tabular-nums text-gray-800">{m.value}{m.belowDetection ? ' (불검출)' : ''}</td>
                 <td className="px-4 py-2 text-gray-600">{m.unit}</td>
-                <td className="px-4 py-2 text-right tabular-nums text-gray-600">{m.limitValue ?? '—'}</td>
-                <td className="px-4 py-2 text-right tabular-nums text-gray-600">{near(m) ?? '—'}</td>
-                <td className="px-4 py-2 text-right tabular-nums text-gray-600">{m.limitValue === null || m.belowDetection ? '—' : `${Math.round((m.value / m.limitValue) * 1000) / 10}%`}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-gray-600">{limitText(m.limitLower, m.limitValue)}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-gray-600">{near(m).filter((v) => v !== null).join(' / ') || '—'}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-gray-600">{m.limitValue === null || m.limitLower !== null || m.belowDetection ? '—' : `${Math.round((m.value / m.limitValue) * 1000) / 10}%`}</td>
                 <td className={`px-4 py-2 ${levelClass(m.level)}`}>{LEVEL[m.level]}</td>
               </tr>
             ))}

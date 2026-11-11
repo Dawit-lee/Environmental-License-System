@@ -1,5 +1,7 @@
 package com.envpermit.operation;
 
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -163,9 +165,16 @@ class EmissionLimitApiTest extends IntegrationTest {
 
     @Test
     void pollutant_list_is_the_seed_in_order() throws Exception {
-        call(kim, get("/api/pollutants")).andExpect(jsonPath("$.length()").value(12))
-                .andExpect(jsonPath("$[0].code").value("DUST")).andExpect(jsonPath("$[0].unit").value("mg/S㎥"))
-                .andExpect(jsonPath("$[6].code").value("BOD")).andExpect(jsonPath("$[6].medium").value("WATER"));
+        // ticket 09: the list checked against the law text (대기 별표 8, 물환경 별표 13, 잔류성오염물질 별표 3)
+        call(kim, get("/api/pollutants"))
+                .andExpect(jsonPath("$[*].code", contains("DUST", "SOX", "NOX", "CO", "HCL", "DIOXIN", "NH3", "HF", "HG", "AS",
+                        "CD", "PB", "CR", "PH", "BOD", "TOC", "SS", "TN", "TP", "COLIFORM", "NHEX_MINERAL", "NHEX_ANIMAL",
+                        "ECOTOX", "DIOXIN_W")))
+                .andExpect(jsonPath("$[*].unit", contains("mg/S㎥", "ppm", "ppm", "ppm", "ppm", "ng-TEQ/S㎥", "ppm", "ppm",
+                        "mg/S㎥", "ppm", "mg/S㎥", "mg/S㎥", "mg/S㎥", "pH", "mg/L", "mg/L", "mg/L", "mg/L", "mg/L", "개/mL",
+                        "mg/L", "mg/L", "TU", "pg-TEQ/L")))
+                .andExpect(jsonPath("$[?(@.medium=='AIR')].code", hasSize(13)))
+                .andExpect(jsonPath("$[?(@.rangeLimit == true)].code", contains("PH")));
     }
 
     // --- helpers ----------------------------------------------------------------------------------------------
