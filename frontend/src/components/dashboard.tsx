@@ -44,7 +44,7 @@ export function recentActivity(projects: Project[], permits: PermitItem[]): Acti
 }
 
 /** Deadline → the project tab that handles it. */
-export const deadlineLink = (d: Deadline) => `/projects/${d.projectId}/${d.kind === 'OBLIGATION' ? 'obligations' : 'schedule'}`;
+export const deadlineLink = (d: Deadline) => `/projects/${d.projectId}/${d.kind === 'OBLIGATION' || d.kind === 'CORRECTIVE_TASK' ? 'obligations' : 'schedule'}`;
 
 export function StatusDonut({ permits }: { permits: PermitItem[] }) {
   const total = permits.length;

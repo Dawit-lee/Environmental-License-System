@@ -73,8 +73,10 @@ class EmissionController {
     private final JdbcTemplate jdbc;
     private final ProjectAccess access;
     private final Clock clock;
+    private final ExceedanceAlerts alerts;
 
-    EmissionController(JdbcTemplate jdbc, ProjectAccess access, Clock clock) {
+    EmissionController(JdbcTemplate jdbc, ProjectAccess access, Clock clock, ExceedanceAlerts alerts) {
+        this.alerts = alerts;
         this.jdbc = jdbc;
         this.access = access;
         this.clock = clock;
@@ -273,6 +275,7 @@ class EmissionController {
                     limitValue, ratio, Judgement.judge(r.value(), limitValue, ratio, r.belowDetection()).name(),
                     userId(jwt), now));
         }
+        alerts.raise(p.projectId(), id, ids, userId(jwt)); // 초과 → 조치 업무 + 알림, 근접 → 알림 (ticket 06)
         return ids.stream().map(m -> measurements("AND m.id = ?", m).get(0)).toList();
     }
 

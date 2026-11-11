@@ -61,7 +61,7 @@ class ObligationController {
         Map<Long, TaskView> open = new HashMap<>();
         Map<Long, TaskView> last = new HashMap<>();
         for (TaskView t : tasks.list(projectId, null)) { // oldest first, so the newest wins
-            if (t.obligationId() != null) {
+            if (t.kind().equals("OBLIGATION")) {
                 (t.status().equals("OPEN") ? open : last).put(t.obligationId(), t);
             }
         }
