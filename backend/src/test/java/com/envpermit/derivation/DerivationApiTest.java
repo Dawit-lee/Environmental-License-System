@@ -31,7 +31,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 class DerivationApiTest extends IntegrationTest {
 
     static final String GYEONGGI_300 = """
-            {"facility_type":"INCINERATION","capacity_tpd":300,"sido":"경기","address":"광명시 가학동 산1",
+            {"facility_type":"INCINERATION","capacity_tpd":300,"sido":"경기","address":"가온시 한빛동 산1",
              "proponent":"MUNICIPAL","project_kind":"NEW"}""";
 
     @Autowired UserRepository users;
@@ -53,7 +53,7 @@ class DerivationApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         park = login("park@b.com");
         projectId = id(call(kim, json(post("/api/projects"), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명"}""")));
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온"}""")));
     }
 
     @Test

@@ -39,7 +39,7 @@ class ObligationLawLinkApiTest extends IntegrationTest {
         users.save(new User("kim@a.com", encoder.encode("pw"), "김에이", User.Role.USER, a));
         kim = login("kim@a.com");
         projectId = id(call(kim, json(post("/api/projects"), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명"}""")));
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온"}""")));
         permitId = id(call(kim, json(post("/api/projects/" + projectId + "/permits"), """
                 {"name":"폐기물처리시설 설치승인","category":"FACILITY","status":"COMPLETED"}""")));
         links = "/api/permit-items/" + permitId + "/law-links";

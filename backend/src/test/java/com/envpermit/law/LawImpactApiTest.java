@@ -68,7 +68,7 @@ class LawImpactApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         other = login("x@b.com");
         project = id(send(kim, "/api/projects",
-                "{\"name\":\"광명 소각시설\",\"facilityType\":\"INCINERATION\",\"location\":\"광명시\"}"));
+                "{\"name\":\"가온 소각시설\",\"facilityType\":\"INCINERATION\",\"location\":\"가온시\"}"));
         long leeId = users.findByEmail("lee@a.com").orElseThrow().getId();
         send(kim, "/api/projects/" + project + "/members", "{\"userId\":%d}".formatted(leeId));
         cursor("2026-09-30");
@@ -99,7 +99,7 @@ class LawImpactApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$[*].level", contains("DIRECT", "DIRECT", "DIRECT", "REFERENCE")))
                 .andExpect(jsonPath("$[0].lawName").value("폐기물관리법 시행규칙"))
                 .andExpect(jsonPath("$[0].status").value("NEW"))
-                .andExpect(jsonPath("$[0].projectName").value("광명 소각시설"))
+                .andExpect(jsonPath("$[0].projectName").value("가온 소각시설"))
                 .andExpect(jsonPath("$[0].enforcedOn").value("2026-10-02"))
                 .andExpect(jsonPath("$[0].createdAt").value("2026-10-01T21:00:00Z"));
         ok(kim, "/api/law-impacts?level=REFERENCE").andExpect(jsonPath("$[*].permitItemId", contains((int) ref)));
@@ -151,7 +151,7 @@ class LawImpactApiTest extends IntegrationTest {
         today("2026-10-02");
         batch.run();
         long id = firstImpact();
-        assertThat(deadlines()).containsExactly("[법령 시행] 폐기물관리법 시행규칙 — 광명 소각시설 / 운영허가 2026-10-02");
+        assertThat(deadlines()).containsExactly("[법령 시행] 폐기물관리법 시행규칙 — 가온 소각시설 / 운영허가 2026-10-02");
 
         mvc.perform(post("/api/law-impacts/" + id + "/review").header("Authorization", "Bearer " + kim)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"  \"}")).andExpect(status().isBadRequest());
@@ -223,7 +223,7 @@ class LawImpactApiTest extends IntegrationTest {
         Mail m = mailer.sent().get(0);
         assertThat(m.to()).isEqualTo("kim@a.com");
         assertThat(m.subject()).contains("법령 개정", "2건");
-        assertThat(m.body()).contains("[광명 소각시설]", "출처: 법제처 국가법령정보센터")
+        assertThat(m.body()).contains("[가온 소각시설]", "출처: 법제처 국가법령정보센터")
                 .doesNotContain("외 ");
         assertThat(m.body().indexOf("운영허가")).isLessThan(m.body().indexOf("변경신고")); // DIRECT first
         assertThat(m.body()).contains("폐기물관리법 시행규칙 · 제10조 · 시행 2026-10-02");

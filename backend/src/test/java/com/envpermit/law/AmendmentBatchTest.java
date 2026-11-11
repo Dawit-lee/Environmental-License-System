@@ -53,7 +53,7 @@ class AmendmentBatchTest extends IntegrationTest {
         users.save(new User("kim@a.com", encoder.encode("pw"), "김에이", User.Role.USER, a));
         String kim = login("kim@a.com");
         long project = id(call(kim, "/api/projects",
-                "{\"name\":\"광명 소각시설\",\"facilityType\":\"INCINERATION\",\"location\":\"광명시\"}"));
+                "{\"name\":\"가온 소각시설\",\"facilityType\":\"INCINERATION\",\"location\":\"가온시\"}"));
         permit = id(call(kim, "/api/projects/" + project + "/permits",
                 "{\"name\":\"폐기물처리시설 설치승인\",\"category\":\"FACILITY\",\"status\":\"IN_PROGRESS\"}"));
         // only the 법률 is linked; its 시행규칙 is watched through parent_id

@@ -48,7 +48,7 @@ class MeasurementApiTest extends IntegrationTest {
         users.save(new User("park@a.com", encoder.encode("pw"), "박에이", User.Role.USER, a));
         kim = login("kim@a.com");
         park = login("park@a.com");
-        projectId = project("광명 자원회수시설");
+        projectId = project("가온 자원회수시설");
         permitId = id(call(kim, json(post("/api/projects/" + projectId + "/permits"), """
                 {"name":"대기배출시설 설치허가","category":"FACILITY","status":"COMPLETED"}""")));
         stack = point(projectId);
@@ -249,10 +249,10 @@ class MeasurementApiTest extends IntegrationTest {
         assertThat(jdbc.queryForList("SELECT title FROM obligation_task WHERE kind = 'CORRECTIVE'", String.class))
                 .containsExactly("[초과] 방류구 수소이온농도(pH) 3.9 < 4 pH");
         assertThat(jdbc.queryForList("SELECT message FROM notification ORDER BY id", String.class)).containsExactly(
-                "초과 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 3.9 < 4 pH (2026-01-01)",
-                "근접 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 4 / 4~9 pH (2026-01-02)",
-                "근접 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 8 / 4~9 pH (2026-01-04)",
-                "초과 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 9.1 > 9 pH (2026-01-05)");
+                "초과 · 가온 자원회수시설 · 방류구 수소이온농도(pH) 3.9 < 4 pH (2026-01-01)",
+                "근접 · 가온 자원회수시설 · 방류구 수소이온농도(pH) 4 / 4~9 pH (2026-01-02)",
+                "근접 · 가온 자원회수시설 · 방류구 수소이온농도(pH) 8 / 4~9 pH (2026-01-04)",
+                "초과 · 가온 자원회수시설 · 방류구 수소이온농도(pH) 9.1 > 9 pH (2026-01-05)");
 
         call(kim, json(post(values + "/preview"), "{\"text\":\"2026-01-06\\tpH\\t3\\n2026-01-07\\tPH\\t7\"}"))
                 .andExpect(status().isOk())
@@ -262,7 +262,7 @@ class MeasurementApiTest extends IntegrationTest {
 
     private long project(String name) throws Exception {
         return id(call(kim, json(post("/api/projects"),
-                "{\"name\":\"" + name + "\",\"facilityType\":\"INCINERATION\",\"location\":\"광명\"}")));
+                "{\"name\":\"" + name + "\",\"facilityType\":\"INCINERATION\",\"location\":\"가온\"}")));
     }
 
     private long point(long project) throws Exception {

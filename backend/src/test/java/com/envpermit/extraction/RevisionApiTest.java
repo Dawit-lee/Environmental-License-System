@@ -59,7 +59,7 @@ class RevisionApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         call(master, json(put("/api/company/ai-extraction"), "{\"enabled\":true}")).andExpect(status().isOk());
         projectId = id(call(kim, json(post("/api/projects"), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명"}""")));
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온"}""")));
         permitId = newPermit();
         v1 = id(upload(permitId, "협의의견서-v1.pdf", null, null).andExpect(status().isCreated()));
     }

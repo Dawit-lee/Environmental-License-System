@@ -53,7 +53,7 @@ class NotificationApiTest extends IntegrationTest {
         users.save(new User("park@b.com", encoder.encode("pw"), "박비", User.Role.USER, b));
         String kim = login("kim@a.com");
         projectId = id(call(kim, json(post("/api/projects"), """
-                {"name":"부산 하수처리장","facilityType":"SEWAGE","location":"부산"}""")));
+                {"name":"다온 하수처리장","facilityType":"SEWAGE","location":"다온"}""")));
         call(kim, json(post("/api/projects/" + projectId + "/members"), "{\"userId\":" + leeId + "}"))
                 .andExpect(status().isCreated());
     }
@@ -82,7 +82,7 @@ class NotificationApiTest extends IntegrationTest {
         call(login("lee@a.com"), get("/api/notifications")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(4))
                 .andExpect(jsonPath("$[0].offsetDays").value(7))
-                .andExpect(jsonPath("$[0].message").value("부산 하수처리장 · 건축허가 만료 (2026-04-15)"))
+                .andExpect(jsonPath("$[0].message").value("다온 하수처리장 · 건축허가 만료 (2026-04-15)"))
                 .andExpect(jsonPath("$[0].link").value("/projects/" + projectId))
                 .andExpect(jsonPath("$[0].readAt").doesNotExist());
     }
@@ -126,8 +126,8 @@ class NotificationApiTest extends IntegrationTest {
         assertThat(mail.to()).isEqualTo("kim@a.com");
         assertThat(mail.subject()).isEqualTo("[인허가 관리] 기한 알림 3건 (2026-01-05)");
         assertThat(mail.body()).containsSubsequence(
-                "[D-7]", "부산 하수처리장 · 건축허가 만료 (2026-01-08)", "부산 하수처리장 · 정기검사 (2026-01-11)",
-                "[D-30]", "부산 하수처리장 · 개발행위허가 만료 (2026-01-30)");
+                "[D-7]", "다온 하수처리장 · 건축허가 만료 (2026-01-08)", "다온 하수처리장 · 정기검사 (2026-01-11)",
+                "[D-30]", "다온 하수처리장 · 개발행위허가 만료 (2026-01-30)");
     }
 
     @Test
@@ -157,7 +157,7 @@ class NotificationApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].kind").value("PERMIT_EXPIRY"))
                 .andExpect(jsonPath("$[0].targetId").value(permit))
-                .andExpect(jsonPath("$[0].projectName").value("부산 하수처리장"))
+                .andExpect(jsonPath("$[0].projectName").value("다온 하수처리장"))
                 .andExpect(jsonPath("$[0].title").value("건축허가 만료"))
                 .andExpect(jsonPath("$[0].dueDate").value("2026-01-15"))
                 .andExpect(jsonPath("$[0].dDay").value(10));

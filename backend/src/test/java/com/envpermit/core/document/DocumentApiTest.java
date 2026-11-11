@@ -51,7 +51,7 @@ class DocumentApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         park = login("park@b.com");
         long project = id(call(kim, json(post("/api/projects"), """
-                {"name":"하수처리장","facilityType":"SEWAGE","location":"부산"}""")));
+                {"name":"하수처리장","facilityType":"SEWAGE","location":"다온"}""")));
         long permit = id(call(kim, json(post("/api/projects/" + project + "/permits"), """
                 {"name":"건축허가","category":"CONSTRUCTION","status":"IN_PROGRESS"}""")));
         docs = "/api/projects/" + project + "/permits/" + permit + "/documents";
