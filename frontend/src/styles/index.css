@@ -1,3 +1,11 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* 이행 보고서 초안: [인쇄] prints only the preview, with cell text wrapped instead of cut */
+@media print {
+  body:has(.print-area) * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible !important; }
+  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
+  .print-area td { max-width: none; overflow: visible; white-space: normal; }
+}

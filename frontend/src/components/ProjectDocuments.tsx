@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { api, apiBlob } from '../api/client';
+import ComplianceReportDraft from './ComplianceReportDraft';
 import type { PermitDocument, PermitItem } from '../types';
 
 // ---------------------------------------------------------------------------
 // ProjectDocuments — 프로젝트 › 문서: files of every permit in one list. Upload, AI extraction and
 // versions stay in the permit drawer (PermitDocuments); rows link there.
-// Planned (operations-compliance spec F3): generated compliance report drafts are listed here too.
+// [이행 보고서 초안] opens ComplianceReportDraft; the generated XLSX is a document like any other.
+// A 보고·제출 task links here with ?report={permitItemId}&from=&to= (ObligationTaskDrawer).
 // ---------------------------------------------------------------------------
 
 const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`);
@@ -15,10 +18,11 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
 }) {
   const [docs, setDocs] = useState<PermitDocument[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [params, setParams] = useSearchParams();
+  const [drafting, setDrafting] = useState(params.has('report'));
 
-  useEffect(() => {
-    api<PermitDocument[]>(`/api/projects/${projectId}/documents`).then(setDocs, (e: Error) => setError(e.message));
-  }, [projectId]);
+  const load = () => api<PermitDocument[]>(`/api/projects/${projectId}/documents`).then(setDocs, (e: Error) => setError(e.message));
+  useEffect(() => { load(); }, [projectId]);
 
   const download = async (d: PermitDocument) => {
     try {
@@ -40,7 +44,18 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
 
   return (
     <div>
-      <p className="text-sm text-gray-500">모든 인허가의 첨부 문서입니다. 올리기·AI 추출·버전 비교는 인허가 이름을 눌러 상세에서 합니다.</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm text-gray-500">모든 인허가의 첨부 문서입니다. 올리기·AI 추출·버전 비교는 인허가 이름을 눌러 상세에서 합니다.</p>
+        <button type="button" disabled={drafting || permits.length === 0} onClick={() => setDrafting(true)}
+          className="shrink-0 rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40">
+          이행 보고서 초안
+        </button>
+      </div>
+      {drafting && permits.length > 0 && (
+        <ComplianceReportDraft projectId={projectId} permits={permits} onCreated={load}
+          initial={{ permitId: Number(params.get('report')) || null, from: params.get('from'), to: params.get('to') }}
+          onClose={() => { setDrafting(false); setParams({}, { replace: true }); }} />
+      )}
       {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
       <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
         <table className="w-full min-w-[860px] whitespace-nowrap text-left text-sm">
