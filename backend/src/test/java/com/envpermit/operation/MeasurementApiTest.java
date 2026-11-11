@@ -249,10 +249,10 @@ class MeasurementApiTest extends IntegrationTest {
         assertThat(jdbc.queryForList("SELECT title FROM obligation_task WHERE kind = 'CORRECTIVE'", String.class))
                 .containsExactly("[초과] 방류구 수소이온농도(pH) 3.9 < 4 pH");
         assertThat(jdbc.queryForList("SELECT message FROM notification ORDER BY id", String.class)).containsExactly(
-                "초과 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 3.9 < 4 pH (2026-01-01)",
-                "근접 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 4 / 4~9 pH (2026-01-02)",
-                "근접 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 8 / 4~9 pH (2026-01-04)",
-                "초과 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 9.1 > 9 pH (2026-01-05)");
+                "초과 · 가온 자원회수시설 · 방류구 수소이온농도(pH) 3.9 < 4 pH (2026-01-01)",
+                "근접 · 가온 자원회수시설 · 방류구 수소이온농도(pH) 4 / 4~9 pH (2026-01-02)",
+                "근접 · 가온 자원회수시설 · 방류구 수소이온농도(pH) 8 / 4~9 pH (2026-01-04)",
+                "초과 · 가온 자원회수시설 · 방류구 수소이온농도(pH) 9.1 > 9 pH (2026-01-05)");
 
         call(kim, json(post(values + "/preview"), "{\"text\":\"2026-01-06\\tpH\\t3\\n2026-01-07\\tPH\\t7\"}"))
                 .andExpect(status().isOk())
