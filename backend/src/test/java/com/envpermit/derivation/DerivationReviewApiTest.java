@@ -2,6 +2,7 @@ package com.envpermit.derivation;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -168,16 +169,18 @@ class DerivationReviewApiTest extends IntegrationTest {
         derive();
 
         call(get("/api/projects/" + projectId + "/derivations/missing-inputs")).andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].field").value("site_area_m2"))
-                .andExpect(jsonPath("$[0].label").value("부지면적"))
-                .andExpect(jsonPath("$[0].rules", contains("재해영향평가", "소규모 재해영향평가")))
-                .andExpect(jsonPath("$[?(@.field == 'air_emission_tpy')].rules[*]", contains("통합환경허가")))
-                .andExpect(jsonPath("$.length()").value(3));
+                .andExpect(jsonPath("$[?(@.field == 'site_area_m2')].label", contains("부지면적")))
+                .andExpect(jsonPath("$[?(@.field == 'site_area_m2')].rules[*]",
+                        contains("재해영향평가", "소규모 재해영향평가")))
+                .andExpect(jsonPath("$[?(@.field == 'air_emission_tpy')].rules[*]", hasItem("통합환경허가")))
+                .andExpect(jsonPath("$.length()").value(11)); // one row per missing input of the 34 rules
 
         attributes("\"capacity_tpd\":300,\"site_area_m2\":60000");
         derive();
         call(get("/api/projects/" + projectId + "/derivations/missing-inputs"))
-                .andExpect(jsonPath("$[*].field", contains("air_emission_tpy", "wastewater_m3pd")));
+                .andExpect(jsonPath("$[?(@.field == 'site_area_m2')]").isEmpty())
+                .andExpect(jsonPath("$[?(@.field == 'air_emission_tpy')]").isNotEmpty())
+                .andExpect(jsonPath("$.length()").value(10));
     }
 
     @Test

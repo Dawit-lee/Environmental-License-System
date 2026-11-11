@@ -35,12 +35,14 @@ class GoldenAccuracyTest extends IntegrationTest {
     }
 
     static class Tally {
-        int cases, expected, strict, relaxed, applicable, onHold, tp, fp, unverified, outOfScope;
+        int cases, expected, strict, covered, relaxed, applicable, onHold, tp, fp, unverified, outOfScope;
         final Map<String, Integer> causes = new TreeMap<>();
 
         String table() {
             StringBuilder s = new StringBuilder("| 지표 | 값 |\n|---|---|\n");
             s.append("| 재현율(엄격) | ").append(ratio(strict, expected)).append(" |\n");
+            s.append("| 재현율(포괄 인정: 해당으로 나온 상위 인허가에 의제된 정답 포함) | ").append(ratio(strict + covered, expected))
+                    .append(" |\n");
             s.append("| 재현율(완화, 보류 포함) | ").append(ratio(relaxed, expected)).append(" |\n");
             s.append("| 정밀도(정답과 대조된 출력 기준) | ").append(ratio(tp, tp + fp)).append(" |\n");
             s.append("| 정답에 있는 출력 / 전체 해당 출력 | ").append(ratio(tp, applicable)).append(" |\n");
@@ -64,11 +66,11 @@ class GoldenAccuracyTest extends IntegrationTest {
         Tally t = evaluate(Path.of(getClass().getResource("/golden/cases").toURI()), Path.of("build/reports/golden"));
 
         assertThat(t.cases).isEqualTo(1);
-        assertThat(List.of(t.strict, t.relaxed, t.expected)).containsExactly(8, 9, 11);
-        assertThat(List.of(t.tp, t.fp, t.unverified, t.onHold)).containsExactly(8, 1, 0, 1);
-        assertThat(t.causes).containsEntry("MISSING_RULE", 2).containsEntry("INPUT_MISSING", 1);
+        assertThat(List.of(t.strict, t.covered, t.relaxed, t.expected)).containsExactly(12, 1, 14, 15);
+        assertThat(List.of(t.tp, t.fp, t.unverified, t.onHold)).containsExactly(12, 1, 6, 9);
+        assertThat(t.causes).containsEntry("MISSING_RULE", 1).containsEntry("INPUT_MISSING", 1);
         assertThat(Files.readString(Path.of("build/reports/golden/result-synthetic-incineration.md")))
-                .contains("비산먼지 발생사업 신고").contains("대기 발생량");
+                .contains("가설건축물 축조신고").contains("냉난방면적 필요").contains("대기배출시설 설치신고 ← INTEGRATED_ENV_PERMIT");
     }
 
     @Test
@@ -126,6 +128,7 @@ class GoldenAccuracyTest extends IntegrationTest {
         t.cases = 1;
         StringBuilder hits = new StringBuilder();
         StringBuilder misses = new StringBuilder();
+        StringBuilder coveredRows = new StringBuilder();
         StringBuilder negatives = new StringBuilder();
         StringBuilder outOfScope = new StringBuilder();
         Set<DerivationRule> correct = new HashSet<>();
@@ -157,6 +160,13 @@ class GoldenAccuracyTest extends IntegrationTest {
                     t.relaxed++;
                     hits.append("- ").append(e.get("permit_name").asText()).append(" ← ")
                             .append(best.rule().getRuleKey()).append('\n');
+                } else if (coveredBy(e, outs, aliases) != null) {
+                    // not derived on its own, but the engine derived the permit that legally replaces it
+                    t.covered++;
+                    t.relaxed++;
+                    coveredRows.append("- ").append(e.get("permit_name").asText()).append(" ← ")
+                            .append(coveredBy(e, outs, aliases).getRuleKey()).append(" (")
+                            .append(e.get("covered_by").asText()).append(")\n");
                 } else {
                     if (state == State.ON_HOLD) {
                         t.relaxed++;
@@ -210,6 +220,7 @@ class GoldenAccuracyTest extends IntegrationTest {
         section(s, "정답과 다른 출력", "| 엔진 출력 | 구분 | 엔진 사유 |\n|---|---|---|\n", extras);
         section(s, "보류(ON_HOLD)", "| 규칙 | 빠진 입력 |\n|---|---|\n", holds);
         section(s, "맞춘 정답", "", hits);
+        section(s, "포괄 적중(상위 인허가에 의제)", "", coveredRows);
         section(s, "해당 없음 정답", "| 정답 인허가 | 엔진 | 엔진 사유 | 결과 |\n|---|---|---|---|\n", negatives);
         section(s, "OUT_OF_SCOPE", "| 정답 인허가 | 엔진 | 엔진 사유 | 제외 사유 |\n|---|---|---|---|\n", outOfScope);
         if (c.has("notes")) {
@@ -222,6 +233,16 @@ class GoldenAccuracyTest extends IntegrationTest {
     private static boolean matches(DerivationRule r, Set<String> expectedNames, Map<String, Set<String>> aliases) {
         return expectedNames.contains(norm(r.getPermitName()))
                 || aliases.getOrDefault(r.getPermitName(), Set.of()).stream().anyMatch(expectedNames::contains);
+    }
+
+    /** The APPLICABLE rule named by the expected permit's {@code covered_by}, or null. */
+    private static DerivationRule coveredBy(JsonNode e, List<Out> outs, Map<String, Set<String>> aliases) {
+        if (!e.hasNonNull("covered_by")) {
+            return null;
+        }
+        Set<String> name = Set.of(norm(e.get("covered_by").asText()));
+        return outs.stream().filter(o -> o.state() == State.APPLICABLE && matches(o.rule(), name, aliases))
+                .map(Out::rule).findFirst().orElse(null);
     }
 
     private static String why(Out o) {
@@ -255,6 +276,7 @@ class GoldenAccuracyTest extends IntegrationTest {
         total.cases += t.cases;
         total.expected += t.expected;
         total.strict += t.strict;
+        total.covered += t.covered;
         total.relaxed += t.relaxed;
         total.applicable += t.applicable;
         total.onHold += t.onHold;
