@@ -29,6 +29,7 @@ cd backend && GOLDEN_DIR=/레포/밖/골든폴더 ./gradlew test --tests '*Golde
     {"permit_name": "환경영향평가"},
     {"permit_name": "대기배출시설 설치신고", "aliases": ["이 사례에서만 쓰는 다른 표기"],
      "cause": "MISSING_RULE", "note": "놓쳤을 때 결과표에 같이 찍히는 메모"},
+    {"permit_name": "폐수배출시설 설치신고", "covered_by": "통합환경허가"},
     {"permit_name": "폐기물처분업 허가", "expected": "NOT_APPLICABLE"},
     {"permit_name": "재원협의", "scope": "OUT_OF_SCOPE", "scope_reason": "예산 트랙 — 속성으로 판정 불가"}
   ]
@@ -38,6 +39,9 @@ cd backend && GOLDEN_DIR=/레포/밖/골든폴더 ./gradlew test --tests '*Golde
 - `attributes`는 화면 입력과 같은 검증을 거친다(모르는 키·형식 오류·필수값 누락이면 실패).
   **확보하지 못한 값은 추정하지 말고 빼 둔다.** 그 값을 쓰는 규칙은 ON_HOLD로 나온다.
 - `expected` 기본값은 `APPLICABLE` / `IN_SCOPE`.
+- `covered_by`는 그 인허가를 법이 다른 인허가에 의제(포함)시킬 때 쓴다. 예: 통합환경허가를 받으면 대기·폐수·소음진동 배출시설
+  신고, 비점오염원·악취 신고, 폐기물처리시설 설치승인을 한 것으로 본다(환경오염시설법 §10 ①). 엔진이 그 인허가를 따로 내지 않아도
+  `covered_by`의 인허가를 해당으로 냈으면 "포괄 적중"으로 세고 놓친 정답에서 뺀다. 엄격 재현율에는 넣지 않는다.
 - `cause`는 사람이 다는 놓친 원인이다. 값은 자유지만 `MISSING_RULE`(규칙 없음), `RULE_CONDITION`(조건 오류),
   `INPUT_MISSING`(입력 미확보), `NAME_MISMATCH`(별칭 누락), `KIND_GAP`(신설 전용 규칙이라 증설에 안 걸림),
   `LAW_CHANGED`(기준일 이후 법 개정)를 쓴다. 결과에 원인별 건수가 집계된다.
@@ -53,7 +57,8 @@ cd backend && GOLDEN_DIR=/레포/밖/골든폴더 ./gradlew test --tests '*Golde
 | 지표 | 정의 |
 |---|---|
 | 재현율(엄격) | IN_SCOPE·APPLICABLE 정답 중 엔진이 APPLICABLE로 낸 비율 |
-| 재현율(완화) | 같은 분모 중 APPLICABLE 또는 ON_HOLD |
+| 재현율(포괄 인정) | 같은 분모 중 APPLICABLE 또는 포괄 적중(`covered_by`의 인허가가 APPLICABLE) |
+| 재현율(완화) | 같은 분모 중 APPLICABLE, 포괄 적중 또는 ON_HOLD |
 | 정밀도 | APPLICABLE 출력 중 정답과 대조된 것(적중+오탐) 가운데 적중 비율. 정답셋에 없는 출력은 "미확인"으로 따로 센다 |
 | 정답에 있는 출력 / 전체 해당 출력 | 미확인까지 분모에 넣은 값 |
 | 오탐 | NOT_APPLICABLE 정답을 APPLICABLE로 낸 건수 |
