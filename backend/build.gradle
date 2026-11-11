@@ -42,4 +42,13 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // golden cases live outside the repo (docs/golden-accuracy.md), so Gradle cannot see them change
+    outputs.upToDateWhen { !System.getenv('GOLDEN_DIR') }
+}
+
+// Manual extraction quality eval (review-extraction/04): real API calls that cost money, so never part of test/CI.
+// ./gradlew extractionEval --args="<dir> [claude,gemini,openai]"  (docs/EXTRACTION_EVAL.md)
+tasks.register('extractionEval', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.envpermit.extraction.ExtractionEval'
 }

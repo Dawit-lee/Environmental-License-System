@@ -82,7 +82,7 @@ export default function ComplianceReportDraft({ projectId, permits, initial, onC
         <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-gray-400 hover:text-gray-700">×</button>
       </div>
       <p className="mt-1 text-xs text-gray-500">
-        기록된 업무·측정값·조치를 모은 초안입니다. 제출 전 법정 서식과 내용을 확인하세요. 측정 항목·단위는 법령 원문 대조 전 초안입니다.
+        기록된 업무·측정값·조치를 모은 초안입니다. 제출 전 법정 서식과 내용을 확인하세요.
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3 text-sm">
         <label className="flex flex-col gap-1 text-xs text-gray-500">인허가 항목

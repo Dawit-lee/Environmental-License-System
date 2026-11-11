@@ -281,7 +281,7 @@ cp .env.example .env
 | `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | API 키. 이 환경변수로만 받고 설정 파일·로그·응답 저장본에는 남기지 않습니다 |
 | `CLAUDE_MODEL` / `GEMINI_MODEL` / `OPENAI_MODEL` | 모델 id (기본 `claude-sonnet-5-5` / `gemini-3.6-flash` / `gpt-6.1-terra`). PDF 입력과 구조화 출력(JSON 스키마)을 지원하는 모델이어야 합니다 |
 
-회사 설정에서 마스터가 AI 추출을 켜야 실행되며, 실행 전 고지에 선택된 제공자 이름이 나옵니다. 실행마다 제공자·모델·프롬프트 버전·토큰 수가 `ai_run`에 남습니다.
+회사 설정에서 마스터가 AI 추출을 켜야 실행되며, 실행 전 고지에 선택된 제공자 이름이 나옵니다. 실행마다 제공자·모델·프롬프트 버전·토큰 수가 `ai_run`에 남습니다. 제공자별 추출 품질은 수동 평가 스크립트로 잽니다([docs/EXTRACTION_EVAL.md](docs/EXTRACTION_EVAL.md)).
 
 > ⚠️ **Gemini 무료 등급은 입력·응답을 Google 제품 개선에 쓸 수 있습니다.** 실제 회사 문서는 결제 계정이 연결된 유료 등급(학습 미사용)에서만 보내세요. 약관은 바뀔 수 있으니 [Gemini API 추가 약관](https://ai.google.dev/gemini-api/terms)을 직접 확인하세요. Claude·OpenAI도 마찬가지로 [Anthropic 약관](https://www.anthropic.com/legal)·[OpenAI 데이터 정책](https://openai.com/enterprise-privacy/)의 데이터 사용·보존 조건을 확인하세요. OpenAI 호출은 `store: false`로 보냅니다.
 

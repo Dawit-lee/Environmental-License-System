@@ -36,8 +36,6 @@ import org.springframework.web.server.ResponseStatusException;
 public class ComplianceReport {
 
     static final String DRAFT = "초안 — 제출 전 법정 서식 확인";
-    /** Units come from the pollutant seed, which is not yet checked against the law text (ticket 09). */
-    static final String UNIT_DRAFT = DRAFT + " · 측정 항목·단위는 법령 원문 대조 전 초안입니다";
     static final int MAX_ROWS = 5000;
     static final String TOO_MANY = "한 시트가 " + MAX_ROWS + "행을 넘습니다. 기간이나 배출구를 줄이세요.";
     static final String OTHER_POINT = "이 인허가 항목의 배출구만 고를 수 있습니다.";
@@ -147,8 +145,8 @@ public class ComplianceReport {
 
         // limit, % and 판정 are the snapshot stored with the value, not today's limit
         List<List<Object>> measurements = rows("""
-                SELECT ep.name, p.name, m.measured_on::text, m.value, m.unit, m.limit_value,
-                       CASE WHEN m.limit_value IS NULL OR m.below_detection THEN NULL
+                SELECT ep.name, p.name, m.measured_on::text, m.value, m.unit, m.limit_lower, m.limit_value,
+                       CASE WHEN m.limit_value IS NULL OR m.below_detection OR m.limit_lower IS NOT NULL THEN NULL
                             ELSE round(m.value * 100 / m.limit_value, 1) END,
                        CASE m.level WHEN 'NORMAL' THEN '정상' WHEN 'NEAR' THEN '근접' WHEN 'EXCEEDED' THEN '초과'
                             ELSE '한도 없음' END,
@@ -161,7 +159,7 @@ public class ComplianceReport {
 
         // by the day of the exceeding value; a cancelled task or a deleted (mis-entered) value is left out
         List<List<Object>> correctives = rows("""
-                SELECT ep.name, p.name, m.measured_on::text, m.value, m.limit_value, m.unit, t.title,
+                SELECT ep.name, p.name, m.measured_on::text, m.value, m.limit_lower, m.limit_value, m.unit, t.title,
                        CASE WHEN t.status = 'DONE' THEN '완료' WHEN t.due_date < ? THEN '기한 경과' ELSE '열림' END,
                        t.due_date::text, COALESCE((t.done_at AT TIME ZONE ?)::date::text, ''), COALESCE(t.note, '')
                 FROM obligation_task t JOIN measurement m ON m.id = t.measurement_id
@@ -190,9 +188,9 @@ public class ComplianceReport {
                 new Sheet("개요", DRAFT, List.of("항목", "내용"), overview),
                 new Sheet("의무사항 이행 내역", DRAFT, List.of("근거", "요약", "주기", "기간 내 회차", "완료", "지연 완료",
                         "미이행", "기한 전", "완료일", "증빙 파일명"), obligations),
-                new Sheet("측정 결과", UNIT_DRAFT, List.of("배출구", "항목", "측정일", "값", "단위", "한도", "한도 대비 %",
+                new Sheet("측정 결과", DRAFT, List.of("배출구", "항목", "측정일", "값", "단위", "한도 하한", "한도", "한도 대비 %",
                         "판정", "비고"), measurements),
-                new Sheet("초과 및 조치", UNIT_DRAFT, List.of("배출구", "항목", "측정일", "초과 측정값", "한도", "단위",
+                new Sheet("초과 및 조치", DRAFT, List.of("배출구", "항목", "측정일", "초과 측정값", "한도 하한", "한도", "단위",
                         "조치 업무", "상태", "기한", "조치 완료일", "메모"), correctives),
                 new Sheet("현장 반영", DRAFT, List.of("근거", "요약", "담당", "목표일", "완료일", "메모"), implementations)));
     }
