@@ -65,7 +65,7 @@ class TaskApiTest extends IntegrationTest {
         lee = login("lee@a.com");
         park = login("park@b.com");
         projectId = id(call(kim, json(post("/api/projects"), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명"}""")));
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온"}""")));
         call(kim, json(post("/api/projects/" + projectId + "/members"), "{\"userId\":" + leeId + "}"))
                 .andExpect(status().isCreated());
         permitId = id(call(kim, json(post("/api/projects/" + projectId + "/permits"), """
@@ -367,7 +367,7 @@ class TaskApiTest extends IntegrationTest {
         assertThat(overdue(kimId)).isEqualTo(1); // only the unassigned one
         assertThat(overdue(parkId)).isZero();
         assertThat(jdbc.queryForObject("SELECT message || ' ' || link FROM notification WHERE user_id = ? AND offset_days = -1",
-                String.class, kimId)).isEqualTo("기한 경과 · 광명 자원회수시설 · 환경영향평가 협의 · 소음·진동 분기 1회 측정 (2026-01-31) "
+                String.class, kimId)).isEqualTo("기한 경과 · 가온 자원회수시설 · 환경영향평가 협의 · 소음·진동 분기 1회 측정 (2026-01-31) "
                 + "/projects/" + projectId + "/obligations");
 
         clock.advance(Duration.ofDays(1)); // 2026-02-02: not repeated
@@ -405,7 +405,7 @@ class TaskApiTest extends IntegrationTest {
 
     private void project(String roles) throws Exception {
         call(kim, json(put("/api/projects/" + projectId), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명",%s}""".formatted(roles)))
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온",%s}""".formatted(roles)))
                 .andExpect(status().isOk());
     }
 

@@ -43,7 +43,7 @@ class LawApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         park = login("park@b.com");
         long project = id(call(kim, json(post("/api/projects"), """
-                {"name":"광명 소각시설","facilityType":"INCINERATION","location":"광명시"}"""))
+                {"name":"가온 소각시설","facilityType":"INCINERATION","location":"가온시"}"""))
                 .andExpect(status().isCreated()));
         permit = id(call(kim, json(post("/api/projects/" + project + "/permits"), """
                 {"name":"폐기물처리시설 설치승인","category":"FACILITY","status":"IN_PROGRESS"}"""))

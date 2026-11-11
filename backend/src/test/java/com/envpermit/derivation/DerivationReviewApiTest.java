@@ -32,7 +32,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 /** permit-derivation/02: approving derived items, re-run policy, missing inputs, required_by_date. */
 class DerivationReviewApiTest extends IntegrationTest {
 
-    static final String BASE = "\"facility_type\":\"INCINERATION\",\"sido\":\"경기\",\"address\":\"광명시 가학동 산1\","
+    static final String BASE = "\"facility_type\":\"INCINERATION\",\"sido\":\"경기\",\"address\":\"가온시 한빛동 산1\","
             + "\"proponent\":\"MUNICIPAL\",\"project_kind\":\"NEW\"";
 
     @Autowired UserRepository users;
@@ -50,7 +50,7 @@ class DerivationReviewApiTest extends IntegrationTest {
         users.save(new User("kim@a.com", encoder.encode("pw"), "김에이", User.Role.USER, a));
         kim = login("kim@a.com");
         projectId = id(call(json(post("/api/projects"), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명"}""")));
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온"}""")));
     }
 
     @Test

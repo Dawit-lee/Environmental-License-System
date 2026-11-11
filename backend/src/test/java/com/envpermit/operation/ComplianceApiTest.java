@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 /**
  * operations-compliance/07: 규제 대응 현황. Today is 2026-06-15 (Asia/Seoul), so the default period is
- * 2026-01-01 ~ 2026-06-15. Company A: kim (member of 광명), lee (member of 수원), boss (company ADMIN, member of
+ * 2026-01-01 ~ 2026-06-15. Company A: kim (member of 가온), lee (member of 새봄), boss (company ADMIN, member of
  * neither). Company B: jung with one project. Past cycles are inserted as rows; the open ones come from the API.
  */
 class ComplianceApiTest extends IntegrationTest {
@@ -40,8 +40,8 @@ class ComplianceApiTest extends IntegrationTest {
     String lee;
     String boss;
     String jung;
-    long gm; // 광명 (kim)
-    long sw; // 수원 (lee)
+    long gm; // 가온 (kim)
+    long sw; // 새봄 (lee)
     long other; // company B
     long gmPermit;
 
@@ -59,8 +59,8 @@ class ComplianceApiTest extends IntegrationTest {
         lee = login("lee@a.com");
         boss = login("boss@a.com");
         jung = login("jung@b.com");
-        gm = project(kim, "광명 자원회수시설");
-        sw = project(lee, "수원 자원회수시설");
+        gm = project(kim, "가온 자원회수시설");
+        sw = project(lee, "새봄 자원회수시설");
         other = project(jung, "타사 소각시설");
         gmPermit = id(call(kim, json(post("/api/projects/" + gm + "/permits"), """
                 {"name":"대기배출시설 설치허가","category":"FACILITY","status":"COMPLETED"}""")));
@@ -88,7 +88,7 @@ class ComplianceApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.total.tasks.openCorrective").value(1))
                 .andExpect(jsonPath("$.total.tasks.dueSoon").value(1))
                 .andExpect(jsonPath("$.projects.length()").value(1))
-                .andExpect(jsonPath("$.projects[0].name").value("광명 자원회수시설"))
+                .andExpect(jsonPath("$.projects[0].name").value("가온 자원회수시설"))
                 .andExpect(jsonPath("$.projects[0].metrics.tasks.percent").value(50.0));
 
         // a wider period takes in the December cycle; a period in the future has nothing due yet
@@ -140,8 +140,8 @@ class ComplianceApiTest extends IntegrationTest {
 
     @Test
     void a_member_sees_own_projects_the_admin_the_whole_company_and_counts_are_added() throws Exception {
-        task(gm, "CORRECTIVE", null, "DONE", "2026-03-31", "2026-03-31T03:00:00Z"); // 광명 1/1 = 100%
-        task(sw, "CORRECTIVE", null, "DONE", "2026-03-31", "2026-03-31T03:00:00Z"); // 수원 1/4 = 25%
+        task(gm, "CORRECTIVE", null, "DONE", "2026-03-31", "2026-03-31T03:00:00Z"); // 가온 1/1 = 100%
+        task(sw, "CORRECTIVE", null, "DONE", "2026-03-31", "2026-03-31T03:00:00Z"); // 새봄 1/4 = 25%
         task(sw, "CORRECTIVE", null, "DONE", "2026-04-30", "2026-05-02T03:00:00Z");
         task(sw, "CORRECTIVE", null, "OPEN", "2026-05-31", null);
         task(sw, "CORRECTIVE", null, "OPEN", "2026-06-01", null);
@@ -220,7 +220,7 @@ class ComplianceApiTest extends IntegrationTest {
         }
         call(kim, get("/api/compliance/summary")).andExpect(jsonPath("$.projects[0].metrics.exceeded").value(1));
         call(kim, get("/api/compliance/summary?from=2025-12-01&to=2026-06-15")).andExpect(jsonPath("$.total.exceeded").value(2));
-        call(lee, get("/api/compliance/summary")).andExpect(jsonPath("$.total.exceeded").value(0)); // 수원 has none
+        call(lee, get("/api/compliance/summary")).andExpect(jsonPath("$.total.exceeded").value(0)); // 새봄 has none
     }
 
     static final String SUGGESTION = """
@@ -228,7 +228,7 @@ class ComplianceApiTest extends IntegrationTest {
              "requirement_text":"소각로 굴뚝 배출가스를 월 1회 이상 측정할 것",
              "type":"MEASURE_SURVEY","category":"AIR_QUALITY","frequency":"MONTHLY"}}""";
 
-    /** An approved monthly obligation of 광명's permit; its first cycle is the open task. */
+    /** An approved monthly obligation of 가온's permit; its first cycle is the open task. */
     private long obligation(String firstDue) throws Exception {
         long suggestion = id(call(kim, json(post("/api/projects/" + gm + "/suggestions"), SUGGESTION.formatted(gmPermit)))
                 .andExpect(status().isCreated()));

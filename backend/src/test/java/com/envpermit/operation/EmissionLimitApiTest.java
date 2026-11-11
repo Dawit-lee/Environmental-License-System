@@ -42,7 +42,7 @@ class EmissionLimitApiTest extends IntegrationTest {
         users.save(new User("park@a.com", encoder.encode("pw"), "박에이", User.Role.USER, a));
         kim = login("kim@a.com");
         park = login("park@a.com");
-        projectId = project(kim, "광명 자원회수시설");
+        projectId = project(kim, "가온 자원회수시설");
         permitId = id(call(kim, json(post("/api/projects/" + projectId + "/permits"), """
                 {"name":"대기배출시설 설치허가","category":"FACILITY","status":"COMPLETED"}""")));
         stack = id(call(kim, json(post("/api/projects/" + projectId + "/emission-points"),
@@ -177,7 +177,7 @@ class EmissionLimitApiTest extends IntegrationTest {
 
     private long project(String token, String name) throws Exception {
         return id(call(token, json(post("/api/projects"),
-                "{\"name\":\"" + name + "\",\"facilityType\":\"INCINERATION\",\"location\":\"광명\"}")));
+                "{\"name\":\"" + name + "\",\"facilityType\":\"INCINERATION\",\"location\":\"가온\"}")));
     }
 
     private ResultActions call(String token, MockHttpServletRequestBuilder req) throws Exception {

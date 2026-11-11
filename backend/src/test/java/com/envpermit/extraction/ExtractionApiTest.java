@@ -101,7 +101,7 @@ class ExtractionApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         park = login("park@b.com");
         projectId = id(call(kim, json(post("/api/projects"), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명"}""")));
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온"}""")));
         permitId = id(call(kim, json(post("/api/projects/" + projectId + "/permits"), """
                 {"name":"환경영향평가 협의","category":"ENVIRONMENT","status":"COMPLETED"}""")));
         call(kim, json(post("/api/projects/" + projectId + "/members"), "{\"userId\":" + leeId + "}"))

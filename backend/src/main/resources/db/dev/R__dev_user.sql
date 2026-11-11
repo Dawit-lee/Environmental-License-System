@@ -7,6 +7,12 @@ INSERT INTO users (email, password_hash, name, role)
 VALUES ('dev@envpermit.local', '$2a$10$LmSvVrFIpIK00B6QLKhF9uj7n.mYazuToeyq6LsET0JtD8qcZMz3S', '개발자', 'ADMIN')
 ON CONFLICT (email) DO NOTHING;
 
+-- Databases seeded before the addresses were made fully fictional: rename in place (the seed below runs once).
+UPDATE project SET location = '가람시 서구 새터동 1234' WHERE name = '가람시 하수처리장 증설공사' AND location LIKE '가람시 서구 %';
+UPDATE project SET location = '누리시 중구 솔밭동 88' WHERE name = '누리시 자원회수시설 신설' AND location LIKE '누리시 %구 % 88';
+UPDATE project SET location = '빛고을시 남구 달빛동 55-1' WHERE name = '빛고을 통합바이오가스화시설' AND location LIKE '빛고을시 %구 % 55-1';
+UPDATE project SET location = '한솔시 북구 물빛동 700' WHERE name = '한솔산단 폐수처리장' AND location LIKE '한솔시 %구 % 700';
+
 DO $$
 DECLARE
     pw    CONSTANT TEXT := '$2a$10$LmSvVrFIpIK00B6QLKhF9uj7n.mYazuToeyq6LsET0JtD8qcZMz3S';
@@ -31,16 +37,16 @@ BEGIN
     RETURNING id INTO u_other;
 
     INSERT INTO project (company_id, name, facility_type, location, capacity, capacity_unit, start_date, expected_end_date, status)
-    VALUES (co_a, '가람시 하수처리장 증설공사', 'SEWAGE', '가람시 서구 명지동 1234', 150, '톤/일', d + 120, d + 780, 'IN_PROGRESS')
+    VALUES (co_a, '가람시 하수처리장 증설공사', 'SEWAGE', '가람시 서구 새터동 1234', 150, '톤/일', d + 120, d + 780, 'IN_PROGRESS')
     RETURNING id INTO p1;
     INSERT INTO project (company_id, name, facility_type, location, capacity, capacity_unit, start_date, expected_end_date, status)
-    VALUES (co_a, '누리시 자원회수시설 신설', 'INCINERATION', '누리시 흥덕구 송정동 88', 220, '톤/일', d + 60, d + 900, 'IN_PROGRESS')
+    VALUES (co_a, '누리시 자원회수시설 신설', 'INCINERATION', '누리시 중구 솔밭동 88', 220, '톤/일', d + 60, d + 900, 'IN_PROGRESS')
     RETURNING id INTO p2;
     INSERT INTO project (company_id, name, facility_type, location, capacity, capacity_unit, start_date, expected_end_date, status)
-    VALUES (co_a, '빛고을 통합바이오가스화시설', 'BIOGAS', '빛고을시 광산구 본덕동 55-1', 100, '톤/일', d - 400, d - 30, 'COMPLETED')
+    VALUES (co_a, '빛고을 통합바이오가스화시설', 'BIOGAS', '빛고을시 남구 달빛동 55-1', 100, '톤/일', d - 400, d - 30, 'COMPLETED')
     RETURNING id INTO p3;
     INSERT INTO project (company_id, name, facility_type, location, capacity, capacity_unit, start_date, expected_end_date, status)
-    VALUES (co_a, '한솔산단 폐수처리장', 'WASTEWATER', '한솔시 단원구 성곡동 700', 80, '톤/일', d + 200, NULL, 'ON_HOLD')
+    VALUES (co_a, '한솔산단 폐수처리장', 'WASTEWATER', '한솔시 북구 물빛동 700', 80, '톤/일', d + 200, NULL, 'ON_HOLD')
     RETURNING id INTO p4;
     INSERT INTO project (company_id, name, facility_type, location, capacity, capacity_unit, start_date, expected_end_date, status)
     VALUES (co_b, '(B사) 매립시설 확장', 'LANDFILL', '어딘가군 매립로 1', 300, '톤/일', d + 30, NULL, 'IN_PROGRESS')

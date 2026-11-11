@@ -64,7 +64,7 @@ class MeasurementPasteApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         park = login("park@a.com");
         long projectId = id(call(kim, json(post("/api/projects"),
-                "{\"name\":\"광명 자원회수시설\",\"facilityType\":\"INCINERATION\",\"location\":\"광명\"}")));
+                "{\"name\":\"가온 자원회수시설\",\"facilityType\":\"INCINERATION\",\"location\":\"가온\"}")));
         stack = id(call(kim, json(post("/api/projects/" + projectId + "/emission-points"),
                 "{\"medium\":\"AIR\",\"name\":\"소각로 1호기 굴뚝\"}")).andExpect(status().isCreated()));
         call(kim, json(post("/api/emission-points/" + stack + "/limits"), """

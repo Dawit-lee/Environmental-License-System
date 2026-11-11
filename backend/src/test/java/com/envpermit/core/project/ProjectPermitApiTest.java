@@ -26,7 +26,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 class ProjectPermitApiTest extends IntegrationTest {
 
     static final String PROJECT = """
-            {"name":"부산 하수처리장 증설","facilityType":"SEWAGE","location":"부산 강서구",
+            {"name":"다온 하수처리장 증설","facilityType":"SEWAGE","location":"다온 강서구",
              "capacity":150,"capacityUnit":"톤/일","startDate":"2026-03-15"}""";
 
     @Autowired UserRepository users;

@@ -65,7 +65,7 @@ class ComplianceReportApiTest extends IntegrationTest {
         users.save(new User("park@b.com", encoder.encode("pw"), "박비", User.Role.USER, b));
         kim = login("kim@a.com");
         projectId = id(call(kim, json(post("/api/projects"), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명","capacity":300,"capacityUnit":"톤/일"}""")));
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온","capacity":300,"capacityUnit":"톤/일"}""")));
         permitId = permit(projectId, "대기배출시설 설치허가");
         stack = point(STACK, "AIR", permitId);
         outfall = point(OUTFALL, "WATER", permitId);
@@ -100,7 +100,7 @@ class ComplianceReportApiTest extends IntegrationTest {
                 .andReturn().getResponse().getContentAsString(), "$");
         assertThat(preview.get("fileName")).isEqualTo("이행보고서초안_대기배출시설 설치허가_20260101-20260401.xlsx");
         assertThat(sheetNames(preview)).containsExactly("개요", "의무사항 이행 내역", "측정 결과", "초과 및 조치", "현장 반영");
-        assertThat(rows(preview, 0)).contains(List.of("프로젝트", "광명 자원회수시설"), List.of("시설유형", "소각시설"),
+        assertThat(rows(preview, 0)).contains(List.of("프로젝트", "가온 자원회수시설"), List.of("시설유형", "소각시설"),
                 List.of("용량", "300 톤/일"), List.of("기간", "2026-01-01 ~ 2026-04-01"),
                 List.of("포함 배출구", STACK + ", " + OUTFALL), List.of("생성일", "2026-04-01"), List.of("생성자", "김에이"));
         assertThat(rows(preview, 1)).containsExactly(List.of("허가조건 제4호", "굴뚝 배출가스 월 1회 측정", "매월",
@@ -196,7 +196,7 @@ class ComplianceReportApiTest extends IntegrationTest {
         // park's own project cannot reach A's permit item through its own path
         String park = login("park@b.com");
         long parkProject = id(call(park, json(post("/api/projects"), """
-                {"name":"B 하수처리장","facilityType":"SEWAGE","location":"부산"}""")));
+                {"name":"B 하수처리장","facilityType":"SEWAGE","location":"다온"}""")));
         String crossed = "/api/projects/" + parkProject + "/permit-items/" + permitId + "/compliance-reports";
         call(park, get(crossed + "/preview?from=2026-01-01&to=2026-01-31")).andExpect(status().isNotFound());
         call(park, json(post(crossed), "{\"from\":\"2026-01-01\",\"to\":\"2026-01-31\"}")).andExpect(status().isNotFound());

@@ -66,7 +66,7 @@ class CorrectiveTaskApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         lee = login("lee@a.com");
         projectId = id(call(kim, json(post("/api/projects"), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명"}""")));
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온"}""")));
         for (long member : List.of(leeId, choiId)) {
             call(kim, json(post("/api/projects/" + projectId + "/members"), "{\"userId\":" + member + "}"))
                     .andExpect(status().isCreated());
@@ -101,7 +101,7 @@ class CorrectiveTaskApiTest extends IntegrationTest {
 
         // every member right away, in the app and by mail; the notice opens the 운영 tab on that point
         for (long member : List.of(kimId, leeId, choiId)) {
-            assertThat(notices(member)).containsExactly("초과 · 광명 자원회수시설 · 소각로 1호기 굴뚝 일산화탄소 30.1 > 30 ppm (2026-01-05)");
+            assertThat(notices(member)).containsExactly("초과 · 가온 자원회수시설 · 소각로 1호기 굴뚝 일산화탄소 30.1 > 30 ppm (2026-01-05)");
         }
         assertThat(notices(parkId)).isEmpty();
         assertThat(jdbc.queryForList("SELECT DISTINCT link FROM notification", String.class))
@@ -171,7 +171,7 @@ class CorrectiveTaskApiTest extends IntegrationTest {
     @Test
     void a_near_value_opens_no_task_and_tells_only_the_enterer_and_the_obligation_assignee() throws Exception {
         measure("CO", "24").andExpect(jsonPath("$[0].level").value("NEAR")); // limit has no basis obligation
-        assertThat(notices(kimId)).containsExactly("근접 · 광명 자원회수시설 · 소각로 1호기 굴뚝 일산화탄소 24 / 30 ppm (2026-01-05)");
+        assertThat(notices(kimId)).containsExactly("근접 · 가온 자원회수시설 · 소각로 1호기 굴뚝 일산화탄소 24 / 30 ppm (2026-01-05)");
         assertThat(notices(leeId)).isEmpty();
 
         long obligation = obligation();
@@ -195,13 +195,13 @@ class CorrectiveTaskApiTest extends IntegrationTest {
         limit("SOX", "20", null);
 
         call(kim, json(put("/api/projects/" + projectId), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명","pmUserId":%d}""".formatted(choiId)))
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온","pmUserId":%d}""".formatted(choiId)))
                 .andExpect(status().isOk());
         measure("CO", "31");
         call(kim, get("/api/tasks/" + correctiveTask())).andExpect(jsonPath("$.task.assigneeId").value(choiId)); // PM
 
         call(kim, json(put("/api/projects/" + projectId), """
-                {"name":"광명 자원회수시설","facilityType":"INCINERATION","location":"광명","pmUserId":%d,"emUserId":%d}"""
+                {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온","pmUserId":%d,"emUserId":%d}"""
                 .formatted(choiId, leeId))).andExpect(status().isOk());
         measure("SOX", "21");
         call(kim, get("/api/projects/" + projectId + "/tasks"))

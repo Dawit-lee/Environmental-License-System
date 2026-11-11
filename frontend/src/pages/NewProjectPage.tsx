@@ -345,7 +345,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="예: 광명시 자원회수시설 설치사업"
+                  placeholder="예: 가온시 자원회수시설 설치사업"
                   className={input}
                 />
               </Field>
