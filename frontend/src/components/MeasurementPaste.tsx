@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { LEVEL, levelClass, type Level } from './PointMeasurements';
+import { LEVEL, levelClass, limitText, type Level } from './PointMeasurements';
 
 // ---------------------------------------------------------------------------
 // MeasurementPaste — 운영 탭 "엑셀 붙여넣기" of one emission point (operations-compliance/05): 측정일·항목·값 copied
@@ -10,7 +10,7 @@ import { LEVEL, levelClass, type Level } from './PointMeasurements';
 
 interface PasteRow {
   line: number; raw: string; measuredOn: string | null; pollutantName: string | null; value: number | null;
-  unit: string | null; limitValue: number | null; level: Level | null; error: string | null;
+  unit: string | null; limitLower: number | null; limitValue: number | null; level: Level | null; error: string | null;
 }
 
 const INPUT = 'rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
@@ -106,7 +106,7 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
                     <td colSpan={3} className="max-w-[360px] px-4 py-2"><span className="block truncate font-mono" title={r.raw}>{r.raw}</span></td>
                   )}
                   <td className="px-4 py-2">{r.unit ?? '—'}</td>
-                  <td className="px-4 py-2 text-right tabular-nums">{r.limitValue ?? '—'}</td>
+                  <td className="px-4 py-2 text-right tabular-nums">{limitText(r.limitLower, r.limitValue)}</td>
                   <td className={`px-4 py-2 ${r.level ? levelClass(r.level) : ''}`}>{r.level ? LEVEL[r.level] : '—'}</td>
                   <td className="max-w-[320px] px-4 py-2 text-gray-800"><span className="block truncate" title={r.error ?? ''}>{r.error ?? ''}</span></td>
                 </tr>

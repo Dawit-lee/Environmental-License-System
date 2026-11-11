@@ -17,21 +17,30 @@ export const LEVEL: Record<Level, string> = { NORMAL: '정상', NEAR: '근접', 
 export const levelClass = (l: Level) => (l === 'EXCEEDED' ? 'font-semibold text-[#991B1B]' : 'text-gray-800');
 
 /** Same rule as the server. toPrecision drops binary noise (0.1 × 0.8 = 0.08000000000000002) so the line matches the server's decimals. */
-export function judge(value: number, limit: number | null, warnRatio: number, belowDetection: boolean): Level {
+export function judge(value: number, limit: number | null, warnRatio: number, belowDetection: boolean, lower: number | null = null): Level {
   if (limit === null) return 'NO_LIMIT';
   if (belowDetection) return 'NORMAL';
-  if (value > limit) return 'EXCEEDED';
-  return value >= Number((limit * warnRatio).toPrecision(12)) ? 'NEAR' : 'NORMAL';
+  if (value > limit || (lower !== null && value < lower)) return 'EXCEEDED';
+  const [low, high] = nearLines(lower, limit, warnRatio);
+  return value >= high || (low !== null && value <= low) ? 'NEAR' : 'NORMAL';
 }
-const percent = (value: number, limit: number) => `${Math.round((value / limit) * 1000) / 10}%`;
+/** [lower 근접 line, upper 근접 line]. A range limit (pH) has both, the same share of the allowed width from each bound. */
+export function nearLines(lower: number | null, limit: number, warnRatio: number): [number | null, number] {
+  if (lower === null) return [null, Number((limit * warnRatio).toPrecision(12))];
+  const band = (limit - lower) * (1 - warnRatio);
+  return [Number((lower + band).toPrecision(12)), Number((limit - band).toPrecision(12))];
+}
+export const limitText = (lower: number | null, limit: number | null) => (limit === null ? '—' : lower === null ? String(limit) : `${lower}~${limit}`);
+/** A share of the limit means nothing for a range. */
+const percent = (value: number, limit: number, lower: number | null) => (lower === null ? `${Math.round((value / limit) * 1000) / 10}%` : '—');
 
 export interface PointLimit {
-  id: number; pollutant: string; pollutantName: string; unit: string; limitValue: number; warnRatio: number;
+  id: number; pollutant: string; pollutantName: string; unit: string; limitLower: number | null; limitValue: number; warnRatio: number;
   effectiveFrom: string; effectiveTo: string | null;
 }
 interface Measurement {
   id: number; pollutant: string; pollutantName: string; measuredOn: string; value: number; unit: string;
-  belowDetection: boolean; taskId: number | null; limitValue: number | null; warnRatio: number | null; level: Level;
+  belowDetection: boolean; taskId: number | null; limitLower: number | null; limitValue: number | null; warnRatio: number | null; level: Level;
   enteredByName: string | null; enteredAt: string;
 }
 
@@ -155,12 +164,12 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
               {rows.map((l) => {
                 const en = entries[l.pollutant] ?? { value: '', nd: false };
                 const value = en.value.trim() === '' ? null : Number(en.value);
-                const level = value === null || Number.isNaN(value) ? null : judge(value, l.limitValue, l.warnRatio, en.nd);
+                const level = value === null || Number.isNaN(value) ? null : judge(value, l.limitValue, l.warnRatio, en.nd, l.limitLower);
                 const set = (patch: Partial<typeof en>) => setEntries({ ...entries, [l.pollutant]: { ...en, ...patch } });
                 return (
                   <tr key={l.id}>
                     <td className="px-4 py-2 font-medium text-gray-800">{l.pollutantName}</td>
-                    <td className="px-4 py-2 text-right tabular-nums text-gray-600" title={`근접 ${Math.round(l.warnRatio * 100)}% 이상`}>{l.limitValue}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-gray-600" title={`근접 ${nearLines(l.limitLower, l.limitValue, l.warnRatio).filter((v) => v !== null).join(' 이하 · ')} 이상`}>{limitText(l.limitLower, l.limitValue)}</td>
                     <td className="px-4 py-2 text-gray-600">{l.unit}</td>
                     <td className="px-4 py-2">
                       <input type="number" min="0" step="any" value={en.value} aria-label={`${l.pollutantName} 측정값`}
@@ -170,7 +179,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
                       <input type="checkbox" checked={en.nd} aria-label={`${l.pollutantName} 불검출`} className="accent-[#1F4E79]"
                         onChange={(e) => set({ nd: e.target.checked })} />
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-gray-600">{value === null || en.nd ? '—' : percent(value, l.limitValue)}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-gray-600">{value === null || en.nd ? '—' : percent(value, l.limitValue, l.limitLower)}</td>
                     <td className={`px-4 py-2 ${level ? levelClass(level) : 'text-gray-400'}`}>{level ? LEVEL[level] : '—'}</td>
                   </tr>
                 );
@@ -215,8 +224,8 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
                 <td className="px-4 py-2.5 font-medium text-gray-800">{m.pollutantName}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{m.value}{m.belowDetection ? ' (불검출)' : ''}</td>
                 <td className="px-4 py-2.5 text-gray-600">{m.unit}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{m.limitValue ?? '—'}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{m.limitValue === null || m.belowDetection ? '—' : percent(m.value, m.limitValue)}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{limitText(m.limitLower, m.limitValue)}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{m.limitValue === null || m.belowDetection ? '—' : percent(m.value, m.limitValue, m.limitLower)}</td>
                 <td className={`px-4 py-2.5 ${levelClass(m.level)}`}>{LEVEL[m.level]}</td>
                 <td className="max-w-[220px] px-4 py-2.5 text-gray-600">
                   <span className="block truncate" title={`${m.enteredByName ?? '—'} · ${new Date(m.enteredAt).toLocaleString('sv-SE')}`}>

@@ -53,7 +53,8 @@ class EmissionController {
             """;
 
     private static final String LIMITS = """
-            SELECT l.id, l.emission_point_id, e.project_id, l.pollutant, pl.name AS pollutant_name, l.unit, l.limit_value,
+            SELECT l.id, l.emission_point_id, e.project_id, l.pollutant, pl.name AS pollutant_name, l.unit, l.limit_lower,
+                   l.limit_value,
                    l.warn_ratio, l.obligation_id, o.summary AS obligation_summary, l.basis_text, l.effective_from,
                    l.effective_to, l.needs_review
             FROM permit_limit l
@@ -64,7 +65,7 @@ class EmissionController {
 
     private static final String MEASUREMENTS = """
             SELECT m.id, m.emission_point_id, m.pollutant, pl.name AS pollutant_name, m.measured_on, m.value, m.unit,
-                   m.below_detection, m.source, m.task_id, m.limit_id, m.limit_value, m.warn_ratio, m.level,
+                   m.below_detection, m.source, m.task_id, m.limit_id, m.limit_lower, m.limit_value, m.warn_ratio, m.level,
                    u.name AS entered_by_name, m.entered_at
             FROM measurement m
             JOIN pollutant pl ON pl.code = m.pollutant
@@ -84,7 +85,8 @@ class EmissionController {
         this.clock = clock;
     }
 
-    record PollutantView(String code, String medium, String name, String unit) {
+    /** rangeLimit: the limit of this item is a range (lower ~ upper), e.g. pH. */
+    record PollutantView(String code, String medium, String name, String unit, boolean rangeLimit) {
     }
 
     record PointView(long id, long projectId, Long permitItemId, String permitName, String medium, String name,
@@ -99,13 +101,15 @@ class EmissionController {
     record PointUpdate(Long permitItemId, @NotBlank @Size(max = 100) String name, boolean active) {
     }
 
+    /** limitLower: lower bound of a range limit (limitValue is then the upper bound); null otherwise. */
     record LimitView(long id, long emissionPointId, String pollutant, String pollutantName, String unit,
-                     BigDecimal limitValue, BigDecimal warnRatio, Long obligationId, String obligationSummary,
+                     BigDecimal limitLower, BigDecimal limitValue, BigDecimal warnRatio, Long obligationId, String obligationSummary,
                      String basisText, LocalDate effectiveFrom, LocalDate effectiveTo, boolean needsReview) {
     }
 
     /** replacesLimitId: close that open limit the day before effectiveFrom in the same transaction (한도 변경). */
-    record LimitRequest(@NotBlank String pollutant, @NotNull @Positive BigDecimal limitValue, BigDecimal warnRatio,
+    record LimitRequest(@NotBlank String pollutant, @PositiveOrZero BigDecimal limitLower,
+                        @NotNull @Positive BigDecimal limitValue, BigDecimal warnRatio,
                         Long obligationId, @Size(max = 500) String basisText, @NotNull LocalDate effectiveFrom,
                         LocalDate effectiveTo, Long replacesLimitId) {
     }
@@ -116,8 +120,8 @@ class EmissionController {
     /** limitId / limitValue / warnRatio: the limit in force on measuredOn when the value was entered (null: none). */
     record MeasurementView(long id, long emissionPointId, String pollutant, String pollutantName, LocalDate measuredOn,
                            BigDecimal value, String unit, boolean belowDetection, String source, Long taskId,
-                           Long limitId, BigDecimal limitValue, BigDecimal warnRatio, Judgement.Level level,
-                           String enteredByName, Instant enteredAt) {
+                           Long limitId, BigDecimal limitLower, BigDecimal limitValue, BigDecimal warnRatio,
+                           Judgement.Level level, String enteredByName, Instant enteredAt) {
     }
 
     /** belowDetection (불검출): value carries the quantitation limit and the judgement is NORMAL. */
@@ -135,7 +139,8 @@ class EmissionController {
 
     /** One pasted line. error == null: the row would be saved with this unit, limit and level. */
     record PasteRow(int line, String raw, LocalDate measuredOn, String pollutant, String pollutantName, BigDecimal value,
-                    String unit, BigDecimal limitValue, BigDecimal warnRatio, Judgement.Level level, String error) {
+                    String unit, BigDecimal limitLower, BigDecimal limitValue, BigDecimal warnRatio, Judgement.Level level,
+                    String error) {
     }
 
     record DeleteRequest(@NotBlank @Size(max = 300) String reason) {
@@ -143,8 +148,9 @@ class EmissionController {
 
     @GetMapping("/api/pollutants")
     List<PollutantView> pollutants() {
-        return jdbc.query("SELECT code, medium, name, unit FROM pollutant ORDER BY sort", (rs, i) -> new PollutantView(
-                rs.getString("code"), rs.getString("medium"), rs.getString("name"), rs.getString("unit")));
+        return jdbc.query("SELECT code, medium, name, unit, range_limit FROM pollutant ORDER BY sort", (rs, i) -> new PollutantView(
+                rs.getString("code"), rs.getString("medium"), rs.getString("name"), rs.getString("unit"),
+                rs.getBoolean("range_limit")));
     }
 
     @GetMapping("/api/projects/{projectId}/emission-points")
@@ -192,9 +198,17 @@ class EmissionController {
     LimitView createLimit(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @Validated @RequestBody LimitRequest req) {
         PointView p = point(id, jwt);
         jdbc.queryForList("SELECT id FROM emission_point WHERE id = ? FOR UPDATE", id); // one writer per point: the overlap check below cannot race
-        String unit = jdbc.queryForList("SELECT unit FROM pollutant WHERE code = ? AND medium = ?", String.class,
+        Map<String, Object> item = jdbc.queryForList("SELECT unit, range_limit FROM pollutant WHERE code = ? AND medium = ?",
                 req.pollutant(), p.medium()).stream().findFirst().orElseThrow(() -> unprocessable(
                 "이 배출구(" + (p.medium().equals("AIR") ? "대기" : "수질") + ")에 쓸 수 없는 측정 항목입니다: " + req.pollutant()));
+        String unit = (String) item.get("unit");
+        if ((boolean) item.get("range_limit") != (req.limitLower() != null)) { // an upper-only pH limit would pass any acid
+            throw unprocessable(req.limitLower() == null ? "이 항목은 범위 한도입니다. 하한과 상한을 모두 넣으세요."
+                    : "이 항목은 상한만 있는 한도입니다. 하한을 빼세요.");
+        }
+        if (req.limitLower() != null && req.limitLower().compareTo(req.limitValue()) >= 0) {
+            throw unprocessable("하한은 상한보다 작아야 합니다.");
+        }
         BigDecimal ratio = req.warnRatio() == null ? new BigDecimal("0.80") : req.warnRatio();
         if (ratio.signum() <= 0 || ratio.compareTo(BigDecimal.ONE) >= 0) {
             throw unprocessable("근접 비율은 0보다 크고 1보다 작아야 합니다.");
@@ -217,10 +231,10 @@ class EmissionController {
                 Integer.class, id, req.pollutant(), req.effectiveFrom(), req.effectiveTo()) > 0) {
             throw unprocessable("같은 항목의 유효기간이 겹칩니다. 기존 한도를 닫거나 [한도 변경]을 쓰세요.");
         }
-        Long limitId = jdbc.queryForObject("INSERT INTO permit_limit (emission_point_id, pollutant, unit, limit_value, warn_ratio, "
+        Long limitId = jdbc.queryForObject("INSERT INTO permit_limit (emission_point_id, pollutant, unit, limit_lower, limit_value, warn_ratio, "
                         + "obligation_id, basis_text, effective_from, effective_to, created_by) "
-                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?::date, ?::date, ?) RETURNING id", Long.class,
-                id, req.pollutant(), unit, req.limitValue(), ratio, req.obligationId(), req.basisText(),
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?::date, ?::date, ?) RETURNING id", Long.class,
+                id, req.pollutant(), unit, req.limitLower(), req.limitValue(), ratio, req.obligationId(), req.basisText(),
                 req.effectiveFrom(), req.effectiveTo(), userId(jwt));
         return limits("l.id = ?", limitId).get(0);
     }
@@ -275,14 +289,15 @@ class EmissionController {
             if (!unit.equals(r.unit().trim())) { // v1 has no unit conversion
                 throw unprocessable("단위가 다릅니다: %s은(는) %s 단위로 입력하세요.".formatted(r.pollutant(), unit));
             }
+            BigDecimal lower = limit == null ? null : limit.limitLower();
             BigDecimal limitValue = limit == null ? null : limit.limitValue();
             BigDecimal ratio = limit == null ? null : limit.warnRatio();
             ids.add(jdbc.queryForObject("INSERT INTO measurement (emission_point_id, pollutant, measured_on, value, unit, "
-                            + "below_detection, source, task_id, limit_id, limit_value, warn_ratio, level, entered_by, entered_at) "
-                            + "VALUES (?, ?, ?::date, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id", Long.class,
+                            + "below_detection, source, task_id, limit_id, limit_lower, limit_value, warn_ratio, level, entered_by, entered_at) "
+                            + "VALUES (?, ?, ?::date, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id", Long.class,
                     id, r.pollutant(), r.measuredOn(), r.value(), unit, r.belowDetection(),
                     req.source() == null ? "MANUAL" : req.source(), req.taskId(), limit == null ? null : limit.id(),
-                    limitValue, ratio, Judgement.judge(r.value(), limitValue, ratio, r.belowDetection()).name(),
+                    lower, limitValue, ratio, Judgement.judge(r.value(), lower, limitValue, ratio, r.belowDetection()).name(),
                     userId(jwt), now));
         }
         alerts.raise(p.projectId(), id, ids, userId(jwt)); // 초과 → 조치 업무 + 알림, 근접 → 알림 (ticket 06)
@@ -326,15 +341,15 @@ class EmissionController {
         return parsed.stream().map(r -> {
             String name = names.get(r.pollutant());
             if (r.error() != null) {
-                return new PasteRow(r.line(), r.raw(), r.measuredOn(), r.pollutant(), name, r.value(), null, null, null, null, r.error());
+                return new PasteRow(r.line(), r.raw(), r.measuredOn(), r.pollutant(), name, r.value(), null, null, null, null, null, r.error());
             }
             LimitView l = limits.stream().filter(x -> x.pollutant().equals(r.pollutant()) && !x.effectiveFrom().isAfter(r.measuredOn())
                     && (x.effectiveTo() == null || !x.effectiveTo().isBefore(r.measuredOn()))).findFirst().orElse(null);
             return l == null
-                    ? new PasteRow(r.line(), r.raw(), r.measuredOn(), r.pollutant(), name, r.value(), null, null, null, null,
+                    ? new PasteRow(r.line(), r.raw(), r.measuredOn(), r.pollutant(), name, r.value(), null, null, null, null, null,
                     "측정일에 유효한 한도가 없는 항목")
-                    : new PasteRow(r.line(), r.raw(), r.measuredOn(), r.pollutant(), name, r.value(), l.unit(), l.limitValue(),
-                    l.warnRatio(), Judgement.judge(r.value(), l.limitValue(), l.warnRatio(), false), null);
+                    : new PasteRow(r.line(), r.raw(), r.measuredOn(), r.pollutant(), name, r.value(), l.unit(), l.limitLower(),
+                    l.limitValue(), l.warnRatio(), Judgement.judge(r.value(), l.limitLower(), l.limitValue(), l.warnRatio(), false), null);
         }).toList();
     }
 
@@ -399,8 +414,8 @@ class EmissionController {
 
     private List<LimitView> limits(String where, Object... args) {
         return jdbc.query(LIMITS + " WHERE " + where, (rs, i) -> new LimitView(rs.getLong("id"), rs.getLong("emission_point_id"),
-                rs.getString("pollutant"), rs.getString("pollutant_name"), rs.getString("unit"), rs.getBigDecimal("limit_value"),
-                rs.getBigDecimal("warn_ratio"), rs.getObject("obligation_id", Long.class), rs.getString("obligation_summary"),
+                rs.getString("pollutant"), rs.getString("pollutant_name"), rs.getString("unit"), rs.getBigDecimal("limit_lower"),
+                rs.getBigDecimal("limit_value"), rs.getBigDecimal("warn_ratio"), rs.getObject("obligation_id", Long.class), rs.getString("obligation_summary"),
                 rs.getString("basis_text"), rs.getObject("effective_from", LocalDate.class),
                 rs.getObject("effective_to", LocalDate.class), rs.getBoolean("needs_review")), args);
     }
@@ -409,7 +424,7 @@ class EmissionController {
         return jdbc.query(MEASUREMENTS + and, (rs, i) -> new MeasurementView(rs.getLong("id"), rs.getLong("emission_point_id"),
                 rs.getString("pollutant"), rs.getString("pollutant_name"), rs.getObject("measured_on", LocalDate.class),
                 rs.getBigDecimal("value"), rs.getString("unit"), rs.getBoolean("below_detection"), rs.getString("source"),
-                rs.getObject("task_id", Long.class), rs.getObject("limit_id", Long.class), rs.getBigDecimal("limit_value"),
+                rs.getObject("task_id", Long.class), rs.getObject("limit_id", Long.class), rs.getBigDecimal("limit_lower"), rs.getBigDecimal("limit_value"),
                 rs.getBigDecimal("warn_ratio"), Judgement.Level.valueOf(rs.getString("level")),
                 rs.getString("entered_by_name"), rs.getTimestamp("entered_at").toInstant()), args);
     }

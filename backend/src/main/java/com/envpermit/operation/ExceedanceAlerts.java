@@ -48,7 +48,7 @@ class ExceedanceAlerts {
                 Long.class, projectId);
         Map<Long, List<String>> lines = new LinkedHashMap<>(); // user → what to mail
         jdbc.query("""
-                SELECT m.id, m.level, m.measured_on, m.value, m.unit, m.limit_value, pl.name AS pollutant, e.name AS point,
+                SELECT m.id, m.level, m.measured_on, m.value, m.unit, m.limit_lower, m.limit_value, pl.name AS pollutant, e.name AS point,
                        pr.name AS project, l.obligation_id
                 FROM measurement m
                 JOIN pollutant pl ON pl.code = m.pollutant
@@ -59,9 +59,12 @@ class ExceedanceAlerts {
                 .formatted(measurementIds.stream().map(String::valueOf).collect(Collectors.joining(","))), rs -> {
             boolean exceeded = rs.getString("level").equals("EXCEEDED");
             Long obligationId = rs.getObject("obligation_id", Long.class);
-            String what = "%s %s %s %s %s %s".formatted(rs.getString("point"), rs.getString("pollutant"),
-                    plain(rs.getBigDecimal("value")), exceeded ? ">" : "/", plain(rs.getBigDecimal("limit_value")),
-                    rs.getString("unit"));
+            BigDecimal value = rs.getBigDecimal("value");
+            BigDecimal lower = rs.getBigDecimal("limit_lower"); // range limit (pH): which bound was crossed, or the range
+            String limit = !exceeded && lower != null ? plain(lower) + "~" + plain(rs.getBigDecimal("limit_value"))
+                    : plain(lower != null && value.compareTo(lower) < 0 ? lower : rs.getBigDecimal("limit_value"));
+            String what = "%s %s %s %s %s %s".formatted(rs.getString("point"), rs.getString("pollutant"), plain(value),
+                    !exceeded ? "/" : lower != null && value.compareTo(lower) < 0 ? "<" : ">", limit, rs.getString("unit"));
             Set<Long> to = new LinkedHashSet<>();
             if (exceeded) {
                 tasks.corrective(projectId, rs.getLong("id"), obligationId, "[초과] " + what, actorId);

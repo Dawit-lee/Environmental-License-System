@@ -42,6 +42,7 @@ class ComplianceReportApiTest extends IntegrationTest {
     static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     static final String STACK = "소각로 1호기 굴뚝";
     static final String OUTFALL = "=2+3 방류구";
+    static final String PH_NAME = "수소이온농도(pH)";
 
     @Autowired UserRepository users;
     @Autowired CompanyRepository companies;
@@ -71,6 +72,8 @@ class ComplianceReportApiTest extends IntegrationTest {
         outfall = point(OUTFALL, "WATER", permitId);
         call(kim, json(post("/api/emission-points/" + stack + "/limits"),
                 "{\"pollutant\":\"CO\",\"limitValue\":30,\"effectiveFrom\":\"2026-01-01\"}")).andExpect(status().isCreated());
+        call(kim, json(post("/api/emission-points/" + outfall + "/limits"), // made-up range
+                "{\"pollutant\":\"PH\",\"limitLower\":4,\"limitValue\":9,\"effectiveFrom\":\"2026-01-01\"}")).andExpect(status().isCreated());
         reports = "/api/projects/" + projectId + "/permit-items/" + permitId + "/compliance-reports";
         files = 0;
     }
@@ -86,6 +89,7 @@ class ComplianceReportApiTest extends IntegrationTest {
         call(kim, json(delete("/api/measurements/" + wrong), "{\"reason\":\"오입력\"}")).andExpect(status().isNoContent());
         measure(stack, "2026-01-04", "CO", "31", "ppm"); // 초과 → 조치 업무, due 2026-01-12
         measure(outfall, "2026-01-05", "BOD", "8.5", "mg/L"); // no limit entered
+        measure(outfall, "2026-01-05", "PH", "7", "pH");
 
         complete(openTask("OBLIGATION"), "{}"); // cycle 1, in time → cycle 2 due 2026-02-28
         complete(openTask("CORRECTIVE"), "{\"note\":\"필터 교체\"}");
@@ -106,10 +110,11 @@ class ComplianceReportApiTest extends IntegrationTest {
         assertThat(rows(preview, 1)).containsExactly(List.of("허가조건 제4호", "굴뚝 배출가스 월 1회 측정", "매월",
                 3, 1, 1, 1, 0, "2026-01-05, 2026-03-02", "증빙1.pdf, 증빙3.pdf"));
         assertThat(rows(preview, 2)).containsExactlyInAnyOrder( // the deleted value and the one before the period are out
-                List.of(STACK, "일산화탄소", "2026-01-03", 12, "ppm", 30, 40.0, "정상", ""),
-                List.of(STACK, "일산화탄소", "2026-01-04", 31, "ppm", 30, 103.3, "초과", ""),
-                List.of(OUTFALL, "BOD", "2026-01-05", 8.5, "mg/L", "", "", "한도 없음", ""));
-        assertThat(rows(preview, 3)).containsExactly(List.of(STACK, "일산화탄소", "2026-01-04", 31, 30, "ppm",
+                List.of(STACK, "일산화탄소", "2026-01-03", 12, "ppm", "", 30, 40.0, "정상", ""),
+                List.of(STACK, "일산화탄소", "2026-01-04", 31, "ppm", "", 30, 103.3, "초과", ""),
+                List.of(OUTFALL, "BOD", "2026-01-05", 8.5, "mg/L", "", "", "", "한도 없음", ""),
+                List.of(OUTFALL, PH_NAME, "2026-01-05", 7, "pH", 4, 9, "", "정상", "")); // range limit: both bounds, no %
+        assertThat(rows(preview, 3)).containsExactly(List.of(STACK, "일산화탄소", "2026-01-04", 31, "", 30, "ppm",
                 "[초과] 소각로 1호기 굴뚝 일산화탄소 31 > 30 ppm", "완료", "2026-01-12", "2026-01-05", "필터 교체"));
         assertThat(rows(preview, 4)).containsExactly(List.of("허가조건 제4호", "굴뚝 배출가스 월 1회 측정", "", "", "", "측정 주기 변경 현장 공지"));
         assertThat(documentNames()).doesNotContain((String) preview.get("fileName")); // the preview saves nothing
@@ -132,15 +137,14 @@ class ComplianceReportApiTest extends IntegrationTest {
                 assertThat(cells(sheet.getRow(1))).isEqualTo(JsonPath.read(preview, "$.sheets[" + s + "].headers"));
                 assertThat(sheet.getLastRowNum() - 1).isEqualTo(rows(preview, s).size()); // rows after the note and the header
             }
-            assertThat(text(wb.getSheet("측정 결과").getRow(0), 0)).contains("법령 원문 대조 전 초안"); // units are unverified
-            assertThat(text(wb.getSheet("초과 및 조치").getRow(0), 0)).contains("법령 원문 대조 전 초안");
+            assertThat(text(wb.getSheet("측정 결과").getRow(0), 0)).doesNotContain("대조 전"); // the seed is verified (ticket 09)
             assertThat(cells(wb.getSheet("의무사항 이행 내역").getRow(2))).containsExactly("허가조건 제4호", "굴뚝 배출가스 월 1회 측정",
                     "매월", 3.0, 1.0, 1.0, 1.0, 0.0, "2026-01-05, 2026-03-02", "증빙1.pdf, 증빙3.pdf");
             List<List<Object>> measured = new ArrayList<>();
             wb.getSheet("측정 결과").forEach(r -> measured.add(cells(r)));
-            assertThat(measured).contains(List.of(STACK, "일산화탄소", "2026-01-04", 31.0, "ppm", 30.0, 103.3, "초과", ""));
+            assertThat(measured).contains(List.of(STACK, "일산화탄소", "2026-01-04", 31.0, "ppm", "", 30.0, 103.3, "초과", ""));
             // a name that starts like a formula is kept as text behind an apostrophe, never as a formula cell
-            assertThat(measured).contains(List.of("'" + OUTFALL, "BOD", "2026-01-05", 8.5, "mg/L", "", "", "한도 없음", ""));
+            assertThat(measured).contains(List.of("'" + OUTFALL, "BOD", "2026-01-05", 8.5, "mg/L", "", "", "", "한도 없음", ""));
             assertThat(cells(wb.getSheet("초과 및 조치").getRow(2))).contains("완료", "2026-01-05", "필터 교체");
             wb.forEach(sheet -> sheet.forEach(r -> r.forEach(c -> assertThat(c.getCellType()).isNotEqualTo(CellType.FORMULA))));
         }
@@ -181,7 +185,7 @@ class ComplianceReportApiTest extends IntegrationTest {
                 assertThat(text(wb.getSheetAt(s).getRow(0), 0)).startsWith("초안 — 제출 전 법정 서식 확인");
             }
             assertThat(cells(wb.getSheet("측정 결과").getRow(1)))
-                    .containsExactly("배출구", "항목", "측정일", "값", "단위", "한도", "한도 대비 %", "판정", "비고");
+                    .containsExactly("배출구", "항목", "측정일", "값", "단위", "한도 하한", "한도", "한도 대비 %", "판정", "비고");
         }
     }
 

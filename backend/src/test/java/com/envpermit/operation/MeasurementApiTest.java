@@ -1,5 +1,6 @@
 package com.envpermit.operation;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -211,6 +212,52 @@ class MeasurementApiTest extends IntegrationTest {
 
     private long openTask() throws Exception {
         return id(call(kim, get("/api/projects/" + projectId + "/tasks")), "$[?(@.status=='OPEN')].id");
+    }
+
+    // ticket 09: a range limit (pH). Made-up range 4 ~ 9, warn ratio 0.80 → 근접 at ≤ 5 and ≥ 8.
+    @Test
+    void a_range_limit_needs_both_bounds_and_judges_below_the_lower_bound_as_exceeded() throws Exception {
+        long outfall = id(call(kim, json(post("/api/projects/" + projectId + "/emission-points"),
+                "{\"medium\":\"WATER\",\"name\":\"방류구\"}")).andExpect(status().isCreated()));
+        String limits = "/api/emission-points/" + outfall + "/limits";
+        for (String bad : new String[]{
+                "{\"pollutant\":\"PH\",\"limitValue\":9,\"effectiveFrom\":\"2026-01-01\"}", // upper only
+                "{\"pollutant\":\"PH\",\"limitLower\":9,\"limitValue\":9,\"effectiveFrom\":\"2026-01-01\"}",
+                "{\"pollutant\":\"BOD\",\"limitLower\":1,\"limitValue\":9,\"effectiveFrom\":\"2026-01-01\"}"}) { // not a range item
+            call(kim, json(post(limits), bad)).andExpect(status().isUnprocessableEntity());
+        }
+        call(kim, json(post(limits), "{\"pollutant\":\"PH\",\"limitLower\":-1,\"limitValue\":9,\"effectiveFrom\":\"2026-01-01\"}"))
+                .andExpect(status().isBadRequest());
+        call(kim, json(post(limits), "{\"pollutant\":\"PH\",\"limitLower\":4,\"limitValue\":9,\"effectiveFrom\":\"2026-01-01\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.limitLower").value(4)).andExpect(jsonPath("$.limitValue").value(9))
+                .andExpect(jsonPath("$.unit").value("pH"));
+        call(kim, get("/api/emission-points/" + stack + "/limits")).andExpect(jsonPath("$[0].limitLower").doesNotExist());
+
+        String values = "/api/emission-points/" + outfall + "/measurements";
+        call(kim, json(post(values), """
+                {"rows":[
+                  {"measuredOn":"2026-01-01","pollutant":"PH","value":3.9,"unit":"pH"},
+                  {"measuredOn":"2026-01-02","pollutant":"PH","value":4,"unit":"pH"},
+                  {"measuredOn":"2026-01-03","pollutant":"PH","value":5.1,"unit":"pH"},
+                  {"measuredOn":"2026-01-04","pollutant":"PH","value":8,"unit":"pH"},
+                  {"measuredOn":"2026-01-05","pollutant":"PH","value":9.1,"unit":"pH"}]}"""))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$[*].level", contains("EXCEEDED", "NEAR", "NORMAL", "NEAR", "EXCEEDED")))
+                .andExpect(jsonPath("$[0].limitLower").value(4)).andExpect(jsonPath("$[0].limitValue").value(9));
+        // one 조치 업무 for the point and item: titled by the first value, the second is appended to it
+        assertThat(jdbc.queryForList("SELECT title FROM obligation_task WHERE kind = 'CORRECTIVE'", String.class))
+                .containsExactly("[초과] 방류구 수소이온농도(pH) 3.9 < 4 pH");
+        assertThat(jdbc.queryForList("SELECT message FROM notification ORDER BY id", String.class)).containsExactly(
+                "초과 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 3.9 < 4 pH (2026-01-01)",
+                "근접 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 4 / 4~9 pH (2026-01-02)",
+                "근접 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 8 / 4~9 pH (2026-01-04)",
+                "초과 · 광명 자원회수시설 · 방류구 수소이온농도(pH) 9.1 > 9 pH (2026-01-05)");
+
+        call(kim, json(post(values + "/preview"), "{\"text\":\"2026-01-06\\tpH\\t3\\n2026-01-07\\tPH\\t7\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[*].level", contains("EXCEEDED", "NORMAL")))
+                .andExpect(jsonPath("$[0].limitLower").value(4));
     }
 
     private long project(String name) throws Exception {

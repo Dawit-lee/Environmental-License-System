@@ -4,7 +4,7 @@ import { listProjectObligations, type Obligation } from '../api/revisions';
 import type { PermitItem } from '../types';
 import MeasurementPaste from './MeasurementPaste';
 import MeasurementTrend from './MeasurementTrend';
-import PointMeasurements from './PointMeasurements';
+import PointMeasurements, { limitText, nearLines } from './PointMeasurements';
 
 // ---------------------------------------------------------------------------
 // ProjectOperations — 프로젝트 › 운영: emission points, their permit limits and measured values (operations-compliance F2).
@@ -13,13 +13,13 @@ import PointMeasurements from './PointMeasurements';
 // ---------------------------------------------------------------------------
 
 type Medium = 'AIR' | 'WATER';
-interface Pollutant { code: string; medium: Medium; name: string; unit: string }
+interface Pollutant { code: string; medium: Medium; name: string; unit: string; rangeLimit: boolean }
 interface Point {
   id: number; permitItemId: number | null; permitName: string | null; medium: Medium; name: string;
   active: boolean; needsReviewCount: number;
 }
 interface Limit {
-  id: number; pollutant: string; pollutantName: string; unit: string; limitValue: number; warnRatio: number;
+  id: number; pollutant: string; pollutantName: string; unit: string; limitLower: number | null; limitValue: number; warnRatio: number;
   obligationId: number | null; obligationSummary: string | null; basisText: string | null;
   effectiveFrom: string; effectiveTo: string | null; needsReview: boolean;
 }
@@ -32,7 +32,7 @@ const PRIMARY = 'rounded-lg bg-[#1F4E79] px-4 py-1.5 text-sm font-medium text-wh
 
 const emptyPoint = { id: null as number | null, name: '', medium: 'AIR' as Medium, permitItemId: '', active: true };
 const emptyLimit = () => ({
-  replaces: null as Limit | null, pollutant: '', limitValue: '', warnRatio: '0.80', obligationId: '', basisText: '',
+  replaces: null as Limit | null, pollutant: '', limitLower: '', limitValue: '', warnRatio: '0.80', obligationId: '', basisText: '',
   effectiveFrom: today(), effectiveTo: '',
 });
 
@@ -88,6 +88,8 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
   const visibleLimits = limits.filter((l) => showPast || !l.effectiveTo || l.effectiveTo >= today());
   const pastCount = limits.length - limits.filter((l) => !l.effectiveTo || l.effectiveTo >= today()).length;
 
+  const formItem = pollutants.find((p) => p.code === limitForm?.pollutant);
+
   const savePoint = async (e: FormEvent) => {
     e.preventDefault();
     if (!pointForm) return;
@@ -103,6 +105,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
     if (!limitForm || !selected) return;
     const ok = await run(() => send(`/api/emission-points/${selected.id}/limits`, 'POST', {
       pollutant: limitForm.pollutant,
+      limitLower: formItem?.rangeLimit ? Number(limitForm.limitLower) : null,
       limitValue: Number(limitForm.limitValue),
       warnRatio: Number(limitForm.warnRatio),
       obligationId: limitForm.obligationId ? Number(limitForm.obligationId) : null,
@@ -119,17 +122,13 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
     if (date) run(() => send(`/api/limits/${l.id}/close`, 'POST', { effectiveTo: date }));
   };
 
-  const formUnit = pollutants.find((p) => p.code === limitForm?.pollutant)?.unit;
 
   return (
     <div>
-      <p className="rounded-lg bg-[#F8F7F2] px-3 py-2 text-sm text-gray-600">
-        측정 항목·단위는 초안이며 법령 원문 대조 전입니다. 확정 전까지 항목과 단위가 바뀔 수 있습니다.
-      </p>
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+      {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
 
       {/* 배출구 */}
-      <div className="mt-6 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-[#1F4E79]">배출구·방류구</h2>
         <button type="button" className={BTN} onClick={() => setPointForm({ ...emptyPoint })}>+ 배출구 추가</button>
       </div>
@@ -224,7 +223,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
             <form onSubmit={saveLimit} className="mt-3 rounded-xl border border-[#E5E3DC] bg-white p-4">
               {limitForm.replaces && (
                 <p className="mb-3 text-sm text-gray-600">
-                  기존 한도({limitForm.replaces.limitValue} {limitForm.replaces.unit}, {limitForm.replaces.effectiveFrom}~)는 새 시작일 전날로 닫히고 이력에 남습니다.
+                  기존 한도({limitText(limitForm.replaces.limitLower, limitForm.replaces.limitValue)} {limitForm.replaces.unit}, {limitForm.replaces.effectiveFrom}~)는 새 시작일 전날로 닫히고 이력에 남습니다.
                 </p>
               )}
               {selected.medium === 'AIR' && (
@@ -238,11 +237,17 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
                     {pollutants.filter((p) => p.medium === selected.medium).map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
                   </select>
                 </label>
-                <label className="text-xs text-gray-500">한도 ({formUnit ?? '단위'}) 이하
+                {formItem?.rangeLimit && (
+                  <label className="text-xs text-gray-500">하한 ({formItem.unit}) 이상
+                    <input required type="number" min="0" step="any" value={limitForm.limitLower}
+                      onChange={(e) => setLimitForm({ ...limitForm, limitLower: e.target.value })} className={`${INPUT} mt-1 block w-32`} />
+                  </label>
+                )}
+                <label className="text-xs text-gray-500">{formItem?.rangeLimit ? '상한' : '한도'} ({formItem?.unit ?? '단위'}) 이하
                   <input required type="number" min="0" step="any" value={limitForm.limitValue}
                     onChange={(e) => setLimitForm({ ...limitForm, limitValue: e.target.value })} className={`${INPUT} mt-1 block w-32`} />
                 </label>
-                <label className="text-xs text-gray-500" title="한도 × 비율 이상이면 근접으로 판정합니다 (0 초과 1 미만)">근접 비율
+                <label className="text-xs text-gray-500" title="한도 × 비율 이상이면 근접으로 판정합니다 (0 초과 1 미만). 범위 한도는 허용 폭의 (1 − 비율) 안쪽까지 하한·상한 양쪽이 근접입니다.">근접 비율
                   <input required type="number" min="0.01" max="0.99" step="0.01" value={limitForm.warnRatio}
                     onChange={(e) => setLimitForm({ ...limitForm, warnRatio: e.target.value })} className={`${INPUT} mt-1 block w-24`} />
                 </label>
@@ -295,9 +300,9 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
                   return (
                     <tr key={l.id} className={open || l.effectiveTo! >= today() ? '' : 'text-gray-400'}>
                       <td className="px-4 py-2.5 font-medium text-gray-800">{l.pollutantName}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{l.limitValue}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{limitText(l.limitLower, l.limitValue)}</td>
                       <td className="px-4 py-2.5 text-gray-600">{l.unit}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-gray-600">{Math.round(l.warnRatio * 100)}% ({+(l.limitValue * l.warnRatio).toFixed(4)})</td>
+                      <td className="px-4 py-2.5 tabular-nums text-gray-600">{Math.round(l.warnRatio * 100)}% ({nearLines(l.limitLower, l.limitValue, l.warnRatio).filter((v) => v !== null).join(' / ')})</td>
                       <td className="max-w-[300px] px-4 py-2.5 text-gray-600"><span className="block truncate" title={basis}>{basis || '—'}</span></td>
                       <td className="px-4 py-2.5 text-gray-600">{l.effectiveFrom} ~ {l.effectiveTo ?? ''}</td>
                       <td className="px-4 py-2.5 text-gray-800">{l.needsReview ? '한도 확인 필요' : open ? '적용 중' : '종료'}</td>
