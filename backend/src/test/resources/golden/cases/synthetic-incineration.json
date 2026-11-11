@@ -1,0 +1,35 @@
+{
+  "name": "가상시 자원회수시설 (합성 예시 — 실제 사업 아님)",
+  "as_of": "2026-01-01",
+  "notes": [
+    "형식을 보여 주고 CI에서 하네스를 돌리기 위한 지어낸 사례다. 값과 정답 목록은 실제 사업과 무관하다.",
+    "대기 발생량·폐수량을 일부러 비워 통합환경허가가 ON_HOLD로 나오게 했다."
+  ],
+  "attributes": {
+    "facility_type": "INCINERATION",
+    "capacity_tpd": 120,
+    "sido": "충북",
+    "address": "가상시 가상동 1",
+    "proponent": "MUNICIPAL",
+    "project_kind": "NEW",
+    "zoning": "MGMT_PLANNING",
+    "site_area_m2": 30000,
+    "construction_cost_krw": 40000000000
+  },
+  "expected": [
+    {"permit_name": "폐기물처리시설 설치승인"},
+    {"permit_name": "환경영향평가"},
+    {"permit_name": "폐기물처리시설 입지선정 결정고시"},
+    {"permit_name": "소규모재해영향평가"},
+    {"permit_name": "통합환경허가", "cause": "INPUT_MISSING", "note": "대기 발생량·폐수량 미확보"},
+    {"permit_name": "건축인허가(공용건축물 협의)"},
+    {"permit_name": "건축물 사용승인신청"},
+    {"permit_name": "소각시설 설치검사"},
+    {"permit_name": "폐기물(소각) 처리시설 사용 개시신고"},
+    {"permit_name": "비산먼지 발생사업 신고", "cause": "MISSING_RULE"},
+    {"permit_name": "대기배출시설 설치신고", "aliases": ["대기 배출시설 설치 신고서"], "cause": "MISSING_RULE"},
+    {"permit_name": "폐기물처분업 허가", "expected": "NOT_APPLICABLE"},
+    {"permit_name": "전략환경영향평가", "expected": "NOT_APPLICABLE"},
+    {"permit_name": "재원협의", "scope": "OUT_OF_SCOPE", "scope_reason": "예산 트랙 — 속성으로 판정 불가"}
+  ]
+}
