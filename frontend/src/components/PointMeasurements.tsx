@@ -41,8 +41,10 @@ const INPUT = 'rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm t
 const BTN = 'rounded-lg border border-[#E5E3DC] px-3 py-1 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
 const PRIMARY = 'rounded-lg bg-[#1F4E79] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#173a5c] disabled:opacity-40';
 
-export default function PointMeasurements({ projectId, point, limits }: {
+/** rev: reload the list when it changes (a paste was saved). onChanged: a value was saved or deleted here. */
+export default function PointMeasurements({ projectId, point, limits, rev, onChanged }: {
   projectId: number; point: { id: number; name: string; medium: 'AIR' | 'WATER' }; limits: PointLimit[];
+  rev: number; onChanged: () => void;
 }) {
   const [params, setParams] = useSearchParams();
   const taskId = Number(params.get('task')) || null;
@@ -59,8 +61,10 @@ export default function PointMeasurements({ projectId, point, limits }: {
     setEntries({});
     setSaved(null);
     setError(null);
-    load();
   }, [point.id]);
+  useEffect(() => {
+    load();
+  }, [point.id, rev]);
   useEffect(() => {
     setTask(null);
     if (taskId) getTask(taskId).then((d) => setTask(d.task), () => setError('연결할 업무를 찾을 수 없습니다.'));
@@ -90,7 +94,7 @@ export default function PointMeasurements({ projectId, point, limits }: {
       const over = out.filter((m) => m.level === 'EXCEEDED').length;
       setSaved(`${out.length}건 저장했습니다.${over ? ` 초과 ${over}건.` : ''}${linkTask ? ' 업무에 연결되어 완료 조건을 채웁니다.' : ''}`);
       setEntries({});
-      await load();
+      onChanged();
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -104,7 +108,7 @@ export default function PointMeasurements({ projectId, point, limits }: {
     setError(null);
     try {
       await api(`/api/measurements/${m.id}`, { method: 'DELETE', body: JSON.stringify({ reason }) });
-      await load();
+      onChanged();
     } catch (err) {
       setError((err as Error).message);
     }
@@ -204,7 +208,7 @@ export default function PointMeasurements({ projectId, point, limits }: {
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E5E3DC]">
-            {/* shortcut: the whole history is fetched and cut here; add from/to when ticket 05 brings the trend view */}
+            {/* shortcut: the whole history is fetched and cut here; periods are in 측정 추이 below */}
             {recent.slice(0, RECENT).map((m) => (
               <tr key={m.id}>
                 <td className="px-4 py-2.5 text-gray-800">{m.measuredOn}</td>

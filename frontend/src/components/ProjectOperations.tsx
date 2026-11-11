@@ -2,12 +2,14 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api } from '../api/client';
 import { listProjectObligations, type Obligation } from '../api/revisions';
 import type { PermitItem } from '../types';
+import MeasurementPaste from './MeasurementPaste';
+import MeasurementTrend from './MeasurementTrend';
 import PointMeasurements from './PointMeasurements';
 
 // ---------------------------------------------------------------------------
 // ProjectOperations — 프로젝트 › 운영: emission points, their permit limits and measured values (operations-compliance F2).
 // A limit is never edited: [한도 변경] closes the current row and adds a new one, so history stays.
-// Measured values of the selected point: PointMeasurements. Planned (ticket 05): paste and trends.
+// Measured values of the selected point: PointMeasurements (typed), MeasurementPaste (pasted), MeasurementTrend (chart).
 // ---------------------------------------------------------------------------
 
 type Medium = 'AIR' | 'WATER';
@@ -45,6 +47,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
   const [pointForm, setPointForm] = useState<typeof emptyPoint | null>(null);
   const [limitForm, setLimitForm] = useState<ReturnType<typeof emptyLimit> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rev, setRev] = useState(0); // bumped when a measurement is saved or deleted: list and trend reload
 
   const loadPoints = () =>
     api<Point[]>(`/api/projects/${projectId}/emission-points`).then((list) => {
@@ -323,7 +326,9 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
             )}
           </div>
 
-          <PointMeasurements projectId={projectId} point={selected} limits={limits} />
+          <PointMeasurements projectId={projectId} point={selected} limits={limits} rev={rev} onChanged={() => setRev((n) => n + 1)} />
+          <MeasurementPaste point={selected} onSaved={() => setRev((n) => n + 1)} />
+          <MeasurementTrend point={selected} pollutants={pollutants} limits={limits} rev={rev} />
         </>
       )}
     </div>
