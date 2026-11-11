@@ -66,11 +66,11 @@ class GoldenAccuracyTest extends IntegrationTest {
         Tally t = evaluate(Path.of(getClass().getResource("/golden/cases").toURI()), Path.of("build/reports/golden"));
 
         assertThat(t.cases).isEqualTo(1);
-        assertThat(List.of(t.strict, t.covered, t.relaxed, t.expected)).containsExactly(12, 1, 14, 15);
-        assertThat(List.of(t.tp, t.fp, t.unverified, t.onHold)).containsExactly(12, 1, 6, 9);
+        assertThat(List.of(t.strict, t.covered, t.relaxed, t.expected)).containsExactly(13, 1, 15, 16);
+        assertThat(List.of(t.tp, t.fp, t.unverified, t.onHold)).containsExactly(13, 1, 10, 17);
         assertThat(t.causes).containsEntry("MISSING_RULE", 1).containsEntry("INPUT_MISSING", 1);
         assertThat(Files.readString(Path.of("build/reports/golden/result-synthetic-incineration.md")))
-                .contains("가설건축물 축조신고").contains("냉난방면적 필요").contains("대기배출시설 설치신고 ← INTEGRATED_ENV_PERMIT");
+                .contains("특정공사 사전신고").contains("냉난방면적 필요").contains("대기배출시설 설치신고 ← INTEGRATED_ENV_PERMIT");
     }
 
     @Test

@@ -12,7 +12,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
- * The seeded rules of ruleset v2 (V290) against made-up attribute sets: each threshold at and just under its
+ * The seeded rules of ruleset v2 and v3 (V290, V300) against made-up attribute sets: each threshold at and just under its
  * boundary, and the ON_HOLD case when the input is missing. Attributes are fictional (no real project).
  */
 class RuleSeedTest extends IntegrationTest {
@@ -113,7 +113,65 @@ class RuleSeedTest extends IntegrationTest {
             "FUGITIVE_DUST_REPORT|{}|ON_HOLD",
             "FIRE_CONSENT|{'gross_floor_area_m2':400}|APPLICABLE",
             "FIRE_CONSENT|{'gross_floor_area_m2':399}|NOT_APPLICABLE",
-            "FIRE_CONSENT|{}|ON_HOLD"})
+            "FIRE_CONSENT|{}|ON_HOLD",
+            // v3 — 소방시설공사: 400㎡ (비상경보설비 설치 의무)
+            "FIRE_WORK_START_REPORT|{'gross_floor_area_m2':400}|APPLICABLE",
+            "FIRE_WORK_START_REPORT|{'gross_floor_area_m2':399}|NOT_APPLICABLE",
+            "FIRE_WORK_START_REPORT|{}|ON_HOLD",
+            "FIRE_WORK_COMPLETION|{'gross_floor_area_m2':400}|APPLICABLE",
+            "FIRE_WORK_COMPLETION|{'gross_floor_area_m2':399}|NOT_APPLICABLE",
+            "FIRE_WORK_COMPLETION|{}|ON_HOLD",
+            // v3 — 가설건축물: always
+            "TEMP_BUILDING_REPORT|{}|APPLICABLE",
+            "TEMP_BUILDING_REPORT|{'project_kind':'EXPANSION'}|APPLICABLE",
+            // v3 — 도시·군계획시설: 도시지역, 기결정 여부
+            "URBAN_FACILITY_DECISION|{'zoning':'URBAN','urban_facility_decided':false}|APPLICABLE",
+            "URBAN_FACILITY_DECISION|{'zoning':'URBAN','urban_facility_decided':true}|NOT_APPLICABLE",
+            "URBAN_FACILITY_DECISION|{'zoning':'MGMT_PLANNING','urban_facility_decided':false}|NOT_APPLICABLE",
+            "URBAN_FACILITY_DECISION|{'zoning':'URBAN'}|ON_HOLD",
+            "URBAN_FACILITY_DECISION|{'urban_facility_decided':false}|ON_HOLD",
+            "URBAN_FACILITY_IMPL_PLAN|{'urban_facility_decided':true}|APPLICABLE",
+            "URBAN_FACILITY_IMPL_PLAN|{'zoning':'URBAN','urban_facility_decided':false}|APPLICABLE",
+            "URBAN_FACILITY_IMPL_PLAN|{'zoning':'AGRI_FOREST','urban_facility_decided':false}|NOT_APPLICABLE",
+            "URBAN_FACILITY_IMPL_PLAN|{'zoning':'AGRI_FOREST'}|ON_HOLD",
+            // v3 — 정보통신공사: 150㎡ 초과
+            "TELECOM_DESIGN_CHECK|{'gross_floor_area_m2':150.1}|APPLICABLE",
+            "TELECOM_DESIGN_CHECK|{'gross_floor_area_m2':150}|NOT_APPLICABLE",
+            "TELECOM_DESIGN_CHECK|{}|ON_HOLD",
+            "TELECOM_PRE_USE_INSPECTION|{'gross_floor_area_m2':151}|APPLICABLE",
+            "TELECOM_PRE_USE_INSPECTION|{'gross_floor_area_m2':150}|NOT_APPLICABLE",
+            "TELECOM_PRE_USE_INSPECTION|{}|ON_HOLD",
+            // v3 — TMS: 연 10톤 이상 + 1 t/h (24 t/d), 사업장폐기물은 0.4 t/h (9.6 t/d)
+            "TMS_INSTALL|{'air_emission_tpy':10,'capacity_tpd':24}|APPLICABLE",
+            "TMS_INSTALL|{'air_emission_tpy':9.9,'capacity_tpd':200}|NOT_APPLICABLE",
+            "TMS_INSTALL|{'air_emission_tpy':30,'capacity_tpd':23.9,'waste_types':['MUNICIPAL_SOLID']}|NOT_APPLICABLE",
+            "TMS_INSTALL|{'air_emission_tpy':30,'capacity_tpd':9.6,'waste_types':['INDUSTRIAL']}|APPLICABLE",
+            "TMS_INSTALL|{'air_emission_tpy':30,'capacity_tpd':9.5,'waste_types':['INDUSTRIAL']}|NOT_APPLICABLE",
+            "TMS_INSTALL|{'air_emission_tpy':30,'capacity_tpd':12}|ON_HOLD",
+            "TMS_INSTALL|{'capacity_tpd':100}|ON_HOLD",
+            "TMS_ACCURACY_CHECK|{'air_emission_tpy':10,'capacity_tpd':24}|APPLICABLE",
+            "TMS_ACCURACY_CHECK|{'air_emission_tpy':9.9,'capacity_tpd':24}|NOT_APPLICABLE",
+            "TMS_ACCURACY_CHECK|{'capacity_tpd':24}|ON_HOLD",
+            // v3 — 발전사업허가: 발전설비 + 전력 판매
+            "POWER_BUSINESS_PERMIT|{'has_power_generation':true,'sells_electricity':true}|APPLICABLE",
+            "POWER_BUSINESS_PERMIT|{'has_power_generation':true,'sells_electricity':false}|NOT_APPLICABLE",
+            "POWER_BUSINESS_PERMIT|{'has_power_generation':false}|NOT_APPLICABLE",
+            "POWER_BUSINESS_PERMIT|{'has_power_generation':true}|ON_HOLD",
+            // v3 — 전기설비: 발전설비 또는 수전 75 kW
+            "ELEC_WORK_PLAN|{'has_power_generation':false,'receiving_capacity_kw':75}|APPLICABLE",
+            "ELEC_WORK_PLAN|{'has_power_generation':false,'receiving_capacity_kw':74.9}|NOT_APPLICABLE",
+            "ELEC_WORK_PLAN|{'has_power_generation':true}|APPLICABLE",
+            "ELEC_WORK_PLAN|{'has_power_generation':false}|ON_HOLD",
+            "ELEC_PRE_USE_INSPECTION|{'receiving_capacity_kw':75}|APPLICABLE",
+            "ELEC_PRE_USE_INSPECTION|{'has_power_generation':false,'receiving_capacity_kw':74}|NOT_APPLICABLE",
+            "ELEC_PRE_USE_INSPECTION|{}|ON_HOLD",
+            "ELEC_SAFETY_MANAGER|{'receiving_capacity_kw':75}|APPLICABLE",
+            "ELEC_SAFETY_MANAGER|{'has_power_generation':false,'receiving_capacity_kw':74}|NOT_APPLICABLE",
+            "ELEC_SAFETY_MANAGER|{}|ON_HOLD",
+            // v3 — 승강기
+            "ELEVATOR_INSTALL_INSPECTION|{'has_elevator':true}|APPLICABLE",
+            "ELEVATOR_INSTALL_INSPECTION|{'has_elevator':false}|NOT_APPLICABLE",
+            "ELEVATOR_INSTALL_INSPECTION|{}|ON_HOLD"})
     void seededRule(String ruleKey, String attrs, String expected) {
         DerivationRule r = rules.findByStatusOrderByRuleKey("ACTIVE").stream()
                 .filter(x -> x.getRuleKey().equals(ruleKey)).findFirst().orElseThrow();
@@ -132,10 +190,10 @@ class RuleSeedTest extends IntegrationTest {
     }
 
     @Test
-    void rulesetV2KeepsOneActiveVersionPerKeyAndEveryRuleCitesALaw() {
+    void rulesetKeepsOneActiveVersionPerKeyAndEveryRuleCitesALaw() {
         var active = rules.findByStatusOrderByRuleKey("ACTIVE");
-        assertThat(rules.rulesetVersion()).isEqualTo(2);
-        assertThat(active).hasSize(34); // 14 from v1 (5 of them re-issued as version 2) + 20 new
+        assertThat(rules.rulesetVersion()).isEqualTo(3);
+        assertThat(active).hasSize(48); // 14 (v1) + 20 (v2) + 14 (v3)
         assertThat(active).extracting(DerivationRule::getRuleKey).doesNotHaveDuplicates();
         assertThat(active).allSatisfy(r -> assertThat(r.getLawRefs().size()).isPositive());
     }

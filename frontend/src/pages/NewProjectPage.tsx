@@ -283,7 +283,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     }
   };
 
-  const fillExtra = async (field: string, value: string | number) => {
+  const fillExtra = async (field: string, value: string | number | boolean) => {
     if (!projectId) return;
     const next = { ...extra, [field]: value };
     setExtra(next);
@@ -559,7 +559,12 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   const cfg = EXTRA_INPUT[k] ?? {
                     unit: m.unit,
                     placeholder: '',
-                    options: m.type === 'ENUM' ? Object.entries(m.values).map(([value, label]) => ({ value, label })) : undefined,
+                    options:
+                      m.type === 'ENUM'
+                        ? Object.entries(m.values).map(([value, label]) => ({ value, label }))
+                        : m.type === 'BOOL' // yes/no inputs must be saved as booleans
+                          ? [{ value: 'true', label: '예' }, { value: 'false', label: '아니오' }]
+                          : undefined,
                   };
                   return (
                     <div
@@ -574,7 +579,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                           id={`extra-${k}`}
                           disabled={busy}
                           defaultValue=""
-                          onChange={(e) => e.target.value && fillExtra(k, e.target.value)}
+                          onChange={(e) => e.target.value && fillExtra(k, m.type === 'BOOL' ? e.target.value === 'true' : e.target.value)}
                           className="w-40 rounded-md border border-[#E5E3DC] bg-white px-2 py-1 text-sm"
                         >
                           <option value="">선택</option>
