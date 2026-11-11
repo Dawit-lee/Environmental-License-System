@@ -8,7 +8,11 @@ import {
   type ProjectMember, type Task, type TaskDetail, type TaskEvent,
 } from '../api/tasks';
 import type { PermitDocument, PermitItem } from '../types';
+import { monthsBefore } from './ComplianceReportDraft';
 import { LEVEL, levelClass } from './PointMeasurements';
+
+/** Default report period of a 보고·제출 task: one cycle back from its due date (same months as the server's Frequency). */
+const CYCLE_MONTHS: Partial<Record<Obligation['frequency'], number>> = { MONTHLY: 1, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
 
 // ---------------------------------------------------------------------------
 // ObligationTaskDrawer — 업무 상세 of one obligation (operations-compliance/01): the current cycle's evidence
@@ -244,6 +248,19 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
                   </div>
                 )}
               </section>
+
+              {open && obligation?.type === 'REPORT_SUBMIT' && (
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-800">보고서</h3>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Link className={button} to={`/projects/${projectId}/documents?report=${obligation.permitItemId}`
+                      + `&from=${monthsBefore(task.dueDate, CYCLE_MONTHS[obligation.frequency] ?? 6)}&to=${task.dueDate}`}>
+                      보고서 초안 생성
+                    </Link>
+                    <p className="w-full text-xs text-gray-400">문서 탭에서 초안(XLSX)을 만들고, 고친 최종본을 올려 증빙으로 연결하세요.</p>
+                  </div>
+                </section>
+              )}
 
               {(detail.measurements.length > 0 || (open && (obligation?.type === 'MEASURE_SURVEY' || !obligation))) && (
                 <section>
