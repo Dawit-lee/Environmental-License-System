@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import type { PermitItem, PermitStatus, Project } from '../types';
+import type { PermitCategory, PermitItem, PermitStatus, Project } from '../types';
 import { ymd, type Deadline } from '../api/notifications';
 
 // ---------------------------------------------------------------------------
@@ -21,6 +21,19 @@ export const STATUSES: { status: PermitStatus; label: string; color: string }[] 
   { status: 'NEAR_EXPIRY', label: '만료임박', color: '#E8A33D' },
   { status: 'EXPIRED', label: '만료', color: '#991B1B' },
 ];
+
+export const STAGES = ['입지', '설계', '착공', '준공', '운영'] as const;
+
+/** shortcut: rough stage from permit status + planned dates; replace when projects store a real stage. */
+export function lifecycleStage(project: Project, permits: PermitItem[], today = new Date().toISOString().slice(0, 10)): number {
+  const done = (cats: PermitCategory[]) =>
+    permits.filter((p) => cats.includes(p.category)).every((p) => p.status === 'COMPLETED');
+  if (!done(['LOCATION', 'ENVIRONMENT'])) return 0;
+  if (!project.startDate || today < project.startDate) return 1;
+  if (!project.expectedEndDate || today < project.expectedEndDate) return 2;
+  if (!permits.every((p) => p.status === 'COMPLETED')) return 3;
+  return 4;
+}
 
 export const isOpen = (s: { status: string }) => s.status === 'PENDING' || s.status === 'SUBMITTED';
 
