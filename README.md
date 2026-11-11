@@ -24,7 +24,7 @@
 | 매일 법령 개정 감지 배치 · 직접 영향/참고 판정 · 개정 알림 화면 | ✅ (테스트는 법제처 응답 픽스처로) | `law/AmendmentBatchTest`, `AmendmentFilterTest`, `ImpactRuleTest`, `LawImpactApiTest` |
 | 사람 검토 통로 (승인·승인 요청·거절, 일괄 승인, 감사 로그) | ✅ | `review/ReviewApiTest`, `review/TransitionTest` |
 | 허가조건 AI 추출 (텍스트 PDF, 인용문 원문 대조, 스캔본은 원문 페이지 열람 후 승인) | ✅ (스캔본 OCR은 없음) | `extraction/ExtractionApiTest`, `QuoteCheckerTest`, `CitationKeyTest` |
-| 추출 제공자 Claude / Gemini / OpenAI 선택 | ✅ (Gemini·OpenAI는 실제 API 응답을 녹화해 테스트, Claude는 손으로 만든 응답) | `extraction/GeminiClientTest`, `OpenAiClientTest`, `ProviderTest` |
+| 추출 제공자 Claude / Gemini / OpenAI 선택 | ✅ (Gemini·OpenAI는 실제 API 응답을 녹화해 테스트, Claude는 손으로 만든 응답 + 공개 문서 3건 실측) | `extraction/GeminiClientTest`, `OpenAiClientTest`, `ProviderTest` |
 | 의무사항 승인 시 근거 법령 자동 연결 | ✅ | `obligation/ObligationLawLinkApiTest`, `law/LegalBasisTest` |
 | 인허가 자동 도출 (규칙 엔진 참/거짓/모름, 판정 보류, 승인, 재실행) | ✅ (규칙은 시드 SQL, AI 규칙 초안은 없음) | `derivation/EvaluatorTest`, `DerivationApiTest`, `DerivationReviewApiTest`, `RerunTest` |
 | 허가증 버전 비교 (추가/삭제/변경/경미), 승인, 현장 반영 추적 | ✅ | `revision/DiffEngineTest`, `extraction/RevisionApiTest`, `RevisionApplyApiTest` |
@@ -281,7 +281,7 @@ cp .env.example .env
 | `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | API 키. 이 환경변수로만 받고 설정 파일·로그·응답 저장본에는 남기지 않습니다 |
 | `CLAUDE_MODEL` / `GEMINI_MODEL` / `OPENAI_MODEL` | 모델 id (기본 `claude-sonnet-5-5` / `gemini-3.6-flash` / `gpt-6.1-terra`). PDF 입력과 구조화 출력(JSON 스키마)을 지원하는 모델이어야 합니다 |
 
-회사 설정에서 마스터가 AI 추출을 켜야 실행되며, 실행 전 고지에 선택된 제공자 이름이 나옵니다. 실행마다 제공자·모델·프롬프트 버전·토큰 수가 `ai_run`에 남습니다. 제공자별 추출 품질은 수동 평가 스크립트로 잽니다([docs/EXTRACTION_EVAL.md](docs/EXTRACTION_EVAL.md)).
+회사 설정에서 마스터가 AI 추출을 켜야 실행되며, 실행 전 고지에 선택된 제공자 이름이 나옵니다. 실행마다 제공자·모델·프롬프트 버전·토큰 수가 `ai_run`에 남습니다. 제공자별 추출 품질은 수동 평가 스크립트로 잽니다([방법](docs/EXTRACTION_EVAL.md), [2026-11-11 실측 결과](docs/EXTRACTION_EVAL_RESULTS.md)).
 
 > ⚠️ **Gemini 무료 등급은 입력·응답을 Google 제품 개선에 쓸 수 있습니다.** 실제 회사 문서는 결제 계정이 연결된 유료 등급(학습 미사용)에서만 보내세요. 약관은 바뀔 수 있으니 [Gemini API 추가 약관](https://ai.google.dev/gemini-api/terms)을 직접 확인하세요. Claude·OpenAI도 마찬가지로 [Anthropic 약관](https://www.anthropic.com/legal)·[OpenAI 데이터 정책](https://openai.com/enterprise-privacy/)의 데이터 사용·보존 조건을 확인하세요. OpenAI 호출은 `store: false`로 보냅니다.
 
@@ -390,7 +390,7 @@ Access 토큰 30분, Refresh 토큰 14일.
 | 1 | 화면 설계 · 프론트엔드 초안 | ✅ (#1) |
 | 2–3 | 확장 기능 설계: 사람 검토 + 허가조건 추출, 법령 개정 모니터링, 자동 도출, 버전 비교 | ✅ 설계 승인 (#2, #3) |
 | 4 | 앱 뼈대: 인증, 회사·프로젝트·멤버 권한, 인허가 CRUD, 문서 첨부, 기한 알림 | ✅ (#4–#7) · 🟡 이메일은 로그로만, 화면의 인허가 추가·수정 폼 없음 |
-| 5 | 사람 검토 + 허가조건 AI 추출 (텍스트 PDF, 스캔본 원문 열람 승인, 일괄 승인, Claude/Gemini/OpenAI) | ✅ (#9, #12, #13, #18, #20) · 🟡 스캔본 OCR 없음, Claude 실제 응답 미검증 |
+| 5 | 사람 검토 + 허가조건 AI 추출 (텍스트 PDF, 스캔본 원문 열람 승인, 일괄 승인, Claude/Gemini/OpenAI) | ✅ (#9, #12, #13, #18, #20) · 🟡 스캔본 OCR 없음 · 3사 실측: [결과](docs/EXTRACTION_EVAL_RESULTS.md) |
 | 6 | 법령 개정 모니터링 (카탈로그, 매일 개정 감지, 영향 판정, 의무–법령 연결) | ✅ (#8, #10, #14, #15) |
 | 7a | 인허가 자동 도출 (규칙 엔진, 판정 승인, 재실행) | ✅ (#11, #16) · ⏳ AI 규칙 초안·규칙 관리자 승인 없음(규칙은 시드 SQL) |
 | 7b | 허가증 버전 비교 (비교 엔진, 승인, 현장 반영 추적) | ✅ (#17, #19, #21) |
