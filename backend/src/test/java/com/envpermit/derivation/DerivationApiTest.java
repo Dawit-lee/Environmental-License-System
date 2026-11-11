@@ -61,9 +61,9 @@ class DerivationApiTest extends IntegrationTest {
         putAttributes(GYEONGGI_300).andExpect(status().isOk());
 
         String body = derive().andExpect(status().isOk())
-                .andExpect(jsonPath("$.rulesetVersion").value(2))
-                .andExpect(jsonPath("$.applicable").value(8))
-                .andExpect(jsonPath("$.onHold").value(22))
+                .andExpect(jsonPath("$.rulesetVersion").value(3))
+                .andExpect(jsonPath("$.applicable").value(9))
+                .andExpect(jsonPath("$.onHold").value(35))
                 .andExpect(jsonPath("$.notApplicable").value(3))
                 .andExpect(jsonPath("$.errors").value(0))
                 .andReturn().getResponse().getContentAsString();
@@ -71,13 +71,13 @@ class DerivationApiTest extends IntegrationTest {
 
         Map<String, Object> run = jdbc.queryForMap("SELECT * FROM ai_run WHERE id = ?", runId);
         assertThat(run).containsEntry("kind", "PERMIT_ITEM").containsEntry("model", "rule-engine")
-                .containsEntry("prompt_version", "ruleset-v2").containsEntry("preparer", "RULE_ENGINE")
+                .containsEntry("prompt_version", "ruleset-v3").containsEntry("preparer", "RULE_ENGINE")
                 .containsEntry("status", "SUCCEEDED").containsEntry("input_tokens", 0);
         assertThat(run.get("raw_response_key")).isNotNull();
 
         // PENDING suggestions only for APPLICABLE + ON_HOLD; nothing live yet
         assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_suggestion WHERE run_id = ? AND status = 'PENDING' "
-                + "AND origin = 'AI' AND kind = 'PERMIT_ITEM'", Long.class, runId)).isEqualTo(30);
+                + "AND origin = 'AI' AND kind = 'PERMIT_ITEM'", Long.class, runId)).isEqualTo(44);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM permit_item", Long.class)).isZero();
 
         JsonNode eia = payload(runId, "EIA_MAIN");
@@ -85,7 +85,7 @@ class DerivationApiTest extends IntegrationTest {
         assertThat(eia.get("reason").asText()).isEqualTo("시설용량 300톤/일 ≥ 100톤/일");
         assertThat(eia.get("approval_stage").asText()).isEqualTo("설계");
         assertThat(eia.get("category").asText()).isEqualTo("SITE");
-        assertThat(eia.get("ruleset_version").asInt()).isEqualTo(2);
+        assertThat(eia.get("ruleset_version").asInt()).isEqualTo(3);
         assertThat(eia.get("legal_basis").get(0).asText()).isEqualTo("환경영향평가법 §22, 시행령 §31 별표3");
         assertThat(eia.get("law_refs")).hasSize(2);
         assertThat(eia.get("law_refs").get(0).get("article_no").asText()).isEqualTo("제22조");
@@ -102,7 +102,7 @@ class DerivationApiTest extends IntegrationTest {
         // the full judgement, including not-applicable rows with reasons
         call(kim, get("/api/projects/" + projectId + "/derivations/latest")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.runId").value(runId))
-                .andExpect(jsonPath("$.results.length()").value(33))
+                .andExpect(jsonPath("$.results.length()").value(47))
                 .andExpect(jsonPath("$.results[?(@.rule_key == 'WASTE_INSTALL_REPORT')].reason",
                         contains("시설용량 300톤/일 ≥ 100톤/일")))
                 .andExpect(jsonPath("$.results[?(@.rule_key == 'WASTE_DISPOSAL_BUSINESS')].determination",
@@ -164,7 +164,7 @@ class DerivationApiTest extends IntegrationTest {
         try {
             derive().andExpect(status().isOk())
                     .andExpect(jsonPath("$.errors").value(1))
-                    .andExpect(jsonPath("$.applicable").value(8))
+                    .andExpect(jsonPath("$.applicable").value(9))
                     .andExpect(jsonPath("$.results[?(@.rule_key == 'BROKEN')].determination", contains("ERROR")));
         } finally {
             jdbc.update("DELETE FROM derivation_rule WHERE rule_key = 'BROKEN'");
