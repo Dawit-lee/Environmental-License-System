@@ -43,3 +43,10 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// Manual extraction quality eval (review-extraction/04): real API calls that cost money, so never part of test/CI.
+// ./gradlew extractionEval --args="<dir> [claude,gemini,openai]"  (docs/EXTRACTION_EVAL.md)
+tasks.register('extractionEval', JavaExec) {
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'com.envpermit.extraction.ExtractionEval'
+}
