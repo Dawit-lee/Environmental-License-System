@@ -42,4 +42,6 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    // golden cases live outside the repo (docs/golden-accuracy.md), so Gradle cannot see them change
+    outputs.upToDateWhen { !System.getenv('GOLDEN_DIR') }
 }
