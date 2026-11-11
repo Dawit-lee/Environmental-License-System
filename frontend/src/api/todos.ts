@@ -48,7 +48,10 @@ export async function loadTodos(projects: { id: number; name: string }[], days =
     listMyTasks(),
   ]);
   // a task of mine is listed as 이행 업무, so its own D-day entry would be a duplicate
-  const myObligations = new Set(tasks.map((t) => t.obligationId));
+  const myObligations = new Set(tasks.filter((t) => t.kind === 'OBLIGATION').map((t) => t.obligationId));
+  const myTasks = new Set(tasks.map((t) => t.id));
+  const mine = (d: { kind: string; targetId: number }) =>
+    (d.kind === 'OBLIGATION' && myObligations.has(d.targetId)) || (d.kind === 'CORRECTIVE_TASK' && myTasks.has(d.targetId));
   const todos: Todo[] = [
     ...suggestions.flat()
       // same rows the review tab shows: obligations and version-diff revisions
@@ -70,9 +73,9 @@ export async function loadTodos(projects: { id: number; name: string }[], days =
       key: `t${t.id}`, kind: 'TASK', projectId: t.projectId, projectName: names.get(t.projectId)!,
       text: t.title, due: t.dueDate, to: `/projects/${t.projectId}/obligations`,
     })),
-    ...deadlines.filter((d) => names.has(d.projectId) && !(d.kind === 'OBLIGATION' && myObligations.has(d.targetId))).map((d): Todo => ({
+    ...deadlines.filter((d) => names.has(d.projectId) && !mine(d)).map((d): Todo => ({
       key: `d${d.id}`, kind: 'DEADLINE', projectId: d.projectId, projectName: d.projectName,
-      text: d.title, due: d.dueDate, to: `/projects/${d.projectId}/${d.kind === 'OBLIGATION' ? 'obligations' : 'schedule'}`,
+      text: d.title, due: d.dueDate, to: `/projects/${d.projectId}/${d.kind === 'OBLIGATION' || d.kind === 'CORRECTIVE_TASK' ? 'obligations' : 'schedule'}`,
     })),
   ];
   return todos.sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999'));

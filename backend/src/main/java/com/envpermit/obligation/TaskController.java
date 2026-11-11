@@ -40,6 +40,19 @@ class TaskController {
     record CompleteRequest(String note, LocalDate nextDueDate, Long version) {
     }
 
+    record CancelRequest(@jakarta.validation.constraints.NotBlank @jakarta.validation.constraints.Size(max = 300) String reason,
+                         Long version) {
+    }
+
+    /** 조치 업무 수동 취소; the reason is kept in the task's history. */
+    @PostMapping("/api/tasks/{id}/cancel")
+    TaskDetail cancel(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
+                      @org.springframework.validation.annotation.Validated @RequestBody CancelRequest req) {
+        member(jwt, id);
+        tasks.cancel(id, userId(jwt), req.reason(), req.version());
+        return tasks.detail(id);
+    }
+
     @GetMapping("/api/projects/{projectId}/tasks")
     List<TaskView> list(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                         @RequestParam(required = false) Long obligationId) {

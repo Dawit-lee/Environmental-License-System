@@ -23,6 +23,9 @@ export interface Task {
   evidenceCount: number;
   /** live measured values entered for this task; they count like evidence */
   measurementCount: number;
+  /** CORRECTIVE only: the exceeding value that opened the task, and its emission point */
+  measurementId: number | null;
+  emissionPointId: number | null;
 }
 
 export interface TaskEvidence {
@@ -45,7 +48,7 @@ export interface TaskMeasurement {
 }
 
 export interface TaskEvent {
-  type: 'CREATED' | 'ASSIGNED' | 'DUE_CHANGED' | 'EVIDENCE_ADDED' | 'EVIDENCE_REMOVED' | 'COMPLETED' | 'CANCELLED';
+  type: 'CREATED' | 'ASSIGNED' | 'DUE_CHANGED' | 'EVIDENCE_ADDED' | 'EVIDENCE_REMOVED' | 'MEASUREMENT_ADDED' | 'COMPLETED' | 'CANCELLED';
   data: Record<string, unknown> | null;
   at: string;
   byName: string | null;
@@ -78,6 +81,12 @@ export const removeEvidence = (id: number, documentId: number) =>
   api<TaskDetail>(`/api/tasks/${id}/evidence/${documentId}`, { method: 'DELETE' });
 export const completeTask = (id: number, body: { note?: string; nextDueDate?: string; version: number }) =>
   api<TaskDetail>(`/api/tasks/${id}/complete`, { method: 'POST', body: JSON.stringify(body) });
+
+/** Every task of the project; the 의무사항 tab takes the 조치 (CORRECTIVE) ones from it. */
+export const listProjectTasks = (pid: number) => api<Task[]>(`/api/projects/${pid}/tasks`);
+/** 조치 업무 수동 취소; the reason stays in the task's history. */
+export const cancelTask = (id: number, reason: string, version: number) =>
+  api<TaskDetail>(`/api/tasks/${id}/cancel`, { method: 'POST', body: JSON.stringify({ reason, version }) });
 
 /** 담당·기한 변경. A key left out stays as is; assigneeId null unassigns. */
 export const updateTask = (id: number, body: { assigneeId?: number | null; dueDate?: string; version: number }) =>

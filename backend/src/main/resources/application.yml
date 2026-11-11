@@ -28,6 +28,8 @@ app:
     username: ${SMTP_USERNAME:}
     password: ${SMTP_PASSWORD:}
     from: ${SMTP_FROM:}
+  corrective:
+    default-days: 7 # 초과 조치 업무 기한 = 입력일 + N일
   jwt:
     secret: ${JWT_SECRET}
     access-ttl: 30m

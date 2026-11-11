@@ -30,6 +30,9 @@ import org.springframework.web.server.ResponseStatusException;
 public class ObligationTasks {
 
     static final String DEADLINE_KIND = "OBLIGATION";
+    /** D-day event of a 조치 업무; target = the task id. It exists only while the task is OPEN. */
+    public static final String CORRECTIVE_DEADLINE = "CORRECTIVE_TASK";
+    static final String NOT_CORRECTIVE = "의무사항 업무는 취소할 수 없습니다. 의무사항을 종료하세요.";
     static final String NEEDS_EVIDENCE = "증빙 문서나 측정값이 1건 이상 있어야 완료할 수 있습니다.";
     static final String NEEDS_NEXT_DUE = "다음 기한일을 입력하세요.";
     static final String NOT_OPEN = "이미 완료되었거나 취소된 업무입니다.";
@@ -37,13 +40,17 @@ public class ObligationTasks {
     static final String NOT_MEMBER = "담당자는 이 프로젝트의 멤버여야 합니다.";
 
     private static final String SELECT = """
-            SELECT t.id, t.project_id, t.kind, t.obligation_id, o.permit_item_id, COALESCE(o.summary, t.title) AS title,
+            SELECT t.id, t.project_id, t.kind, t.obligation_id,
+                   COALESCE(o.permit_item_id, ep.permit_item_id) AS permit_item_id,
+                   CASE WHEN t.kind = 'OBLIGATION' THEN o.summary ELSE t.title END AS title,
                    t.due_date, t.assignee_id, a.name AS assignee_name, t.status, t.note, d.name AS done_by_name,
-                   t.done_at, t.cancelled_reason, t.version,
+                   t.done_at, t.cancelled_reason, t.version, t.measurement_id, cm.emission_point_id,
                    (SELECT count(*) FROM task_evidence e WHERE e.task_id = t.id) AS evidence_count,
                    (SELECT count(*) FROM measurement m WHERE m.task_id = t.id AND m.deleted_at IS NULL) AS measurement_count
             FROM obligation_task t
             LEFT JOIN permit_obligation o ON o.id = t.obligation_id
+            LEFT JOIN measurement cm ON cm.id = t.measurement_id
+            LEFT JOIN emission_point ep ON ep.id = cm.emission_point_id
             LEFT JOIN users a ON a.id = t.assignee_id
             LEFT JOIN users d ON d.id = t.done_by
             """;
@@ -54,9 +61,12 @@ public class ObligationTasks {
     private final Deadlines deadlines;
     private final Clock clock;
     private final ObjectMapper json;
+    private final int correctiveDays;
 
     ObligationTasks(JdbcTemplate jdbc, PermitObligationRepository obligations, PermitItemRepository permits,
-                    Deadlines deadlines, Clock clock, ObjectMapper json) {
+                    Deadlines deadlines, Clock clock, ObjectMapper json,
+                    @org.springframework.beans.factory.annotation.Value("${app.corrective.default-days:7}") int correctiveDays) {
+        this.correctiveDays = correctiveDays;
         this.jdbc = jdbc;
         this.obligations = obligations;
         this.permits = permits;
@@ -65,11 +75,14 @@ public class ObligationTasks {
         this.json = json;
     }
 
-    /** late: finished after its due date ("지연 완료"). Overdue is not stored: OPEN and dueDate before today. */
+    /**
+     * late: finished after its due date ("지연 완료"). Overdue is not stored: OPEN and dueDate before today.
+     * measurementId / emissionPointId: the exceeding value that opened a CORRECTIVE task, and its emission point.
+     */
     public record TaskView(long id, long projectId, String kind, Long obligationId, Long permitItemId, String title,
                            LocalDate dueDate, Long assigneeId, String assigneeName, String status, String note,
                            String doneByName, Instant doneAt, boolean late, String cancelledReason, long version,
-                           int evidenceCount, int measurementCount) {
+                           int evidenceCount, int measurementCount, Long measurementId, Long emissionPointId) {
     }
 
     /** A live measured value entered for the task (operations-compliance/04); it counts like an evidence document. */
@@ -108,7 +121,7 @@ public class ObligationTasks {
                 event(open.id(), actorId, "CANCELLED", Map.of("reason", reason));
             }
         } else if (open == null) {
-            assignee = defaultAssignee(o, permit.getProjectId());
+            assignee = defaultAssignee(o.getDefaultAssigneeId(), permit.getProjectId(), null);
             Long id = jdbc.queryForObject("INSERT INTO obligation_task (project_id, kind, obligation_id, title, due_date, "
                             + "assignee_id, status) VALUES (?, 'OBLIGATION', ?, ?, ?, ?::bigint, 'OPEN') RETURNING id", Long.class,
                     permit.getProjectId(), o.getId(), o.getSummary(), due, assignee);
@@ -122,14 +135,69 @@ public class ObligationTasks {
                 due, assignee);
     }
 
-    /** The obligation's default assignee → project EM → PM, skipping anyone who is not a project member; else null. */
-    private Long defaultAssignee(PermitObligation o, long projectId) {
+    /**
+     * The obligation's default assignee → project EM → PM → lastResort, skipping anyone who is not a project
+     * member; else null.
+     */
+    private Long defaultAssignee(Long preferred, long projectId, Long lastResort) {
         return jdbc.queryForList("""
                 SELECT c.id FROM project p
-                CROSS JOIN LATERAL (VALUES (1, ?::bigint), (2, p.em_user_id), (3, p.pm_user_id)) c(ord, id)
+                CROSS JOIN LATERAL (VALUES (1, ?::bigint), (2, p.em_user_id), (3, p.pm_user_id), (4, ?::bigint)) c(ord, id)
                 JOIN project_member m ON m.project_id = p.id AND m.user_id = c.id
-                WHERE p.id = ? ORDER BY c.ord LIMIT 1""", Long.class, o.getDefaultAssigneeId(), projectId)
+                WHERE p.id = ? ORDER BY c.ord LIMIT 1""", Long.class, preferred, lastResort, projectId)
                 .stream().findFirst().orElse(null);
+    }
+
+    /**
+     * 초과 조치 (design §3.5): the exceeding measurement opens one CORRECTIVE task, due in
+     * {@code app.corrective.default-days}, assigned to the limit's obligation default → EM → PM → the person who
+     * entered the value. While a task for the same emission point and pollutant is OPEN, the value is only
+     * appended to it as an event. The caller holds the emission point's row lock, so two saves cannot both insert.
+     *
+     * @param obligationId the limit's basis obligation, or null
+     * @return the task the measurement now belongs to
+     */
+    @Transactional
+    public long corrective(long projectId, long measurementId, Long obligationId, String title, long actorId) {
+        Long open = jdbc.queryForList("""
+                SELECT t.id FROM obligation_task t
+                JOIN measurement c ON c.id = t.measurement_id
+                JOIN measurement m ON m.emission_point_id = c.emission_point_id AND m.pollutant = c.pollutant
+                WHERE t.kind = 'CORRECTIVE' AND t.status = 'OPEN' AND m.id = ? ORDER BY t.id LIMIT 1""",
+                Long.class, measurementId).stream().findFirst().orElse(null);
+        if (open != null) {
+            event(open, actorId, "MEASUREMENT_ADDED", Map.of("measurement_id", measurementId, "title", title));
+            return open;
+        }
+        LocalDate due = LocalDate.now(clock).plusDays(correctiveDays);
+        Long assignee = defaultAssignee(obligationId == null ? null
+                : obligations.findById(obligationId).map(PermitObligation::getDefaultAssigneeId).orElse(null), projectId, actorId);
+        Long id = jdbc.queryForObject("INSERT INTO obligation_task (project_id, kind, obligation_id, measurement_id, title, "
+                        + "due_date, assignee_id, status) VALUES (?, 'CORRECTIVE', ?, ?, ?, ?, ?::bigint, 'OPEN') RETURNING id",
+                Long.class, projectId, obligationId, measurementId, title, due, assignee);
+        event(id, actorId, "CREATED", Map.of("source", "EXCEEDANCE", "measurement_id", measurementId));
+        deadlines.register(CORRECTIVE_DEADLINE, id, projectId, title, due, assignee);
+        return id;
+    }
+
+    /** 근거 의무사항 담당자: who has the obligation's open cycle, else its default assignee; may be null. */
+    public Long assigneeOf(long obligationId) {
+        TaskView open = openTask(obligationId);
+        return open != null && open.assigneeId() != null ? open.assigneeId()
+                : obligations.findById(obligationId).map(PermitObligation::getDefaultAssigneeId).orElse(null);
+    }
+
+    /** 조치 업무 수동 취소 with a reason (deleting the exceeding value does not cancel it). Obligation tasks end with their obligation. */
+    @Transactional
+    public void cancel(long taskId, long actorId, String reason, Long version) {
+        TaskView t = lockOpen(taskId, version);
+        if (!t.kind().equals("CORRECTIVE")) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, NOT_CORRECTIVE);
+        }
+        jdbc.update("UPDATE obligation_task SET status = 'CANCELLED', cancelled_reason = 'MANUAL', version = version + 1 "
+                + "WHERE id = ?", taskId);
+        event(taskId, actorId, "CANCELLED", Map.of("reason", "MANUAL", "note", reason.trim()));
+        deadlines.remove(CORRECTIVE_DEADLINE, taskId);
     }
 
     /** 422 unless the user is a member of the project; null (nobody) is always allowed. */
@@ -164,9 +232,13 @@ public class ObligationTasks {
                 o.moveTo(dueDate);
             }
             sync(o, permits.findById(o.getPermitItemId()).orElseThrow(), "DUE_SET", actorId); // task, deadline, recipient
-        } else if (moved) {
-            jdbc.update("UPDATE obligation_task SET due_date = ?, version = version + 1 WHERE id = ?", dueDate, taskId);
-            event(taskId, actorId, "DUE_CHANGED", Map.of("from", t.dueDate().toString(), "to", dueDate.toString()));
+        } else {
+            if (moved) {
+                jdbc.update("UPDATE obligation_task SET due_date = ?, version = version + 1 WHERE id = ?", dueDate, taskId);
+                event(taskId, actorId, "DUE_CHANGED", Map.of("from", t.dueDate().toString(), "to", dueDate.toString()));
+            }
+            deadlines.register(CORRECTIVE_DEADLINE, taskId, t.projectId(), t.title(), moved ? dueDate : t.dueDate(),
+                    setAssignee ? assigneeId : t.assigneeId());
         }
     }
 
@@ -180,7 +252,8 @@ public class ObligationTasks {
         if (t.evidenceCount() == 0 && t.measurementCount() == 0) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, NEEDS_EVIDENCE);
         }
-        PermitObligation o = t.obligationId() == null ? null : obligations.findById(t.obligationId()).orElseThrow();
+        // a corrective task has no next cycle, and must not move the obligation its limit is based on
+        PermitObligation o = t.kind().equals("OBLIGATION") ? obligations.findById(t.obligationId()).orElseThrow() : null;
         LocalDate next = null;
         if (o != null && o.getFrequency() != Frequency.ONCE) {
             next = typedNext != null ? typedNext : o.getFrequency().next(t.dueDate());
@@ -199,6 +272,8 @@ public class ObligationTasks {
                 o.moveTo(next);
             }
             sync(o, permits.findById(o.getPermitItemId()).orElseThrow(), "COMPLETE_NEXT", actorId);
+        } else {
+            deadlines.remove(CORRECTIVE_DEADLINE, taskId);
         }
     }
 
@@ -234,9 +309,10 @@ public class ObligationTasks {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
     }
 
-    /** Every task of the project, oldest cycle first; obligationId narrows it to one obligation's history. */
+    /** Every task of the project, oldest first; obligationId narrows it to one obligation's cycles (no corrective tasks). */
     public List<TaskView> list(long projectId, Long obligationId) {
-        return jdbc.query(SELECT + "WHERE t.project_id = ? AND (?::bigint IS NULL OR t.obligation_id = ?) ORDER BY t.id",
+        return jdbc.query(SELECT + "WHERE t.project_id = ? AND (?::bigint IS NULL OR (t.obligation_id = ? AND t.kind = 'OBLIGATION')) "
+                        + "ORDER BY t.id",
                 this::view, projectId, obligationId, obligationId);
     }
 
@@ -319,6 +395,7 @@ public class ObligationTasks {
                 done == null ? null : done.toInstant(),
                 done != null && done.toInstant().atZone(clock.getZone()).toLocalDate().isAfter(due),
                 rs.getString("cancelled_reason"), rs.getLong("version"), rs.getInt("evidence_count"),
-                rs.getInt("measurement_count"));
+                rs.getInt("measurement_count"), rs.getObject("measurement_id", Long.class),
+                rs.getObject("emission_point_id", Long.class));
     }
 }

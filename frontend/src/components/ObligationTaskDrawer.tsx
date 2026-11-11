@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { apiBlob } from '../api/client';
 import { completeObligation, type Obligation } from '../api/revisions';
 import {
-  addEvidence, completeTask, documentPath, getTask, isOverdue, listObligationTasks, listPermitDocuments, listProjectMembers,
+  addEvidence, cancelTask, completeTask, documentPath, getTask, isOverdue, listObligationTasks, listPermitDocuments, listProjectMembers,
   removeEvidence, setDefaultAssignee, taskStatusLabel, updateTask, uploadPermitDocument,
   type ProjectMember, type Task, type TaskDetail, type TaskEvent,
 } from '../api/tasks';
@@ -14,6 +14,8 @@ import { LEVEL, levelClass } from './PointMeasurements';
 // ObligationTaskDrawer — 업무 상세 of one obligation (operations-compliance/01): the current cycle's evidence
 // and [완료], plus past cycles. Evidence is always a document of the obligation's own permit item; a 측정·조사
 // task can also be fulfilled by measured values entered in the 운영 tab (operations-compliance/04).
+// Given `corrective` instead of an obligation it shows that 조치 업무 (operations-compliance/06): no cycles,
+// no next due date, and it can be cancelled by hand with a reason.
 // ---------------------------------------------------------------------------
 
 const ACCEPT = '.pdf,.jpg,.jpeg,.png,.xlsx';
@@ -26,19 +28,22 @@ const day = (iso: string) => new Date(iso).toLocaleDateString('sv-SE');
 function eventText(e: TaskEvent, name: (id: unknown) => string): string {
   const d = e.data ?? {};
   switch (e.type) {
-    case 'CREATED': return d.source === 'COMPLETE_NEXT' ? '다음 회차 업무 생성' : d.source === 'MIGRATION' ? '업무 생성 (기존 의무사항 이관)' : '업무 생성';
+    case 'CREATED': return d.source === 'EXCEEDANCE' ? '초과 측정으로 업무 생성' : d.source === 'COMPLETE_NEXT' ? '다음 회차 업무 생성' : d.source === 'MIGRATION' ? '업무 생성 (기존 의무사항 이관)' : '업무 생성';
     case 'DUE_CHANGED': return `기한 변경 ${d.from} → ${d.to}`;
     case 'ASSIGNED': return `담당 변경 ${name(d.from)} → ${name(d.to)}`;
     case 'EVIDENCE_ADDED': return '증빙 연결';
     case 'EVIDENCE_REMOVED': return '증빙 해제';
+    case 'MEASUREMENT_ADDED': return `같은 항목 재초과 ${String(d.title ?? '').replace('[초과] ', '')}`;
     case 'COMPLETED': return d.late ? '지연 완료' : '완료';
-    case 'CANCELLED': return `취소 (${CANCELLED[String(d.reason)] ?? d.reason})`;
+    case 'CANCELLED': return `취소 (${CANCELLED[String(d.reason)] ?? d.reason}${d.note ? `: ${d.note}` : ''})`;
   }
 }
 
-export default function ObligationTaskDrawer({ projectId, obligation, permit, onClose, onChanged }: {
-  projectId: number; obligation: Obligation; permit: PermitItem | undefined; onClose: () => void; onChanged: () => void;
+export default function ObligationTaskDrawer({ projectId, obligation, corrective, permit, onClose, onChanged }: {
+  projectId: number; obligation?: Obligation; corrective?: Task; permit: PermitItem | undefined; onClose: () => void; onChanged: () => void;
 }) {
+  const permitItemId = obligation?.permitItemId ?? corrective?.permitItemId ?? null;
+  const [reason, setReason] = useState('');
   const [cycles, setCycles] = useState<Task[]>([]);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [docs, setDocs] = useState<PermitDocument[]>([]);
@@ -53,7 +58,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
 
   /** Reloads the cycles and shows `taskId`, or the open cycle, or the latest one. */
   const load = async (taskId?: number) => {
-    const list = await listObligationTasks(projectId, obligation.id);
+    const list = obligation ? await listObligationTasks(projectId, obligation.id) : [corrective!];
     setCycles(list);
     const show = list.find((t) => t.id === taskId) ?? list.find((t) => t.status === 'OPEN') ?? list[list.length - 1];
     setDetail(show ? await getTask(show.id) : null);
@@ -61,9 +66,9 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
   };
   useEffect(() => {
     load().catch((e: Error) => setError(e.message));
-    listPermitDocuments(projectId, obligation.permitItemId).then(setDocs, () => {});
+    if (permitItemId) listPermitDocuments(projectId, permitItemId).then(setDocs, () => {});
     listProjectMembers(projectId).then(setMembers, () => {});
-  }, [projectId, obligation.id]);
+  }, [projectId, obligation?.id, corrective?.id]);
 
   const run = async (fn: () => Promise<unknown>, changed = true) => {
     setBusy(true);
@@ -85,13 +90,13 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
   const proof = (detail?.evidence.length ?? 0) + (detail?.measurements.length ?? 0);
 
   const upload = (f: File) => run(async () => {
-    const doc = await uploadPermitDocument(projectId, obligation.permitItemId, f);
+    const doc = await uploadPermitDocument(projectId, permitItemId!, f);
     setDocs((d) => [doc, ...d]);
     await addEvidence(task!.id, doc.id);
     await load(task!.id);
   });
   const download = (documentId: number, fileName: string) => run(async () => {
-    const url = URL.createObjectURL(await apiBlob(documentPath(projectId, obligation.permitItemId, documentId)));
+    const url = URL.createObjectURL(await apiBlob(documentPath(projectId, permitItemId!, documentId)));
     const a = document.createElement('a');
     a.href = url;
     a.download = fileName;
@@ -124,7 +129,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
         <div className="flex items-start justify-between gap-4 border-b border-[#E5E3DC] px-6 py-4">
           <div className="min-w-0">
             <p className="truncate text-xs text-gray-500" title={permit?.name}>{permit?.name ?? '인허가'}</p>
-            <h2 className="mt-1 text-lg font-semibold text-gray-900">{obligation.summary}</h2>
+            <h2 className="mt-1 text-lg font-semibold text-gray-900">{obligation?.summary ?? corrective?.title}</h2>
           </div>
           <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-gray-400 hover:text-gray-700">×</button>
         </div>
@@ -132,7 +137,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
           {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
 
-          {!task && obligation.status === 'ACTIVE' && (
+          {!task && obligation?.status === 'ACTIVE' && (
             <section>
               <h3 className="text-sm font-semibold text-gray-800">기한 미정</h3>
               <p className="mt-1 text-sm text-gray-500">기한을 넣으면 첫 회차 업무가 생깁니다.</p>
@@ -146,12 +151,12 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
               </div>
             </section>
           )}
-          {!task && obligation.status === 'CLOSED' && <p className="text-sm text-gray-500">종료된 의무사항이며 업무 이력이 없습니다.</p>}
+          {!task && obligation?.status === 'CLOSED' && <p className="text-sm text-gray-500">종료된 의무사항이며 업무 이력이 없습니다.</p>}
 
           {detail && task && (
             <>
               <section>
-                <h3 className="text-sm font-semibold text-gray-800">{open ? '현재 회차' : `${task.dueDate} 회차`}</h3>
+                <h3 className="text-sm font-semibold text-gray-800">{!obligation ? '조치 업무' : open ? '현재 회차' : `${task.dueDate} 회차`}</h3>
                 <dl className="mt-2 divide-y divide-[#F0EEE7]">
                   <div className={`${row} items-center`}>
                     <dt className="text-gray-500">기한</dt>
@@ -177,7 +182,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                       ) : task.assigneeName ?? '미지정'}
                     </dd>
                   </div>
-                  {open && (
+                  {open && obligation && (
                     <div className={`${row} items-center`}>
                       <dt className="text-gray-500" title="다음 회차부터 새 업무의 담당자. 비우면 프로젝트 EM, 없으면 PM">기본 담당 (다음 회차부터)</dt>
                       <dd>
@@ -216,7 +221,10 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                     </li>
                   ))}
                 </ul>
-                {open && (
+                {open && !permitItemId && (
+                  <p className="mt-2 text-xs text-gray-500">배출구에 근거 인허가가 없어 문서를 붙일 수 없습니다. 운영 탭에서 배출구의 근거 인허가를 지정하거나 재측정값을 입력하세요.</p>
+                )}
+                {open && permitItemId && (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button type="button" disabled={busy} onClick={() => file.current?.click()} className={button}>파일 올리기</button>
                     <input ref={file} type="file" accept={ACCEPT} className="hidden"
@@ -237,7 +245,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                 )}
               </section>
 
-              {(detail.measurements.length > 0 || (open && obligation.type === 'MEASURE_SURVEY')) && (
+              {(detail.measurements.length > 0 || (open && (obligation?.type === 'MEASURE_SURVEY' || !obligation))) && (
                 <section>
                   <h3 className="text-sm font-semibold text-gray-800">측정값 ({detail.measurements.length})</h3>
                   <ul className="mt-2 divide-y divide-[#F0EEE7]">
@@ -252,7 +260,9 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                   </ul>
                   {open && (
                     <div className="mt-3 flex flex-wrap items-center gap-2">
-                      <Link to={`/projects/${projectId}/operations?task=${task.id}`} className={button}>측정값 입력</Link>
+                      <Link to={`/projects/${projectId}/operations?task=${task.id}${task.emissionPointId ? `&point=${task.emissionPointId}` : ''}`} className={button}>
+                        {obligation ? '측정값 입력' : '재측정값 입력'}
+                      </Link>
                       <p className="w-full text-xs text-gray-400">운영 탭에서 넣은 측정값이 이 업무에 연결되고, 증빙 문서 없이도 완료할 수 있습니다.</p>
                     </div>
                   )}
@@ -264,7 +274,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                   <h3 className="text-sm font-semibold text-gray-800">완료</h3>
                   <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="완료 메모 (선택)"
                     className="mt-2 w-full rounded-lg border border-[#E5E3DC] px-3 py-2 text-sm" />
-                  {obligation.frequency !== 'ONCE' && (
+                  {obligation && obligation.frequency !== 'ONCE' && (
                     <label className="mt-2 flex items-center gap-2 text-sm text-gray-600">
                       다음 기한
                       <input type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)}
@@ -274,7 +284,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                   )}
                   <div className="mt-3 flex items-center gap-3">
                     <button type="button" onClick={complete}
-                      disabled={busy || proof === 0 || (obligation.frequency === 'OTHER' && !nextDue)}
+                      disabled={busy || proof === 0 || (obligation?.frequency === 'OTHER' && !nextDue)}
                       className="rounded-lg bg-[#1F4E79] px-4 py-2 text-sm font-medium text-white hover:bg-[#173B5C] disabled:opacity-40">완료</button>
                     {proof === 0 && <span className="text-xs text-gray-500">{NEEDS_EVIDENCE}</span>}
                     {proof > 0 && task.dueDate < new Date().toLocaleDateString('sv-SE')
@@ -283,7 +293,20 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                 </section>
               )}
 
-              <section>
+              {open && !obligation && (
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-800">취소</h3>
+                  <p className="mt-1 text-xs text-gray-400">초과 측정값을 삭제해도 조치 업무는 남습니다. 조치가 필요 없으면 사유를 남기고 취소하세요.</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="취소 사유" aria-label="취소 사유"
+                      className="min-w-0 flex-1 rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-sm" />
+                    <button type="button" disabled={busy || !reason.trim()} className={button}
+                      onClick={() => run(async () => { await cancelTask(task.id, reason, task.version); setReason(''); await load(task.id); })}>업무 취소</button>
+                  </div>
+                </section>
+              )}
+
+              {obligation && <section>
                 <h3 className="text-sm font-semibold text-gray-800">회차 이력 ({cycles.length})</h3>
                 <table className="mt-2 w-full table-fixed whitespace-nowrap text-left text-sm">
                   <thead className="text-xs text-gray-500">
@@ -303,13 +326,13 @@ export default function ObligationTaskDrawer({ projectId, obligation, permit, on
                     ))}
                   </tbody>
                 </table>
-              </section>
+              </section>}
 
               <section>
                 <h3 className="text-sm font-semibold text-gray-800">변경 기록</h3>
                 <ul className="mt-2 space-y-1 text-xs text-gray-600">
                   {detail.events.map((e, i) => (
-                    <li key={i} className="truncate">{day(e.at)} · {e.byName ?? '시스템'} · {eventText(e, memberName)}</li>
+                    <li key={i} className="truncate" title={eventText(e, memberName)}>{day(e.at)} · {e.byName ?? '시스템'} · {eventText(e, memberName)}</li>
                   ))}
                 </ul>
               </section>

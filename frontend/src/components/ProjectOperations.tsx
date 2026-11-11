@@ -38,7 +38,8 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
   const [points, setPoints] = useState<Point[] | null>(null);
   const [pollutants, setPollutants] = useState<Pollutant[]>([]);
   const [obligations, setObligations] = useState<Obligation[]>([]);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
+  // ?point=ID: an exceedance notice or a 조치 업무 opens the tab on that emission point
+  const [selectedId, setSelectedId] = useState<number | null>(Number(new URLSearchParams(location.search).get('point')) || null);
   const [limits, setLimits] = useState<Limit[]>([]);
   const [showPast, setShowPast] = useState(false);
   const [pointForm, setPointForm] = useState<typeof emptyPoint | null>(null);
