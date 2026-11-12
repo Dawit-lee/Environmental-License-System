@@ -59,6 +59,7 @@ class DerivationApiTest extends IntegrationTest {
     @Test
     void derivesGyeonggi300() throws Exception {
         putAttributes(GYEONGGI_300).andExpect(status().isOk());
+        call(kim, get("/api/projects/" + projectId + "/derivations/latest")).andExpect(status().isNoContent()); // never derived
 
         String body = derive().andExpect(status().isOk())
                 .andExpect(jsonPath("$.rulesetVersion").value(3))

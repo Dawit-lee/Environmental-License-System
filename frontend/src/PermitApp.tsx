@@ -97,9 +97,9 @@ export default function PermitApp() {
             {/* Top header — logout lives at the top-right on every screen size */}
             <header className="flex h-16 items-center justify-between gap-3 border-b border-[#E5E3DC] bg-white px-4 sm:px-6">
               {/* Left: mobile-only logo + nav (desktop nav is in the sidebar) */}
-              <div className="flex items-center gap-3 sm:hidden">
+              <div className="flex min-w-0 items-center gap-3 sm:hidden">
                 <span className="text-lg">🌿</span>
-                <nav className="flex gap-1">
+                <nav className="flex gap-1 overflow-x-auto whitespace-nowrap">
                   {nav.map((item) => (
                     <NavLink
                       key={item.to}
@@ -117,7 +117,7 @@ export default function PermitApp() {
               </div>
 
               {/* Right: bell + user + logout */}
-              <div className="ml-auto flex items-center gap-3">
+              <div className="ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap">
                 <NotificationBell />
                 <span className="hidden max-w-[180px] truncate text-sm text-gray-500 sm:inline" title={user}>
                   {user}

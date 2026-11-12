@@ -50,8 +50,11 @@ export async function loadTodos(projects: { id: number; name: string }[], days =
   // a task of mine is listed as 이행 업무, so its own D-day entry would be a duplicate
   const myObligations = new Set(tasks.filter((t) => t.kind === 'OBLIGATION').map((t) => t.obligationId));
   const myTasks = new Set(tasks.map((t) => t.id));
+  // an unreviewed law impact is listed as 법령 개정 미확인 with the same 시행일, so its deadline entry would be a duplicate
+  const openImpacts = new Set(impacts.filter((i) => i.status === 'NEW').map((i) => i.id));
   const mine = (d: { kind: string; targetId: number }) =>
-    (d.kind === 'OBLIGATION' && myObligations.has(d.targetId)) || (d.kind === 'CORRECTIVE_TASK' && myTasks.has(d.targetId));
+    (d.kind === 'OBLIGATION' && myObligations.has(d.targetId)) || (d.kind === 'CORRECTIVE_TASK' && myTasks.has(d.targetId))
+    || (d.kind === 'LAW_ENFORCEMENT' && openImpacts.has(d.targetId));
   const todos: Todo[] = [
     ...suggestions.flat()
       // same rows the review tab shows: obligations and version-diff revisions

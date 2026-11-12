@@ -159,6 +159,11 @@ class ReviewApiTest extends IntegrationTest {
         long id = addSuggestion(lee, "MONTHLY");
         call(park, get("/api/projects/" + projectId + "/suggestions")).andExpect(status().isForbidden());
         call(park, json(post("/api/suggestions/" + id + "/accept"), "{\"version\":0}")).andExpect(status().isForbidden());
+        // a wrong version must not answer 409 to an outsider: that would confirm the id and leak its version
+        call(park, json(post("/api/suggestions/" + id + "/accept"), "{\"version\":7}")).andExpect(status().isForbidden());
+        call(park, json(post("/api/suggestions/" + id + "/reject"), "{\"reason\":\"x\",\"version\":7}")).andExpect(status().isForbidden());
+        call(park, json(patch("/api/suggestions/" + id), "{\"editedPayload\":" + payload("ANNUAL") + ",\"version\":7}"))
+                .andExpect(status().isForbidden());
     }
 
     // --- transaction & concurrency ------------------------------------------------------------------------

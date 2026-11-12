@@ -35,8 +35,9 @@ class DerivationController {
     }
 
     @GetMapping("/api/projects/{projectId}/derivations/latest")
-    JsonNode latest(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
-        return derivation.latest(projectId, jwt);
+    ResponseEntity<JsonNode> latest(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
+        JsonNode latest = derivation.latest(projectId, jwt);
+        return latest == null ? ResponseEntity.noContent().build() : ResponseEntity.ok(latest);
     }
 
     @GetMapping("/api/projects/{projectId}/derivations/missing-inputs")

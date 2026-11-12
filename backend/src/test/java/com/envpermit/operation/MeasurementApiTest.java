@@ -162,7 +162,10 @@ class MeasurementApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.measurements[0].pointName").value("소각로 1호기 굴뚝"))
                 .andExpect(jsonPath("$.measurements[0].pollutantName").value("일산화탄소"))
                 .andExpect(jsonPath("$.measurements[0].value").value(12))
-                .andExpect(jsonPath("$.measurements[0].level").value("NORMAL"));
+                .andExpect(jsonPath("$.measurements[0].level").value("NORMAL"))
+                // linking and deleting a value is part of the task's history, like evidence
+                .andExpect(jsonPath("$.events[*].type", contains("CREATED", "MEASUREMENT_LINKED", "MEASUREMENT_REMOVED", "MEASUREMENT_LINKED")))
+                .andExpect(jsonPath("$.events[2].data.measurement_ids[0]").value(wrong));
         call(kim, json(post("/api/tasks/" + task + "/complete"), "{}")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.task.status").value("DONE"));
 

@@ -64,7 +64,7 @@ export default function DashboardPage() {
         <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <SummaryCard label="전체 프로젝트" value={projects.length} tone="text-[#1F4E79]" />
           <SummaryCard label="전체 인허가" value={total} tone="text-gray-800" />
-          <SummaryCard label="만료임박 (D-30 이내)" value={nearExpiry.length} tone="text-[#B45309]" />
+          <SummaryCard label="기한 임박 (D-30 이내)" value={nearExpiry.length} tone="text-[#B45309]" />
           <SummaryCard label="미신청" value={permits.filter((p) => p.status === 'NOT_APPLIED').length} tone="text-[#991B1B]" />
         </div>
 

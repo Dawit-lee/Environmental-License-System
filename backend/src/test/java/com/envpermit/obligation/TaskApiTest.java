@@ -295,6 +295,28 @@ class TaskApiTest extends IntegrationTest {
     }
 
     @Test
+    void removing_a_member_unassigns_their_open_tasks_and_reminds_every_member_again() throws Exception {
+        long task = openTask(accepted("MONTHLY", "2026-01-31"));
+        long done = openTask(accepted("ONCE", "2026-01-20"));
+        call(kim, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + leeId + "}")).andExpect(status().isOk());
+        call(kim, json(patch("/api/tasks/" + done), "{\"assigneeId\":" + leeId + "}")).andExpect(status().isOk());
+        attach(done);
+        call(kim, json(post("/api/tasks/" + done + "/complete"), "{}")).andExpect(status().isOk());
+
+        call(kim, delete("/api/projects/" + projectId + "/members/" + leeId)).andExpect(status().isNoContent());
+
+        call(kim, get("/api/tasks/" + task))
+                .andExpect(jsonPath("$.task.assigneeId").doesNotExist())
+                .andExpect(jsonPath("$.events[*].type", contains("CREATED", "ASSIGNED", "ASSIGNED")))
+                .andExpect(jsonPath("$.events[2].data.from").value(leeId))
+                .andExpect(jsonPath("$.events[2].data.to").doesNotExist());
+        call(kim, get("/api/tasks/" + done)).andExpect(jsonPath("$.task.assigneeName").value("이에이")); // closed work keeps who did it
+        job.createDueNotifications(); // D-26 → the D-30 reminder goes to the members that are left
+        assertThat(notified(kimId)).containsExactly(30);
+        assertThat(notified(leeId)).isEmpty();
+    }
+
+    @Test
     void changing_the_due_date_moves_the_obligation_and_its_single_deadline_in_step() throws Exception {
         long obligation = accepted("MONTHLY", "2026-01-31");
         long task = openTask(obligation);

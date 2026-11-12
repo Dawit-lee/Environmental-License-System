@@ -25,7 +25,7 @@ interface Limit {
 }
 
 const MEDIUM: Record<Medium, string> = { AIR: '대기', WATER: '수질' };
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => new Date().toLocaleDateString('sv-SE'); // local day; toISOString is UTC and is yesterday before 09:00 KST
 const INPUT = 'rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
 const BTN = 'rounded-lg border border-[#E5E3DC] px-3 py-1 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
 const PRIMARY = 'rounded-lg bg-[#1F4E79] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#173a5c] disabled:opacity-40';
@@ -46,6 +46,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
   const [showPast, setShowPast] = useState(false);
   const [pointForm, setPointForm] = useState<typeof emptyPoint | null>(null);
   const [limitForm, setLimitForm] = useState<ReturnType<typeof emptyLimit> | null>(null);
+  const [closing, setClosing] = useState<{ id: number; date: string } | null>(null); // 닫기: end date typed in the row
   const [error, setError] = useState<string | null>(null);
   const [rev, setRev] = useState(0); // bumped when a measurement is saved or deleted: list and trend reload
 
@@ -117,11 +118,13 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
     if (ok) setLimitForm(null);
   };
 
-  const closeLimit = (l: Limit) => {
-    const date = window.prompt(`${l.pollutantName} 한도의 유효 종료일 (YYYY-MM-DD)`, today())?.trim();
-    if (date) run(() => send(`/api/limits/${l.id}/close`, 'POST', { effectiveTo: date }));
+  const closeLimit = async () => {
+    if (closing && await run(() => send(`/api/limits/${closing.id}/close`, 'POST', { effectiveTo: closing.date }))) setClosing(null);
   };
-
+  /** Only a limit no value was judged against can go (the server answers 409 otherwise). */
+  const deleteLimit = (l: Limit) =>
+    window.confirm(`${l.pollutantName} 한도 ${limitText(l.limitLower, l.limitValue)} ${l.unit}을(를) 삭제할까요? 잘못 넣은 한도만 삭제하세요.`)
+      && run(() => send(`/api/limits/${l.id}`, 'DELETE'));
 
   return (
     <div>
@@ -311,13 +314,21 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
                           <button type="button" className={BTN} title="개정된 조건을 확인했고 한도는 그대로입니다"
                             onClick={() => run(() => send(`/api/limits/${l.id}/reviewed`, 'POST'))}>확인</button>
                         )}
-                        {open && (
+                        {closing?.id === l.id ? (
+                          <>
+                            <input type="date" required aria-label={`${l.pollutantName} 유효 종료일`} value={closing.date} min={l.effectiveFrom}
+                              onChange={(e) => setClosing({ id: l.id, date: e.target.value })} className={`${INPUT} py-1`} />
+                            <button type="button" className={BTN} disabled={!closing.date} onClick={closeLimit}>종료일 저장</button>
+                            <button type="button" className={BTN} onClick={() => setClosing(null)}>취소</button>
+                          </>
+                        ) : open && (
                           <>
                             <button type="button" className={BTN} onClick={() => setLimitForm({
                               ...emptyLimit(), replaces: l, pollutant: l.pollutant, warnRatio: String(l.warnRatio),
                               obligationId: l.obligationId ? String(l.obligationId) : '', basisText: l.basisText ?? '',
                             })}>한도 변경</button>
-                            <button type="button" className={BTN} onClick={() => closeLimit(l)}>닫기</button>
+                            <button type="button" className={BTN} onClick={() => setClosing({ id: l.id, date: today() })}>닫기</button>
+                            <button type="button" className={BTN} onClick={() => deleteLimit(l)}>삭제</button>
                           </>
                         )}
                       </td>

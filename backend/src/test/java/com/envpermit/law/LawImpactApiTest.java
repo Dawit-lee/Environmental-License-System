@@ -151,7 +151,7 @@ class LawImpactApiTest extends IntegrationTest {
         today("2026-10-02");
         batch.run();
         long id = firstImpact();
-        assertThat(deadlines()).containsExactly("[법령 시행] 폐기물관리법 시행규칙 — 가온 소각시설 / 운영허가 2026-10-02");
+        assertThat(deadlines()).containsExactly("[법령 시행] 폐기물관리법 시행규칙 — 운영허가 2026-10-02");
 
         mvc.perform(post("/api/law-impacts/" + id + "/review").header("Authorization", "Bearer " + kim)
                 .contentType(MediaType.APPLICATION_JSON).content("{\"note\":\"  \"}")).andExpect(status().isBadRequest());
