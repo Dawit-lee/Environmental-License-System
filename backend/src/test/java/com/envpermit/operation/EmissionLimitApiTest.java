@@ -2,6 +2,7 @@ package com.envpermit.operation;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -142,6 +143,21 @@ class EmissionLimitApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.effectiveTo").value("2026-03-31"));
         call(kim, json(post(close), "{\"effectiveTo\":\"2026-04-30\"}")).andExpect(status().isConflict());
         limit("CO", 20, "2026-04-01", null).andExpect(status().isCreated());
+    }
+
+    @Test
+    void a_limit_entered_by_mistake_is_deleted_only_while_no_value_was_judged_against_it() throws Exception {
+        long used = id(limit("CO", 30, "2026-01-01", null));
+        long unused = id(limit("NOX", 70, "2026-01-01", null));
+        call(kim, json(post("/api/emission-points/" + stack + "/measurements"), """
+                {"rows":[{"measuredOn":"2026-01-05","pollutant":"CO","value":12,"unit":"ppm"}]}""")).andExpect(status().isCreated());
+
+        call(park, delete("/api/limits/" + unused)).andExpect(status().isForbidden());
+        call(kim, delete("/api/limits/" + used)).andExpect(status().isConflict());
+        call(kim, delete("/api/limits/" + unused)).andExpect(status().isNoContent());
+        call(kim, delete("/api/limits/" + unused)).andExpect(status().isNotFound());
+        call(kim, get(limits)).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(used));
+        limit("NOX", 60, "2026-01-01", null).andExpect(status().isCreated()); // the period is free again
     }
 
     @Test

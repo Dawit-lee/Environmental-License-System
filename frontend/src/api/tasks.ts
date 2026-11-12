@@ -48,7 +48,7 @@ export interface TaskMeasurement {
 }
 
 export interface TaskEvent {
-  type: 'CREATED' | 'ASSIGNED' | 'DUE_CHANGED' | 'EVIDENCE_ADDED' | 'EVIDENCE_REMOVED' | 'MEASUREMENT_ADDED' | 'COMPLETED' | 'CANCELLED';
+  type: 'CREATED' | 'ASSIGNED' | 'DUE_CHANGED' | 'EVIDENCE_ADDED' | 'EVIDENCE_REMOVED' | 'MEASUREMENT_ADDED' | 'MEASUREMENT_LINKED' | 'MEASUREMENT_REMOVED' | 'COMPLETED' | 'CANCELLED';
   data: Record<string, unknown> | null;
   at: string;
   byName: string | null;

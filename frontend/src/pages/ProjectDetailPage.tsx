@@ -111,7 +111,7 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     // approved items the current rules no longer find applicable; no derivation yet → 404, nothing to show
-    latestDerivation(Number(id)).then((d) => setRuleWarnings(d.warnings ?? []), () => setRuleWarnings([]));
+    latestDerivation(Number(id)).then((d) => setRuleWarnings(d?.warnings ?? []), () => setRuleWarnings([])); // 204: never derived
   }, [id]);
 
   useEffect(() => {
@@ -159,6 +159,9 @@ export default function ProjectDetailPage() {
       </div>
     );
   }
+
+  // the other tabs are member-only on the server (403), so a company viewer is not shown dead tabs
+  const tabs = project.member ? TABS : TABS.filter((t) => t.key === 'overview' || t.key === 'permits');
 
   return (
     <div className="min-h-full bg-[#F8F7F2]">
@@ -221,7 +224,7 @@ export default function ProjectDetailPage() {
         </section>
 
         <nav className="mt-6 flex gap-1 overflow-x-auto border-b border-[#E5E3DC]" aria-label="프로젝트 메뉴">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <NavLink
               key={t.key}
               to={`/projects/${id}/${t.key}`}
@@ -248,7 +251,7 @@ export default function ProjectDetailPage() {
               <ProjectMembers key={`m${id}`} projectId={project.id} />
             </>
           )}
-          {!TABS.some((t) => t.key === tab) && <Navigate to={`/projects/${id}/overview`} replace />}
+          {!tabs.some((t) => t.key === tab) && <Navigate to={`/projects/${id}/overview`} replace />}
         </div>
 
         {tab === 'permits' && (<>
@@ -280,7 +283,7 @@ export default function ProjectDetailPage() {
 
         {/* Permit table */}
         <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-          <table className="w-full min-w-[860px] text-left text-sm">
+          <table className="w-full min-w-[860px] whitespace-nowrap text-left text-sm">
             <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3 font-medium">인허가명</th>
@@ -337,15 +340,6 @@ export default function ProjectDetailPage() {
         </div>
         </>)}
       </div>
-
-      {/* Floating add button */}
-      {tab === 'permits' && <button
-        type="button"
-        // TODO: open "인허가 추가" flow / POST /api/projects/:id/permits
-        className="fixed bottom-6 right-6 z-30 rounded-full bg-[#1F4E79] px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40"
-      >
-        + 인허가 추가
-      </button>}
 
       <PermitDetailDrawer permit={selected} onClose={() => setSelected(null)} />
     </div>

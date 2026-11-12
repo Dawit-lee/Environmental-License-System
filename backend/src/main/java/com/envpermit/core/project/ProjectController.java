@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -46,10 +47,13 @@ public class ProjectController {
     private final UserRepository users;
     private final ProjectAccess access;
     private final Org org;
+    private final ApplicationEventPublisher events;
 
     public ProjectController(ProjectRepository projects, ProjectMemberRepository members,
-                             PermitItemRepository permits, UserRepository users, ProjectAccess access, Org org) {
+                             PermitItemRepository permits, UserRepository users, ProjectAccess access, Org org,
+                             ApplicationEventPublisher events) {
         this.org = org;
+        this.events = events;
         this.projects = projects;
         this.members = members;
         this.permits = permits;
@@ -189,6 +193,7 @@ public class ProjectController {
         ProjectMember m = target(id, userId);
         requireAnotherAdmin(m);
         members.delete(m);
+        events.publishEvent(new MemberRemoved(id, userId, userId(jwt))); // their open tasks go back to 미지정
         return ResponseEntity.noContent().build();
     }
 

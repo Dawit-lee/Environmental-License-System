@@ -215,7 +215,7 @@ class Derivation {
         List<Map<String, Object>> rows = jdbc.queryForList("SELECT id, raw_response_key FROM ai_run "
                 + "WHERE project_id = ? AND preparer = 'RULE_ENGINE' ORDER BY id DESC LIMIT 1", projectId);
         if (rows.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "아직 도출한 적이 없습니다.");
+            return null; // never derived (seeded or hand-made project): an empty answer, not an error on every project page
         }
         try (InputStream in = storage.open((String) rows.get(0).get("raw_response_key"))) {
             return ((ObjectNode) json.readTree(in)).put("runId", ((Number) rows.get(0).get("id")).longValue());

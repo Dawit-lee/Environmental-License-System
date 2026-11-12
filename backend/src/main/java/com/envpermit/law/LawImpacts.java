@@ -87,7 +87,7 @@ public class LawImpacts {
             LinkRow p = links.get(0);
             if (!created.isEmpty() && enforcedOn != null && !enforcedOn.isBefore(today)) {
                 deadlines.register(DEADLINE_KIND, created.get(0), p.projectId(),
-                        "[법령 시행] %s — %s / %s".formatted(a.get("name"), p.project(), p.permit()), enforcedOn, null);
+                        "[법령 시행] %s — %s".formatted(a.get("name"), p.permit()), enforcedOn, null);
             }
         });
     }

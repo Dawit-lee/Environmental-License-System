@@ -136,8 +136,9 @@ public class Review {
 
     @Transactional
     public AiSuggestion edit(long id, Jwt jwt, JsonNode edited, long version) {
-        AiSuggestion s = lock(id, version);
+        AiSuggestion s = lock(id);
         ProjectMember m = access.member(s.getProjectId(), jwt);
+        checkVersion(s, version);
         Transition.next(s.getStatus(), Action.EDIT, m.canSelfApprove(), true);
         applier(s.getKind()).validate(edited);
         JsonNode diff = diff(s.effectivePayload(), edited);
@@ -148,8 +149,9 @@ public class Review {
 
     @Transactional
     public AiSuggestion submit(long id, Jwt jwt, Decision decision, String reason, long version) {
-        AiSuggestion s = lock(id, version);
+        AiSuggestion s = lock(id);
         ProjectMember m = access.member(s.getProjectId(), jwt);
+        checkVersion(s, version);
         Transition.next(s.getStatus(), Action.SUBMIT, m.canSelfApprove(), false);
         s.submit(decision, m.getUserId(), now());
         event(s, m.getUserId(), Type.SUBMITTED, json.createObjectNode()
@@ -161,8 +163,11 @@ public class Review {
     @Transactional
     public AiSuggestion accept(long id, Jwt jwt, LocalDate firstDueDate, boolean confirmAbsent, Long version,
                                boolean bulk) {
-        AiSuggestion s = version == null ? lock(id) : lock(id, version);
+        AiSuggestion s = lock(id);
         ProjectMember m = access.member(s.getProjectId(), jwt);
+        if (version != null) {
+            checkVersion(s, version);
+        }
         Status next = Transition.next(s.getStatus(), Action.ACCEPT, m.canSelfApprove(), s.getEditedPayload() != null);
         requirePageViewed(s);
         SuggestionApplier applier = applier(s.getKind());
@@ -179,16 +184,18 @@ public class Review {
 
     @Transactional
     public AiSuggestion reject(long id, Jwt jwt, String reason, long version) {
-        AiSuggestion s = lock(id, version);
+        AiSuggestion s = lock(id);
         ProjectMember m = access.member(s.getProjectId(), jwt);
+        checkVersion(s, version);
         Status next = Transition.next(s.getStatus(), Action.REJECT, m.canSelfApprove(), false);
         return close(s, next, m.getUserId(), reason);
     }
 
     @Transactional
     public AiSuggestion returnToPending(long id, Jwt jwt, String reason, long version) {
-        AiSuggestion s = lock(id, version);
+        AiSuggestion s = lock(id);
         ProjectMember m = access.member(s.getProjectId(), jwt);
+        checkVersion(s, version);
         Transition.next(s.getStatus(), Action.RETURN, m.canSelfApprove(), false);
         s.backToPending();
         event(s, m.getUserId(), Type.RETURNED, json.createObjectNode().put("reason", reason));
@@ -197,8 +204,9 @@ public class Review {
 
     @Transactional
     public AiSuggestion reopen(long id, Jwt jwt, long version) {
-        AiSuggestion s = lock(id, version);
+        AiSuggestion s = lock(id);
         ProjectMember m = access.member(s.getProjectId(), jwt);
+        checkVersion(s, version);
         Transition.next(s.getStatus(), Action.REOPEN, m.canSelfApprove(), false);
         if (Restructure.isRestructure(s.getRejectReason())) {
             // a replacement suggestion already exists; reviving this one would duplicate it
@@ -243,8 +251,9 @@ public class Review {
     /** Exception 2 entry: the PENDING suggestion at this version, locked, for a member who may edit it. */
     @Transactional
     public AiSuggestion lockForRestructure(long id, long version, Jwt jwt) {
-        AiSuggestion s = lock(id, version);
+        AiSuggestion s = lock(id);
         access.member(s.getProjectId(), jwt);
+        checkVersion(s, version);
         requirePending(s);
         return s;
     }
@@ -330,12 +339,11 @@ public class Review {
         return suggestions.lock(id).orElseThrow(Review::notFound);
     }
 
-    private AiSuggestion lock(long id, long version) {
-        AiSuggestion s = lock(id);
+    /** After the member check, so a non-member learns neither that the id exists nor its version. */
+    private static void checkVersion(AiSuggestion s, long version) {
         if (s.getVersion() != version) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "다른 사람이 먼저 변경했습니다. 새로고침 후 다시 시도하세요.");
         }
-        return s;
     }
 
     private long runInProject(long runId, long projectId, Kind kind) {

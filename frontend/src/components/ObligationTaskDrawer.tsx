@@ -38,6 +38,8 @@ function eventText(e: TaskEvent, name: (id: unknown) => string): string {
     case 'EVIDENCE_ADDED': return '증빙 연결';
     case 'EVIDENCE_REMOVED': return '증빙 해제';
     case 'MEASUREMENT_ADDED': return `같은 항목 재초과 ${String(d.title ?? '').replace('[초과] ', '')}`;
+    case 'MEASUREMENT_LINKED': return `측정값 연결 ${(d.measurement_ids as unknown[] | undefined)?.length ?? 1}건`;
+    case 'MEASUREMENT_REMOVED': return '측정값 삭제';
     case 'COMPLETED': return d.late ? '지연 완료' : '완료';
     case 'CANCELLED': return `취소 (${CANCELLED[String(d.reason)] ?? d.reason}${d.note ? `: ${d.note}` : ''})`;
   }

@@ -31,7 +31,7 @@ export default function ProjectOverview({ project, permits }: { project: Project
 
   return (
     <div className="space-y-6">
-      <ProjectCompliance projectId={project.id} />
+      {project.member && <ProjectCompliance projectId={project.id} />}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section className={card}>
           <h2 className="text-lg font-semibold text-gray-900">인허가 상태</h2>
@@ -52,7 +52,7 @@ export default function ProjectOverview({ project, permits }: { project: Project
       </div>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-gray-900">할 일 (기한은 30일 이내)</h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-900">할 일 (기한 임박은 30일 이내)</h2>
         <TodoTable todos={todos} showProject={false} />
       </section>
 

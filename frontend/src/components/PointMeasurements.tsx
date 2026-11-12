@@ -64,6 +64,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
   const [saved, setSaved] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState<{ id: number; reason: string } | null>(null); // 삭제: reason typed in the row
 
   const load = () => api<Measurement[]>(`/api/emission-points/${point.id}/measurements`).then(setRecent, (e: Error) => setError(e.message));
   useEffect(() => {
@@ -111,12 +112,13 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
     }
   };
 
-  const remove = async (m: Measurement) => {
-    const reason = window.prompt(`${m.measuredOn} ${m.pollutantName} ${m.value} ${m.unit} 삭제 사유 (필수). 수정하려면 삭제 후 다시 입력하세요.`)?.trim();
-    if (!reason) return;
+  const remove = async () => {
+    const reason = deleting?.reason.trim();
+    if (!deleting || !reason) return;
     setError(null);
     try {
-      await api(`/api/measurements/${m.id}`, { method: 'DELETE', body: JSON.stringify({ reason }) });
+      await api(`/api/measurements/${deleting.id}`, { method: 'DELETE', body: JSON.stringify({ reason }) });
+      setDeleting(null);
       onChanged();
     } catch (err) {
       setError((err as Error).message);
@@ -232,7 +234,20 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
                     {m.enteredByName ?? '—'} · {new Date(m.enteredAt).toLocaleDateString('sv-SE')}{m.taskId ? ' · 업무 연결' : ''}
                   </span>
                 </td>
-                <td className="px-4 py-2.5 text-right"><button type="button" className={BTN} onClick={() => remove(m)}>삭제</button></td>
+                <td className="space-x-2 px-4 py-2.5 text-right">
+                  {deleting?.id === m.id ? (
+                    <>
+                      <input autoFocus maxLength={300} placeholder="삭제 사유 (필수)" aria-label="삭제 사유" value={deleting.reason}
+                        title="수정하려면 삭제 후 다시 입력하세요."
+                        onChange={(e) => setDeleting({ id: m.id, reason: e.target.value })}
+                        onKeyDown={(e) => e.key === 'Enter' && remove()} className={`${INPUT} w-48 py-1`} />
+                      <button type="button" className={BTN} disabled={!deleting.reason.trim()} onClick={remove}>삭제 확인</button>
+                      <button type="button" className={BTN} onClick={() => setDeleting(null)}>취소</button>
+                    </>
+                  ) : (
+                    <button type="button" className={BTN} onClick={() => setDeleting({ id: m.id, reason: '' })}>삭제</button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

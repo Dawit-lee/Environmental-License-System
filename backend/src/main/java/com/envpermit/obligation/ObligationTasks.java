@@ -2,6 +2,7 @@ package com.envpermit.obligation;
 
 import com.envpermit.core.permit.PermitItem;
 import com.envpermit.core.permit.PermitItemRepository;
+import com.envpermit.core.project.MemberRemoved;
 import com.envpermit.notification.Deadlines;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -206,6 +208,18 @@ public class ObligationTasks {
                 Integer.class, projectId, userId) == 0) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, NOT_MEMBER);
         }
+    }
+
+    /** A removed member cannot be reminded or open the task: their open tasks become 미지정 (every member is reminded). */
+    @EventListener
+    void onMemberRemoved(MemberRemoved e) {
+        jdbc.queryForList("SELECT id FROM obligation_task WHERE project_id = ? AND assignee_id = ? AND status = 'OPEN' ORDER BY id",
+                Long.class, e.projectId(), e.userId()).forEach(id -> update(id, e.actorId(), true, null, null, null));
+    }
+
+    /** 측정값 연결·삭제 of a task (the values count like evidence, so the history shows them too). */
+    public void measurementEvent(long taskId, long actorId, boolean added, List<Long> measurementIds) {
+        event(taskId, actorId, added ? "MEASUREMENT_LINKED" : "MEASUREMENT_REMOVED", Map.of("measurement_ids", measurementIds));
     }
 
     /**

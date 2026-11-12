@@ -631,7 +631,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
 
             {/* Table */}
             <div className="mt-4 overflow-x-auto rounded-lg border border-[#E5E3DC]">
-              <table className="w-full min-w-[760px] text-left text-sm">
+              <table className="w-full min-w-[760px] whitespace-nowrap text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
                   <tr>
                     <th className="px-4 py-3 font-medium">판정</th>
@@ -663,7 +663,8 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                           {CATEGORY_LABEL[p.category]}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="max-w-[420px] truncate px-4 py-3 text-gray-600"
+                        title={p.hold_info ? `${p.hold_info.missing_inputs.join(', ')} 필요 · ${p.hold_info.criterion}` : p.reason}>
                         {p.hold_info ? (
                           <>
                             <b className="text-[#B45309]">{p.hold_info.missing_inputs.join(', ')} 필요</b> · {p.hold_info.criterion}
@@ -672,13 +673,13 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                           p.reason
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="max-w-[280px] truncate px-4 py-3">
                         <LawLink row={p} />
                       </td>
                       <td className="px-4 py-3 text-gray-600">
                         {p.approval_stage}
                         {p.required_by_text && (
-                          <span className="block text-xs text-gray-400">
+                          <span className="ml-2 text-xs text-gray-400">
                             {p.required_by_text}
                             {byRule[p.rule_key]?.payload.required_by_date && ` (${byRule[p.rule_key].payload.required_by_date})`}
                           </span>

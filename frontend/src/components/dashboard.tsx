@@ -25,7 +25,7 @@ export const STATUSES: { status: PermitStatus; label: string; color: string }[] 
 export const STAGES = ['입지', '설계', '착공', '준공', '운영'] as const;
 
 /** shortcut: rough stage from permit status + planned dates; replace when projects store a real stage. */
-export function lifecycleStage(project: Project, permits: PermitItem[], today = new Date().toISOString().slice(0, 10)): number {
+export function lifecycleStage(project: Project, permits: PermitItem[], today = new Date().toLocaleDateString('sv-SE')): number {
   const done = (cats: PermitCategory[]) =>
     permits.filter((p) => cats.includes(p.category)).every((p) => p.status === 'COMPLETED');
   if (!done(['LOCATION', 'ENVIRONMENT'])) return 0;
