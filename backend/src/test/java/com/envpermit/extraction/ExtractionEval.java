@@ -49,9 +49,13 @@ public final class ExtractionEval {
             rasterize(Path.of(args[1]), Path.of(args[2]));
             return;
         }
+        if (args.length >= 3 && args[0].equals("extract")) {
+            extract(Path.of(args[1]), args.length > 3 ? args[3] : null, Path.of(args[2]));
+            return;
+        }
         if (args.length < 1 || args.length > 2) {
             System.out.println("usage: extractionEval --args=\"<dir> [claude,gemini,openai]\""
-                    + " | --args=\"rasterize <in.pdf> <out.pdf>\"");
+                    + " | --args=\"rasterize <in.pdf> <out.pdf>\"" + " | --args=\"extract <in.pdf> <out-dir> [provider]\"");
             return;
         }
         Path dir = Path.of(args[0]);
@@ -188,6 +192,75 @@ public final class ExtractionEval {
             });
         }
         return clients;
+    }
+
+    /**
+     * No answer sheet: one document through the app's provider (EXTRACTION_PROVIDER, else the first key set) and
+     * its quote check, written as a sheet a person grades by hand. Appends to {@code <out>/extract.csv}.
+     */
+    private static void extract(Path pdf, String provider, Path out) throws IOException {
+        List<LlmClient> llms = clients(provider != null ? provider
+                : Provider.choose(System.getenv("EXTRACTION_PROVIDER"), System::getenv).name().toLowerCase(Locale.ROOT));
+        if (llms.isEmpty()) {
+            System.out.println("API 키가 없어 실행하지 않습니다.");
+            return;
+        }
+        LlmClient llm = llms.get(0);
+        String name = llm.provider().name().toLowerCase(Locale.ROOT);
+        String doc = pdf.getFileName().toString().replaceFirst("\\.pdf$", "");
+        Files.createDirectories(out);
+        PreparedInput input = new ClaudePdfDirectPreparer().prepare(Files.readAllBytes(pdf));
+        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        int inTokens = 0;
+        int outTokens = 0;
+        long started = System.nanoTime();
+        for (int attempt = 1; attempt <= Extraction.ATTEMPTS; attempt++) {
+            try {
+                String raw = llm.send(ObligationPrompt.SYSTEM, input.llmContent(), ObligationPrompt.INSTRUCTION,
+                        ObligationPrompt.SCHEMA);
+                Files.writeString(out.resolve(doc + "." + name + ".response-" + attempt + ".json"), raw);
+                JsonNode res = JSON.readTree(raw);
+                inTokens += llm.provider().inputTokens(res);
+                outTokens += llm.provider().outputTokens(res);
+                List<Extraction.Item> found = Extraction.parse(JSON, validator, llm.provider().text(res)).obligations();
+                Path csv = out.resolve("extract.csv");
+                StringBuilder b = new StringBuilder(Files.exists(csv) ? ""
+                        : "\uFEFF문서,쪽,조건번호,AI가 뽑은 조건(요약),조건 본문,주기,근거 문장,원문 확인 결과,사용자 판정(맞음/틀림/애매),메모\n");
+                int[] checks = new int[3];
+                for (Extraction.Item i : found) {
+                    var check = QuoteChecker.check(i.sourceQuote(), i.pageNo(), input.pageTexts());
+                    checks[check.ordinal()]++;
+                    b.append(String.join(",", csv(doc), String.valueOf(i.pageNo()), csv(i.citationRaw()), csv(i.summary()),
+                            csv(i.requirementText()), i.frequency().name(), csv(i.sourceQuote()), check.name(), "", "")).append('\n');
+                }
+                Files.writeString(csv, b, StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE,
+                        java.nio.file.StandardOpenOption.APPEND);
+                String line = String.format(Locale.ROOT, "| %s | %s (%s) | %d쪽 (글자층 %d쪽) | %d | %d | %d | %d | %.1f | %d / %d | %s | %d |",
+                        doc, name, llm.model(), pageCount(pdf), input.pageTexts().size(), found.size(), checks[0], checks[1],
+                        checks[2], (System.nanoTime() - started) / 1e9, inTokens, outTokens, cost(name, inTokens, outTokens), attempt);
+                Files.writeString(out.resolve("extract.md"), line + "\n", StandardCharsets.UTF_8,
+                        java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+                System.out.println(line);
+                return;
+            } catch (Exception e) { // API error, truncation or schema violation: retry once, like a run
+                System.out.println("  시도 " + attempt + " 실패: " + e.getClass().getSimpleName() + ": " + e.getMessage());
+            }
+        }
+        String line = String.format(Locale.ROOT, "| %s | %s | 실패 | | | | | %.1f | %d / %d | %s | %d |", doc, name,
+                (System.nanoTime() - started) / 1e9, inTokens, outTokens, cost(name, inTokens, outTokens), Extraction.ATTEMPTS);
+        Files.writeString(out.resolve("extract.md"), line + "\n", StandardCharsets.UTF_8,
+                java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+        System.out.println(line);
+    }
+
+    private static int pageCount(Path pdf) throws IOException {
+        try (PDDocument d = Loader.loadPDF(pdf.toFile())) {
+            return d.getNumberOfPages();
+        }
+    }
+
+    private static String csv(String s) {
+        return s == null ? "" : "\"" + s.replace("\"", "\"\"") + "\"";
     }
 
     private static Path answers(Path pdf) {
