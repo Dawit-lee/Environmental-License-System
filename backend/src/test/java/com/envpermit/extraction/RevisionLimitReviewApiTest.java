@@ -57,6 +57,7 @@ class RevisionLimitReviewApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         projectId = id(call(kim, json(post("/api/projects"), """
                 {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온"}""")));
+        jdbc.update("UPDATE project SET operations_enabled = TRUE"); // 운영 module is opt-in (design-schedule/01)
         permitId = id(call(kim, json(post("/api/projects/" + projectId + "/permits"), """
                 {"name":"환경영향평가 협의","category":"ENVIRONMENT","status":"COMPLETED"}""")));
 

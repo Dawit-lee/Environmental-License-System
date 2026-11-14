@@ -43,6 +43,9 @@ class ExceedanceAlerts {
     }
 
     void raise(long projectId, long pointId, List<Long> measurementIds, long actorId) {
+        if (!jdbc.queryForObject("SELECT operations_enabled FROM project WHERE id = ?", Boolean.class, projectId)) {
+            return; // 운영 module off (design-schedule §8.1): no corrective task, no notice
+        }
         String link = "/projects/" + projectId + "/operations?point=" + pointId;
         List<Long> members = jdbc.queryForList("SELECT user_id FROM project_member WHERE project_id = ? ORDER BY user_id",
                 Long.class, projectId);

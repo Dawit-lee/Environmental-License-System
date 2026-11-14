@@ -48,6 +48,8 @@ export interface Project {
   member: boolean;
   /** derivation input keyed by the field dictionary (backend Fields) */
   attributes: Record<string, unknown> | null;
+  /** 운영 module (design-schedule §8.1): off = no 운영 tab, no measurement numbers */
+  operationsEnabled: boolean;
 }
 
 export interface PermitItem {

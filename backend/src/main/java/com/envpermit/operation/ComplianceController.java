@@ -51,12 +51,16 @@ class ComplianceController {
     record TeamView(long id, String name) {
     }
 
-    record ProjectRow(long projectId, String name, Long teamId, String teamName, Metrics metrics) {
+    /** operations: the project has the 운영 module on; off → exceeded and near are 0 and the UI hides them. */
+    record ProjectRow(long projectId, String name, Long teamId, String teamName, boolean operations, Metrics metrics) {
     }
 
-    /** scope: COMPANY (admin) or MINE; projectCount and teams describe the whole scope, before the team filter. */
+    /**
+     * scope: COMPANY (admin) or MINE; projectCount and teams describe the whole scope, before the team filter.
+     * operations: at least one shown project has the 운영 module on (else the measurement numbers are hidden).
+     */
     record Summary(LocalDate from, LocalDate to, String scope, int projectCount, List<TeamView> teams,
-                   Metrics total, List<ProjectRow> projects) {
+                   boolean operations, Metrics total, List<ProjectRow> projects) {
     }
 
     record Month(String month, int due, int onTime, Double percent) {
@@ -65,7 +69,7 @@ class ComplianceController {
     record PermitRow(Long permitItemId, String name, int due, int onTime, int late, Double percent) {
     }
 
-    record ProjectSummary(LocalDate from, LocalDate to, Metrics total, List<PermitRow> permits) {
+    record ProjectSummary(LocalDate from, LocalDate to, boolean operations, Metrics total, List<PermitRow> permits) {
     }
 
     @GetMapping("/api/compliance/summary")
@@ -81,7 +85,7 @@ class ComplianceController {
         List<TaskRow> all = tasks(ids);
         all.forEach(t -> tasks.computeIfAbsent(t.projectId(), k -> new ArrayList<>()).add(t));
         Map<Long, int[]> other = other(ids, p);
-        List<ProjectRow> rows = shown.stream().map(s -> new ProjectRow(s.id(), s.name(), s.teamId(), s.teamName(),
+        List<ProjectRow> rows = shown.stream().map(s -> new ProjectRow(s.id(), s.name(), s.teamId(), s.teamName(), s.operations(),
                 metrics(p.counts(tasks.getOrDefault(s.id(), List.of())), other.get(s.id())))).toList();
         int[] sum = new int[4];
         other.values().forEach(o -> {
@@ -93,7 +97,7 @@ class ComplianceController {
                 .map(s -> new TeamView(s.teamId(), s.teamName())).distinct().toList();
         // total: every task counted once, then one ratio (not the average of the project rates)
         return new Summary(p.from(), p.to(), scope.admin() ? "COMPANY" : "MINE", scope.projects().size(), teams,
-                metrics(p.counts(all), sum), rows);
+                shown.stream().anyMatch(Scoped::operations), metrics(p.counts(all), sum), rows);
     }
 
     /** The same formula per calendar month, cut to the period; a month in which nothing fell due has no percent. */
@@ -118,9 +122,8 @@ class ComplianceController {
     ProjectSummary project(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        if (scope(jwt).projects().stream().noneMatch(s -> s.id() == projectId)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        }
+        Scoped project = scope(jwt).projects().stream().filter(s -> s.id() == projectId).findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
         Period p = period(from, to);
         Long[] ids = {projectId};
         List<TaskRow> all = tasks(ids);
@@ -134,12 +137,12 @@ class ComplianceController {
                     Counts c = p.counts(all.stream().filter(t -> Objects.equals(t.permitItemId(), permit)).toList());
                     return new PermitRow(permit, permit == null ? null : names.get(permit), c.due(), c.onTime(), c.late(), c.percent());
                 }).filter(r -> r.due() > 0).toList();
-        return new ProjectSummary(p.from(), p.to(), metrics(p.counts(all), other(ids, p).get(projectId)), permits);
+        return new ProjectSummary(p.from(), p.to(), project.operations(), metrics(p.counts(all), other(ids, p).get(projectId)), permits);
     }
 
     // --- scope and period ---
 
-    private record Scoped(long id, String name, Long teamId, String teamName) {
+    private record Scoped(long id, String name, Long teamId, String teamName, boolean operations) {
     }
 
     private record Scope(boolean admin, List<Scoped> projects) {
@@ -152,11 +155,11 @@ class ComplianceController {
         User user = users.findById(userId(jwt)).orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN));
         boolean admin = user.getRole() == User.Role.ADMIN && user.getCompanyId() != null;
         return new Scope(admin, jdbc.query("""
-                SELECT p.id, p.name, p.team_id, d.name || ' / ' || t.name AS team_name
+                SELECT p.id, p.name, p.team_id, d.name || ' / ' || t.name AS team_name, p.operations_enabled
                 FROM project p LEFT JOIN team t ON t.id = p.team_id LEFT JOIN department d ON d.id = t.department_id
                 WHERE %s ORDER BY p.id""".formatted(admin ? "p.company_id = ?"
                         : "p.id IN (SELECT project_id FROM project_member WHERE user_id = ?)"),
-                (rs, i) -> new Scoped(rs.getLong(1), rs.getString(2), (Long) rs.getObject(3), rs.getString(4)),
+                (rs, i) -> new Scoped(rs.getLong(1), rs.getString(2), (Long) rs.getObject(3), rs.getString(4), rs.getBoolean(5)),
                 admin ? user.getCompanyId() : user.getId()));
     }
 
@@ -199,13 +202,13 @@ class ComplianceController {
         }, (Object) projectIds);
     }
 
-    /** Per project: [측정 초과, 측정 근접 (measured in the period, not deleted), 허가 만료 임박, 현장 반영 대기]. */
+    /** Per project: [측정 초과, 측정 근접 (measured in the period, not deleted, 운영 module on), 허가 만료 임박, 현장 반영 대기]. */
     private Map<Long, int[]> other(Long[] projectIds, Period p) {
         Map<Long, int[]> out = new HashMap<>();
         jdbc.query("""
                 SELECT e.project_id, CASE m.level WHEN 'EXCEEDED' THEN 0 ELSE 1 END, count(*)
-                FROM measurement m JOIN emission_point e ON e.id = m.emission_point_id
-                WHERE e.project_id = ANY(?) AND m.deleted_at IS NULL AND m.level IN ('EXCEEDED', 'NEAR')
+                FROM measurement m JOIN emission_point e ON e.id = m.emission_point_id JOIN project pr ON pr.id = e.project_id
+                WHERE e.project_id = ANY(?) AND pr.operations_enabled AND m.deleted_at IS NULL AND m.level IN ('EXCEEDED', 'NEAR')
                   AND m.measured_on BETWEEN ? AND ? GROUP BY 1, 2
                 UNION ALL
                 SELECT project_id, 2, count(*) FROM permit_item

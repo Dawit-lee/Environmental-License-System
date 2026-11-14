@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
@@ -76,9 +77,15 @@ public class NotificationJob {
         LocalDate today = LocalDate.now(clock);
         List<DeadlineEvent> due = events.findByDueDateBetween(today, today.plusDays(OFFSETS[OFFSETS.length - 1]));
         List<DeadlineEvent> overdue = events.findByDueDateAndKindIn(today.minusDays(1), TASK_KINDS);
-        Map<Long, String> projectNames = projects.findAllById(
+        Map<Long, Project> byId = projects.findAllById(
                         Stream.concat(due.stream(), overdue.stream()).map(DeadlineEvent::getProjectId).toList())
-                .stream().collect(Collectors.toMap(Project::getId, Project::getName));
+                .stream().collect(Collectors.toMap(Project::getId, Function.identity()));
+        Map<Long, String> projectNames = byId.values().stream().collect(Collectors.toMap(Project::getId, Project::getName));
+        // 조치 업무 belong to the 운영 module: no reminders while a project has it off (design-schedule §8.1)
+        Predicate<DeadlineEvent> off = e -> e.getKind().equals("CORRECTIVE_TASK")
+                && byId.containsKey(e.getProjectId()) && !byId.get(e.getProjectId()).isOperationsEnabled();
+        due.removeIf(off);
+        overdue.removeIf(off);
         for (DeadlineEvent e : due) {
             String message = "%s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
             remind(e, crossedOffset(ChronoUnit.DAYS.between(today, e.getDueDate())), message, "/projects/" + e.getProjectId());

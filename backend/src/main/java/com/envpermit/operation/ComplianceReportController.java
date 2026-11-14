@@ -46,7 +46,7 @@ class ComplianceReportController {
                                     @RequestParam @DateTimeFormat(iso = ISO.DATE) LocalDate from,
                                     @RequestParam @DateTimeFormat(iso = ISO.DATE) LocalDate to,
                                     @RequestParam(required = false) List<Long> emissionPointIds) {
-        access.member(projectId, jwt);
+        access.operations(projectId, jwt);
         return report.load(projectId, permitId, from, to, emissionPointIds, userId(jwt));
     }
 
@@ -54,7 +54,7 @@ class ComplianceReportController {
     @ResponseStatus(HttpStatus.CREATED)
     Map<String, Long> create(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId, @PathVariable long permitId,
                              @Valid @RequestBody Request req) {
-        access.member(projectId, jwt);
+        access.operations(projectId, jwt);
         ComplianceReport.Report r = report.load(projectId, permitId, req.from(), req.to(), req.emissionPointIds(), userId(jwt));
         return Map.of("documentId", documents.saveXlsx(permitId, r.fileName(), report.xlsx(r), userId(jwt)));
     }

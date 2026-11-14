@@ -49,6 +49,15 @@ public class ProjectAccess {
         }
     }
 
+    /** 운영 module routes: a member, and the project has the module on (else 409 MODULE_DISABLED). */
+    public ProjectMember operations(long projectId, Jwt jwt) {
+        ProjectMember m = member(projectId, jwt);
+        if (!projects.findById(projectId).map(Project::isOperationsEnabled).orElse(false)) {
+            throw new ModuleDisabled();
+        }
+        return m;
+    }
+
     public ProjectMember admin(long projectId, Jwt jwt) {
         ProjectMember m = member(projectId, jwt);
         if (!m.isAdmin()) {

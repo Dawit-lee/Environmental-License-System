@@ -264,8 +264,10 @@ class MeasurementApiTest extends IntegrationTest {
     }
 
     private long project(String name) throws Exception {
-        return id(call(kim, json(post("/api/projects"),
+        long id = id(call(kim, json(post("/api/projects"),
                 "{\"name\":\"" + name + "\",\"facilityType\":\"INCINERATION\",\"location\":\"가온\"}")));
+        jdbc.update("UPDATE project SET operations_enabled = TRUE"); // 운영 module is opt-in (design-schedule/01)
+        return id;
     }
 
     private long point(long project) throws Exception {
