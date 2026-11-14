@@ -19,22 +19,26 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Daily: deadline events → D-90/60/30/7 in-app notifications (plus one "기한 경과" the day after a task's due date),
- * then one digest mail per user.
+ * Daily: deadline events → in-app reminders at the offsets of their kind (D-90/60/30/7 unless listed in
+ * {@link #OFFSETS_BY_KIND}), plus one "기한 경과" the day after a task's due date, then one digest mail per user.
  */
 @Component
 public class NotificationJob {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationJob.class);
     private static final int[] OFFSETS = {7, 30, 60, 90}; // ascending
+    public static final String SCHEDULE_ITEM = "SCHEDULE_ITEM";
+    /** Kinds with their own reminder offsets (ascending, at most the last of {@link #OFFSETS}). */
+    private static final Map<String, int[]> OFFSETS_BY_KIND = Map.of(SCHEDULE_ITEM, new int[] {1, 7});
     /** offset_days of the overdue notice. */
     public static final int OVERDUE = -1;
     // a task's deadline exists exactly while the task is open, so "due yesterday" means an open task went overdue
-    private static final Set<String> TASK_KINDS = Set.of("OBLIGATION", "CORRECTIVE_TASK");
+    private static final Set<String> TASK_KINDS = Set.of("OBLIGATION", "CORRECTIVE_TASK", SCHEDULE_ITEM);
 
     private final DeadlineEventRepository events;
     private final NotificationRepository notifications;
@@ -43,9 +47,11 @@ public class NotificationJob {
     private final UserRepository users;
     private final Mailer mailer;
     private final Clock clock;
+    private final JdbcTemplate jdbc;
 
     NotificationJob(DeadlineEventRepository events, NotificationRepository notifications, ProjectRepository projects,
-                    ProjectMemberRepository members, UserRepository users, Mailer mailer, Clock clock) {
+                    ProjectMemberRepository members, UserRepository users, Mailer mailer, Clock clock, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.events = events;
         this.notifications = notifications;
         this.projects = projects;
@@ -59,9 +65,9 @@ public class NotificationJob {
      * The tightest reminder already reached, or null. Only that one is sent, so a deadline registered
      * (or a server back up) at D-20 gets the D-30 reminder, not stale D-90/D-60 ones.
      */
-    static Integer crossedOffset(long daysLeft) {
+    static Integer crossedOffset(String kind, long daysLeft) {
         if (daysLeft < 0) return null;
-        for (int o : OFFSETS) {
+        for (int o : OFFSETS_BY_KIND.getOrDefault(kind, OFFSETS)) {
             if (daysLeft <= o) return o;
         }
         return null;
@@ -87,19 +93,36 @@ public class NotificationJob {
         due.removeIf(off);
         overdue.removeIf(off);
         for (DeadlineEvent e : due) {
+            Integer offset = crossedOffset(e.getKind(), ChronoUnit.DAYS.between(today, e.getDueDate()));
+            if (offset == null) continue; // e.g. a schedule item at D-20
             String message = "%s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
-            remind(e, crossedOffset(ChronoUnit.DAYS.between(today, e.getDueDate())), message, "/projects/" + e.getProjectId());
+            remind(e, offset, message, link(e, "/projects/" + e.getProjectId()));
         }
         for (DeadlineEvent e : overdue) { // once: only on the day after, and the unique key stops a rerun
             String message = "기한 경과 · %s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
-            remind(e, OVERDUE, message, "/projects/" + e.getProjectId() + "/obligations");
+            remind(e, OVERDUE, message, link(e, "/projects/" + e.getProjectId() + "/obligations"));
+            if (SCHEDULE_ITEM.equals(e.getKind())) { // a late predecessor holds up its successors: tell their owners
+                String held = "선행 지연 · %s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
+                notify(e, OVERDUE, held, link(e, null), jdbc.queryForList("""
+                        SELECT DISTINCT s.owner_user_id FROM schedule_item_dependency d
+                        JOIN schedule_item s ON s.id = d.successor_id
+                        WHERE d.predecessor_id = ? AND s.owner_user_id IS NOT NULL AND s.deleted_at IS NULL
+                          AND s.actual_end IS NULL""", Long.class, e.getTargetId()));
+            }
         }
+    }
+
+    private static String link(DeadlineEvent e, String fallback) {
+        return SCHEDULE_ITEM.equals(e.getKind()) ? "/projects/" + e.getProjectId() + "/schedule" : fallback;
     }
 
     /** To the assignee, or to every project member when nobody is assigned; never twice for the same due date and offset. */
     private void remind(DeadlineEvent e, int offset, String message, String link) {
-        List<Long> recipients = e.getAssigneeId() != null ? List.of(e.getAssigneeId())
-                : members.findByIdProjectIdOrderByIdUserId(e.getProjectId()).stream().map(ProjectMember::getUserId).toList();
+        notify(e, offset, message, link, e.getAssigneeId() != null ? List.of(e.getAssigneeId())
+                : members.findByIdProjectIdOrderByIdUserId(e.getProjectId()).stream().map(ProjectMember::getUserId).toList());
+    }
+
+    private void notify(DeadlineEvent e, int offset, String message, String link, List<Long> recipients) {
         for (long userId : recipients) {
             if (!notifications.existsByDeadlineEventIdAndDueDateAndOffsetDaysAndUserId(e.getId(), e.getDueDate(), offset, userId)) {
                 notifications.save(new Notification(userId, e, offset, message, link, clock.instant()));

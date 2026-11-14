@@ -6,7 +6,7 @@ import { latestDerivation, type DerivationWarning } from '../api/derivation';
 import PermitDetailDrawer from '../components/PermitDetailDrawer';
 import ReviewQueuePage from './ReviewQueuePage';
 import LawAmendmentsPage from './LawAmendmentsPage';
-import CalendarPage from './CalendarPage';
+import ProjectSchedule from '../components/ProjectSchedule';
 import NewProjectPage from './NewProjectPage';
 import ProjectOverview from '../components/ProjectOverview';
 import { STAGES, lifecycleStage } from '../components/dashboard';
@@ -243,7 +243,7 @@ export default function ProjectDetailPage() {
           {tab === 'overview' && <ProjectOverview project={project} permits={permits} />}
           {tab === 'review' && <ReviewQueuePage key={id} projectId={project.id} />}
           {tab === 'laws' && <LawAmendmentsPage key={id} projectId={project.id} />}
-          {tab === 'schedule' && <CalendarPage key={id} projectId={project.id} />}
+          {tab === 'schedule' && <ProjectSchedule key={id} projectId={project.id} />}
           {tab === 'obligations' && <ProjectObligations key={id} projectId={project.id} permits={permits} onOpenPermit={setSelected} />}
           {tab === 'operations' && <ProjectOperations key={id} projectId={project.id} permits={permits} />}
           {tab === 'documents' && <ProjectDocuments key={id} projectId={project.id} permits={permits} onOpenPermit={setSelected} />}
