@@ -24,6 +24,7 @@ import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,10 +49,12 @@ public class ProjectController {
     private final ProjectAccess access;
     private final Org org;
     private final ApplicationEventPublisher events;
+    private final JdbcTemplate jdbc;
 
     public ProjectController(ProjectRepository projects, ProjectMemberRepository members,
                              PermitItemRepository permits, UserRepository users, ProjectAccess access, Org org,
-                             ApplicationEventPublisher events) {
+                             ApplicationEventPublisher events, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.org = org;
         this.events = events;
         this.projects = projects;
@@ -79,7 +82,7 @@ public class ProjectController {
                        Project.Status status, long permitCount, long acquiredCount, long nearExpiryCount,
                        Long teamId, String teamName, String departmentName,
                        Long pmUserId, String pmName, Long emUserId, String emName, boolean member,
-                       JsonNode attributes) {
+                       JsonNode attributes, boolean operationsEnabled) {
     }
 
     record MemberView(long userId, String name, String email, boolean isAdmin,
@@ -143,6 +146,28 @@ public class ProjectController {
         access.admin(id, jwt);
         projects.deleteById(id); // members, permits and history go with it (ON DELETE CASCADE)
         return ResponseEntity.noContent().build();
+    }
+
+    record ModulesRequest(@NotNull Boolean operations) {
+    }
+
+    /** design-schedule §8.1: project admins, the PM and the EM switch the 운영 module; every change is logged. */
+    @PatchMapping("/api/projects/{id}/modules")
+    @Transactional
+    ProjectView modules(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @Valid @RequestBody ModulesRequest req) {
+        access.viewer(id, jwt); // other company / unknown project → 403
+        Project p = projects.findById(id).orElseThrow();
+        long me = userId(jwt);
+        boolean admin = members.findById(new ProjectMember.Key(id, me)).map(ProjectMember::isAdmin).orElse(false);
+        if (!admin && !Objects.equals(p.getPmUserId(), me) && !Objects.equals(p.getEmUserId(), me)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "프로젝트 어드민·PM·EM만 모듈을 켜고 끌 수 있습니다.");
+        }
+        if (p.isOperationsEnabled() != req.operations()) {
+            p.setOperationsEnabled(req.operations());
+            jdbc.update("INSERT INTO project_module_event (project_id, module, enabled, actor_id) VALUES (?, 'OPERATIONS', ?, ?)",
+                    id, req.operations(), me);
+        }
+        return views(List.of(p), me).get(0);
     }
 
     // --- members ----------------------------------------------------------
@@ -235,7 +260,7 @@ public class ProjectController {
                     c.total(), c.completed(), c.nearExpiry(),
                     p.getTeamId(), t == null ? null : t.name(), t == null ? null : t.departmentName(),
                     p.getPmUserId(), names.get(p.getPmUserId()), p.getEmUserId(), names.get(p.getEmUserId()),
-                    mine.contains(p.getId()), p.getAttributes());
+                    mine.contains(p.getId()), p.getAttributes(), p.isOperationsEnabled());
         }).toList();
     }
 }

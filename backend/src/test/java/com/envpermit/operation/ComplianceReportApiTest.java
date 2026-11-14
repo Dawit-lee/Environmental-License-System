@@ -67,6 +67,7 @@ class ComplianceReportApiTest extends IntegrationTest {
         kim = login("kim@a.com");
         projectId = id(call(kim, json(post("/api/projects"), """
                 {"name":"가온 자원회수시설","facilityType":"INCINERATION","location":"가온","capacity":300,"capacityUnit":"톤/일"}""")));
+        jdbc.update("UPDATE project SET operations_enabled = TRUE"); // 운영 module is opt-in (design-schedule/01)
         permitId = permit(projectId, "대기배출시설 설치허가");
         stack = point(STACK, "AIR", permitId);
         outfall = point(OUTFALL, "WATER", permitId);
@@ -201,6 +202,7 @@ class ComplianceReportApiTest extends IntegrationTest {
         String park = login("park@b.com");
         long parkProject = id(call(park, json(post("/api/projects"), """
                 {"name":"B 하수처리장","facilityType":"SEWAGE","location":"다온"}""")));
+        jdbc.update("UPDATE project SET operations_enabled = TRUE"); // 운영 module is opt-in (design-schedule/01)
         String crossed = "/api/projects/" + parkProject + "/permit-items/" + permitId + "/compliance-reports";
         call(park, get(crossed + "/preview?from=2026-01-01&to=2026-01-31")).andExpect(status().isNotFound());
         call(park, json(post(crossed), "{\"from\":\"2026-01-01\",\"to\":\"2026-01-31\"}")).andExpect(status().isNotFound());

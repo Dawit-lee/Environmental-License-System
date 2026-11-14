@@ -43,6 +43,9 @@ public class Project {
     private Long pmUserId;
     private Long emUserId;
 
+    /** 운영 모듈 (design-schedule §8.1): off by default; off hides the 운영 tab and makes its API answer 409. */
+    private boolean operationsEnabled;
+
     /** Derivation input, keyed by the field dictionary (com.envpermit.derivation.Fields). */
     @JdbcTypeCode(SqlTypes.JSON)
     private JsonNode attributes;
@@ -83,6 +86,11 @@ public class Project {
     public Long getTeamId() { return teamId; }
     public Long getPmUserId() { return pmUserId; }
     public Long getEmUserId() { return emUserId; }
+    public boolean isOperationsEnabled() { return operationsEnabled; }
+
+    void setOperationsEnabled(boolean operationsEnabled) {
+        this.operationsEnabled = operationsEnabled;
+    }
 
     public void setAttributes(JsonNode attributes) {
         this.attributes = attributes;

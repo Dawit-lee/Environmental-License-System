@@ -13,6 +13,7 @@ import { STAGES, lifecycleStage } from '../components/dashboard';
 import ProjectObligations from '../components/ProjectObligations';
 import ProjectDocuments from '../components/ProjectDocuments';
 import ProjectOperations from '../components/ProjectOperations';
+import ProjectModules from '../components/ProjectModules';
 import ProjectMembers from '../components/ProjectMembers';
 
 // ---------------------------------------------------------------------------
@@ -161,7 +162,8 @@ export default function ProjectDetailPage() {
   }
 
   // the other tabs are member-only on the server (403), so a company viewer is not shown dead tabs
-  const tabs = project.member ? TABS : TABS.filter((t) => t.key === 'overview' || t.key === 'permits');
+  const tabs = (project.member ? TABS : TABS.filter((t) => t.key === 'overview' || t.key === 'permits'))
+    .filter((t) => t.key !== 'operations' || project.operationsEnabled); // opt-in module (설정 › 모듈)
 
   return (
     <div className="min-h-full bg-[#F8F7F2]">
@@ -248,6 +250,7 @@ export default function ProjectDetailPage() {
           {tab === 'settings' && (
             <>
               <NewProjectPage key={id} projectId={project.id} onSaved={() => setReloads((n) => n + 1)} />
+              <ProjectModules project={project} onSaved={() => setReloads((n) => n + 1)} />
               <ProjectMembers key={`m${id}`} projectId={project.id} />
             </>
           )}

@@ -158,7 +158,7 @@ class EmissionController {
 
     @GetMapping("/api/projects/{projectId}/emission-points")
     List<PointView> points(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
-        access.member(projectId, jwt);
+        access.operations(projectId, jwt);
         return points("e.project_id = ? ORDER BY e.active DESC, e.medium, e.id", projectId);
     }
 
@@ -167,7 +167,7 @@ class EmissionController {
     @Transactional
     PointView createPoint(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                           @Validated @RequestBody PointRequest req) {
-        access.member(projectId, jwt);
+        access.operations(projectId, jwt);
         checkPermit(projectId, req.permitItemId());
         Long id = jdbc.queryForObject("INSERT INTO emission_point (project_id, permit_item_id, medium, name) "
                 + "VALUES (?, ?, ?, ?) RETURNING id", Long.class, projectId, req.permitItemId(), req.medium(), req.name().trim());
@@ -391,7 +391,7 @@ class EmissionController {
         Long projectId = jdbc.queryForList("SELECT e.project_id FROM measurement m JOIN emission_point e "
                         + "ON e.id = m.emission_point_id WHERE m.id = ? AND m.deleted_at IS NULL FOR UPDATE OF m", Long.class, id)
                 .stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        access.member(projectId, jwt);
+        access.operations(projectId, jwt);
         jdbc.update("UPDATE measurement SET deleted_at = ?, deleted_by = ?, delete_reason = ? WHERE id = ?",
                 Timestamp.from(clock.instant()), userId(jwt), req.reason().trim(), id);
         jdbc.queryForList("SELECT task_id FROM measurement WHERE id = ? AND task_id IS NOT NULL", Long.class, id)
@@ -403,7 +403,7 @@ class EmissionController {
     private PointView point(long id, Jwt jwt) {
         PointView p = points("e.id = ?", id).stream().findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        access.member(p.projectId(), jwt);
+        access.operations(p.projectId(), jwt);
         return p;
     }
 
@@ -411,7 +411,7 @@ class EmissionController {
         Long projectId = jdbc.queryForList("SELECT e.project_id FROM permit_limit l JOIN emission_point e "
                         + "ON e.id = l.emission_point_id WHERE l.id = ? FOR UPDATE OF l", Long.class, id).stream().findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        access.member(projectId, jwt);
+        access.operations(projectId, jwt);
         return limits("l.id = ?", id).get(0);
     }
 
