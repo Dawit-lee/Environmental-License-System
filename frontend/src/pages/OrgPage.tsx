@@ -3,9 +3,11 @@ import {
   assignTeam, createDepartment, createTeam, deleteDepartment, deleteTeam, getCompanyUsers, getDepartments,
   renameDepartment, renameTeam, teamLabels, type CompanyUser, type Department,
 } from '../api/org';
+import DisciplineSettings from '../components/DisciplineSettings';
 
 // ---------------------------------------------------------------------------
-// OrgPage — company master only: departments > teams, and which team each user is in.
+// OrgPage — company master only: departments > teams, which team each user is in, and the 분야 list.
+// Tabs: 조직 | 분야.
 // ---------------------------------------------------------------------------
 
 const btn = 'rounded-lg border border-[#E5E3DC] px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-[#F8F7F2]';
@@ -17,6 +19,7 @@ export default function OrgPage() {
   const [newDept, setNewDept] = useState('');
   const [newTeam, setNewTeam] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'org' | 'disciplines'>('org');
 
   const load = () =>
     Promise.all([getDepartments(), getCompanyUsers()]).then(([d, u]) => {
@@ -46,7 +49,17 @@ export default function OrgPage() {
     <div className="min-h-full bg-[#F8F7F2]">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold text-[#1F4E79]">조직 관리</h1>
-        <p className="mt-1 text-sm text-gray-500">부서와 팀을 만들고 사용자를 팀에 배정합니다. 팀을 지우면 소속 사용자·프로젝트는 미지정이 됩니다.</p>
+        <nav className="mt-4 flex gap-1 border-b border-[#E5E3DC]">
+          {([['org', '조직'], ['disciplines', '분야']] as const).map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setTab(key)}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === key ? 'border-[#1F4E79] text-[#1F4E79]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+              {label}
+            </button>
+          ))}
+        </nav>
+        {tab === 'disciplines' && <DisciplineSettings />}
+        {tab === 'org' && (<>
+        <p className="mt-4 text-sm text-gray-500">부서와 팀을 만들고 사용자를 팀에 배정합니다. 팀을 지우면 소속 사용자·프로젝트는 미지정이 됩니다.</p>
         {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
 
         <section className="mt-6 space-y-4">
@@ -112,6 +125,7 @@ export default function OrgPage() {
             </tbody>
           </table>
         </section>
+        </>)}
       </div>
     </div>
   );

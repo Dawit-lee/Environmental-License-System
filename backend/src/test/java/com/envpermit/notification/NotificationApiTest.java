@@ -60,9 +60,14 @@ class NotificationApiTest extends IntegrationTest {
 
     @ParameterizedTest
     @CsvSource(nullValues = "none", value = {
-            "-1, none", "0, 7", "7, 7", "8, 30", "30, 30", "31, 60", "60, 60", "61, 90", "90, 90", "91, none"})
-    void crossed_offset_is_the_tightest_reminder_already_reached(long daysLeft, Integer expected) {
-        assertThat(NotificationJob.crossedOffset(daysLeft)).isEqualTo(expected);
+            "PERMIT_EXPIRY, -1, none", "PERMIT_EXPIRY, 0, 7", "PERMIT_EXPIRY, 7, 7", "PERMIT_EXPIRY, 8, 30",
+            "PERMIT_EXPIRY, 30, 30", "PERMIT_EXPIRY, 31, 60", "PERMIT_EXPIRY, 60, 60", "PERMIT_EXPIRY, 61, 90",
+            "PERMIT_EXPIRY, 90, 90", "PERMIT_EXPIRY, 91, none", "OBLIGATION, 1, 7",
+            // schedule items: D-7 and D-1 only
+            "SCHEDULE_ITEM, -1, none", "SCHEDULE_ITEM, 0, 1", "SCHEDULE_ITEM, 1, 1", "SCHEDULE_ITEM, 2, 7",
+            "SCHEDULE_ITEM, 7, 7", "SCHEDULE_ITEM, 8, none", "SCHEDULE_ITEM, 90, none"})
+    void crossed_offset_is_the_tightest_reminder_already_reached(String kind, long daysLeft, Integer expected) {
+        assertThat(NotificationJob.crossedOffset(kind, daysLeft)).isEqualTo(expected);
     }
 
     @Test
