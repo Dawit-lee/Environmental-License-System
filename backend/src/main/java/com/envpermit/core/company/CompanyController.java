@@ -38,10 +38,10 @@ public class CompanyController {
     }
 
     record CompanyView(long id, String name, boolean aiExtractionEnabled, Long aiExtractionChangedBy,
-                       Instant aiExtractionChangedAt) {
+                       Instant aiExtractionChangedAt, boolean googleSyncEnabled) {
         static CompanyView of(Company c) {
             return new CompanyView(c.getId(), c.getName(), c.isAiExtractionEnabled(), c.getAiExtractionChangedBy(),
-                    c.getAiExtractionChangedAt());
+                    c.getAiExtractionChangedAt(), c.isGoogleSyncEnabled());
         }
     }
 
@@ -72,6 +72,16 @@ public class CompanyController {
         requireMaster(jwt);
         Company c = myCompany(jwt);
         c.setAiExtraction(req.enabled(), Long.parseLong(jwt.getSubject()), clock.instant());
+        return CompanyView.of(c);
+    }
+
+    /** Lets members connect their own Google calendar (design-schedule/06). Master only. */
+    @PutMapping("/api/company/google-sync")
+    @Transactional
+    CompanyView setGoogleSync(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AiExtractionRequest req) {
+        requireMaster(jwt);
+        Company c = myCompany(jwt);
+        c.setGoogleSyncEnabled(req.enabled());
         return CompanyView.of(c);
     }
 

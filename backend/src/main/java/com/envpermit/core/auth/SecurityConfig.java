@@ -29,6 +29,8 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/api/auth/**", "/error").permitAll()
+                        // Google redirects the browser here without our token; the one-time state names the user
+                        .requestMatchers("/api/me/google-calendar/callback").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(j -> {}))
                 .build();
