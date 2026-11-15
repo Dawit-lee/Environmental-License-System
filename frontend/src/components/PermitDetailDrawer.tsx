@@ -58,9 +58,11 @@ function historyText(h: PermitHistory): string {
 export default function PermitDetailDrawer({
   permit,
   onClose,
+  onSaved,
 }: {
   permit: PermitItem | null;
   onClose: () => void;
+  onSaved?: (p: PermitItem) => void; // members only: edits the 보고 문구
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<PermitHistory[]>([]);
@@ -196,6 +198,11 @@ export default function PermitDetailDrawer({
                 </div>
               </Section>
 
+              {/* 진행 현황 보고 1쪽 문구 */}
+              <Section title="보고 문구">
+                <ReportNotes key={permit.id} permit={permit} onSaved={onSaved} />
+              </Section>
+
               {/* 첨부 문서 */}
               <Section title="첨부 문서">
                 <PermitDocuments permit={permit} />
@@ -233,6 +240,74 @@ export default function PermitDetailDrawer({
           </>
         )}
       </aside>
+    </div>
+  );
+}
+
+// --- Report notes (design-schedule/08) -------------------------------------
+
+const NOTE_FIELDS = [
+  { key: 'progressNote', label: '진행 메모', max: 200, hint: '예: 가온시 도시과 검토 중(10/21)' },
+  { key: 'expectedCompletion', label: '예상완료', max: 50, hint: '예: 11월 중순, 착공 전' },
+  { key: 'issueNote', label: '현안 메모', max: 300, hint: '필요 조치, 선후 관계' },
+] as const;
+
+function ReportNotes({ permit, onSaved }: { permit: PermitItem; onSaved?: (p: PermitItem) => void }) {
+  const [draft, setDraft] = useState({
+    progressNote: permit.progressNote ?? '',
+    expectedCompletion: permit.expectedCompletion ?? '',
+    issueNote: permit.issueNote ?? '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const dirty = NOTE_FIELDS.some((f) => draft[f.key] !== (permit[f.key] ?? ''));
+
+  async function save() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const body = { ...permit, ...Object.fromEntries(NOTE_FIELDS.map((f) => [f.key, draft[f.key].trim() || null])) };
+      const saved = await api<PermitItem>(`/api/projects/${permit.projectId}/permits/${permit.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      onSaved?.(saved);
+      setMessage('저장했습니다.');
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {NOTE_FIELDS.map((f) => (
+        <label key={f.key} className="flex items-center gap-3 text-sm">
+          <span className="w-16 shrink-0 text-gray-500">{f.label}</span>
+          <input
+            value={draft[f.key]}
+            maxLength={f.max}
+            placeholder={f.hint}
+            readOnly={!onSaved}
+            onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
+            className="min-w-0 flex-1 rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-gray-800 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20"
+          />
+        </label>
+      ))}
+      {onSaved && (
+        <div className="flex items-center justify-end gap-3">
+          {message && <span className="text-xs text-gray-500">{message}</span>}
+          <button
+            type="button"
+            onClick={save}
+            disabled={!dirty || busy}
+            className="rounded-lg bg-[#1F4E79] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40"
+          >
+            저장
+          </button>
+        </div>
+      )}
     </div>
   );
 }

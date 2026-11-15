@@ -69,6 +69,9 @@ export interface PermitItem {
   status: PermitStatus;
   nextAction: string | null;
   nextActionUrl: string | null;
+  progressNote: string | null; // 보고 1쪽: 완료 여부 칸
+  expectedCompletion: string | null; // 보고 1쪽: 예상완료 시점(자유 문구)
+  issueNote: string | null; // 보고 1쪽: 현안사항
   dDay: number | null;
 }
 

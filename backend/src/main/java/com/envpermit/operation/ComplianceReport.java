@@ -227,7 +227,7 @@ public class ComplianceReport {
     }
 
     /** Formula injection: text a spreadsheet would run as a formula is stored as plain text behind an apostrophe. */
-    static String safe(String text) {
+    public static String safe(String text) {
         return !text.isEmpty() && "=+-@\t\r".indexOf(text.charAt(0)) >= 0 ? "'" + text : text;
     }
 
