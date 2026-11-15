@@ -11,12 +11,14 @@ cd backend
 set -a; source ../.env; set +a        # ANTHROPIC_API_KEY / GEMINI_API_KEY / OPENAI_API_KEY (있는 제공자만 실행)
 ./gradlew extractionEval --args="$HOME/Desktop/projects/env-license-app-eval/r4"            # 3사 모두
 ./gradlew extractionEval --args="$HOME/Desktop/projects/env-license-app-eval/r4 gemini"     # 일부만
+./gradlew extractionEval --args="rescore $HOME/Desktop/projects/env-license-app-eval/r4"    # 정답표를 고친 뒤 저장된 응답만 다시 채점(API 호출 없음)
 ```
 
 - 폴더 안의 `X.pdf` 중 `X.answers.csv`가 있는 것만 돌립니다.
 - 키가 하나도 없으면 아무것도 호출하지 않고 정상 종료합니다.
 - 모델은 앱과 같은 설정(`application.yml`, `CLAUDE_MODEL` / `GEMINI_MODEL` / `OPENAI_MODEL`)을 씁니다.
 - 비용 칸은 `EVAL_PRICES="claude=2/10,gemini=0.75/3.75,openai=1/5"`(입력/출력 100만 토큰당 USD)를 줄 때만 계산합니다. 단가는 실행 시점의 공식 가격표로 확인해 넣습니다.
+- 재채점(`rescore`): 문서·제공자마다 `out/X.<제공자>.response-N.json` 중 번호가 가장 큰 것(마지막 시도)을 읽어 `out/rescore/`에 표와 대조 파일을 씁니다.
 - 결과: 표는 화면과 `<폴더>/out/results.md`, 제공자 응답 원문은 `out/X.<제공자>.response-N.json`, 추출 항목별 대조는 `out/X.<제공자>.detail.txt`.
 
 앱과 같은 경로를 탑니다: `ClaudePdfDirectPreparer` → `LlmClient.send`(`ObligationPrompt`) → `Provider`의 본문·토큰 읽기 → `Extraction.parse`(스키마 검증), 실패 시 1회 재시도. DB·S3·검토 큐는 거치지 않습니다.
