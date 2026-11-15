@@ -7,7 +7,10 @@ import jakarta.persistence.Id;
 import java.time.Instant;
 import java.time.LocalDate;
 
-/** A file attached to a permit item. The bytes are in {@link DocumentStorage} under storageKey. */
+/**
+ * A project file, attached to one of its permit items or not (공고문·과업내용서·회의록 …). docType selects the
+ * schedule-extraction prompt (design-schedule/07). The bytes are in {@link DocumentStorage} under storageKey.
+ */
 @Entity
 public class Document {
 
@@ -15,7 +18,9 @@ public class Document {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    private Long projectId;
     private Long permitItemId;
+    private String docType;
     private String fileName;
     private String contentType;
     private long sizeBytes;
@@ -29,10 +34,12 @@ public class Document {
     protected Document() {
     }
 
-    Document(Long permitItemId, String fileName, String contentType, long sizeBytes, String sha256,
+    Document(long projectId, Long permitItemId, String docType, String fileName, String contentType, long sizeBytes, String sha256,
              String storageKey, Long uploadedBy, Instant uploadedAt, Long supersedesDocumentId,
              LocalDate effectiveDate) {
+        this.projectId = projectId;
         this.permitItemId = permitItemId;
+        this.docType = docType;
         this.fileName = fileName;
         this.contentType = contentType;
         this.sizeBytes = sizeBytes;
@@ -45,7 +52,9 @@ public class Document {
     }
 
     public Long getId() { return id; }
+    public Long getProjectId() { return projectId; }
     public Long getPermitItemId() { return permitItemId; }
+    public String getDocType() { return docType; }
     public String getFileName() { return fileName; }
     public String getContentType() { return contentType; }
     public long getSizeBytes() { return sizeBytes; }

@@ -5,7 +5,7 @@ export interface AiRun {
   id: number;
   status: 'RUNNING' | 'SUCCEEDED' | 'FAILED';
   errorMessage: string | null;
-  inputRef: { document_id: number; permit_item_id: number; sha256: string; prev_document_id?: number } | null;
+  inputRef: { document_id: number; permit_item_id?: number; sha256: string; prev_document_id?: number; doc_type?: string } | null;
   provider: 'CLAUDE' | 'GEMINI' | 'OPENAI' | null;
   model: string | null;
   startedAt: string;
@@ -33,5 +33,8 @@ export const startExtraction = (pid: number, permitId: number, docId: number, co
 /** ④ "개정 비교": extraction of a new version, diffed against the version it supersedes. */
 export const startRevision = (pid: number, permitId: number, docId: number) =>
   api<{ runId: number }>(`/api/projects/${pid}/permit-items/${permitId}/documents/${docId}/revisions`, { method: 'POST' });
+/** design-schedule/07: dates of a project document → schedule suggestions (reviewed in the AI 검토 tab). */
+export const startScheduleExtraction = (pid: number, docId: number) =>
+  api<{ runId: number }>(`/api/projects/${pid}/documents/${docId}/schedule-extractions`, { method: 'POST' });
 export const getRun = (id: number) => api<AiRun>(`/api/ai-runs/${id}`);
 export const listRuns = (pid: number) => api<AiRun[]>(`/api/projects/${pid}/ai-runs`);

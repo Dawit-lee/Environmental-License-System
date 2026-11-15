@@ -73,6 +73,15 @@ class ExtractionController {
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("runId", run.getId()));
     }
 
+    /** Document → schedule suggestions (design-schedule/07). 202 + runId, polled like extractions. */
+    @PostMapping("/api/projects/{projectId}/documents/{documentId}/schedule-extractions")
+    ResponseEntity<Map<String, Long>> schedule(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
+                                               @PathVariable long documentId) {
+        AiRun run = extraction.startSchedule(projectId, documentId, jwt);
+        executor.execute(() -> extraction.run(run.getId()));
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("runId", run.getId()));
+    }
+
     /** Which external AI documents go to, for the transfer notice shown before extraction (design §3.8). */
     @GetMapping("/api/ai-provider")
     Map<String, String> provider() {

@@ -101,9 +101,15 @@ public class Review {
     /** AI output of a finished run: PENDING suggestions, CREATED by SYSTEM. Runs in the caller's transaction. */
     @Transactional
     public void addAi(AiRun run, Long targetParentId, List<JsonNode> payloads) {
+        addAi(run, run.getKind(), targetParentId, payloads);
+    }
+
+    /** Same, for a run whose rows become another kind (a schedule extraction run makes items and events). */
+    @Transactional
+    public void addAi(AiRun run, Kind kind, Long targetParentId, List<JsonNode> payloads) {
         for (JsonNode payload : payloads) {
             AiSuggestion s = suggestions.save(new AiSuggestion(run.getCompanyId(), run.getProjectId(), run.getId(),
-                    run.getKind(), targetParentId, Origin.AI, payload));
+                    kind, targetParentId, Origin.AI, payload));
             event(s, null, Type.CREATED, null);
         }
     }
@@ -316,7 +322,7 @@ public class Review {
         if (!"UNVERIFIABLE".equals(p.path("quote_check").asText())) {
             return;
         }
-        int page = p.path("page_no").asInt();
+        int page = p.has("evidence") ? p.path("evidence").path("page").asInt() : p.path("page_no").asInt(); // 07 rows
         if (events.findBySuggestionIdOrderById(s.getId()).stream().noneMatch(e -> e.isPageView(page, null))) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "원문 미열람 스캔본: " + page + "쪽 원문을 열어 본 뒤 승인할 수 있습니다.");

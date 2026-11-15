@@ -85,8 +85,12 @@ export interface PermitDocument {
   uploadedAt: string;
   supersedesDocumentId: number | null; // ④ new version of this earlier document
   effectiveDate: string | null;
-  permitItemId: number;
+  permitItemId: number | null; // null: project document (공고문·과업내용서 …, design-schedule/07)
+  docType: DocType | null;
 }
+
+/** design-schedule/07 문서 종류; WEEKLY_REPORT is stored only. */
+export type DocType = 'BID_NOTICE' | 'SITE_BRIEFING_DOC' | 'TASK_SPEC' | 'MINUTES' | 'OFFICIAL_LETTER' | 'WEEKLY_REPORT';
 
 export interface PermitHistory {
   id: number;
