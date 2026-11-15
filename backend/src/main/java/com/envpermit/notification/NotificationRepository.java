@@ -20,6 +20,11 @@ interface NotificationRepository extends JpaRepository<Notification, Long> {
 
     List<Notification> findByEmailedAtIsNullOrderByUserIdAscOffsetDaysAscDueDateAscIdAsc();
 
+    /** A moved deadline: reminders of its old date that were not mailed yet must not go out. */
+    @Modifying
+    @Query("delete from Notification n where n.deadlineEventId = ?1 and n.dueDate <> ?2 and n.emailedAt is null")
+    void deleteUnsentForOtherDates(long eventId, LocalDate dueDate);
+
     @Modifying
     @Query("update Notification n set n.readAt = ?2 where n.userId = ?1 and n.readAt is null")
     void markAllRead(long userId, Instant now);

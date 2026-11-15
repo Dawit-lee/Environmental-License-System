@@ -9,6 +9,7 @@ import SignupPage from './pages/SignupPage';
 import JoinRequestsPage from './pages/JoinRequestsPage';
 import OrgPage from './pages/OrgPage';
 import InboxPage from './pages/InboxPage';
+import CompanyCalendarPage from './pages/CompanyCalendarPage';
 import LegacyRedirect from './pages/LegacyRedirect';
 import NotificationBell from './components/NotificationBell';
 import type { Session } from './api/auth';
@@ -33,6 +34,7 @@ const NAV = [
   { to: '/dashboard', label: '대시보드', icon: '📊' },
   { to: '/projects', label: '프로젝트', icon: '📁' },
   { to: '/inbox', label: '내 할 일', icon: '✅' },
+  { to: '/calendar', label: '회사 달력', icon: '📅' },
 ];
 const ADMIN_NAV = [
   { to: '/join-requests', label: '가입 요청', icon: '👥' },
@@ -141,7 +143,7 @@ export default function PermitApp() {
                 <Route path="/projects/:id/:tab?" element={<ProjectDetailPage />} />
                 {/* old top-level screens now live in project tabs; mail/notification links still use these */}
                 <Route path="/inbox" element={<InboxPage />} />
-                <Route path="/calendar" element={<Navigate to="/inbox?kind=DEADLINE" replace />} />
+                <Route path="/calendar" element={<CompanyCalendarPage />} />
                 <Route path="/review" element={<Navigate to="/inbox?kind=REVIEW" replace />} />
                 <Route path="/laws" element={<LegacyRedirect />} />
                 <Route path="/join-requests" element={<JoinRequestsPage />} />

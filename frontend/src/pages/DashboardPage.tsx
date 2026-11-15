@@ -9,6 +9,7 @@ import {
   ActivityList, DeadlineTimeline, PendingRow, STAGES, STATUSES, StatusDonut, dDayClasses, deadlineLink, isOpen, lifecycleStage, recentActivity,
 } from '../components/dashboard';
 import { CompanyCompliance } from '../components/Compliance';
+import { DelayedByDiscipline, WeekEvents } from '../components/ScheduleWidgets';
 
 // ---------------------------------------------------------------------------
 // DashboardPage — portfolio-wide overview: summary cards, near-expiry table,
@@ -73,6 +74,12 @@ export default function DashboardPage() {
           const p = projects.find((x) => x.id === id);
           return p ? STAGES[lifecycleStage(p, permits.filter((x) => x.projectId === id))] : '—';
         }} />
+
+        {/* 설계 일정 (design-schedule/04) */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2"><WeekEvents /></div>
+          <DelayedByDiscipline projectIds={projects.map((p) => p.id)} />
+        </div>
 
         {/* Near-expiry table — full width so each row stays on one line */}
         <section className="mt-6 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">

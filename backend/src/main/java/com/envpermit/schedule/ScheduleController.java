@@ -137,6 +137,12 @@ class ScheduleController {
         LocalDate start() {
             return milestone() ? endDate : startDate;
         }
+
+        /** The milestone a 제출·보고회 event adds to the schedule (design-schedule/04). */
+        static ItemRequest milestone(Long disciplineId, String title, LocalDate date) {
+            return new ItemRequest(disciplineId, null, "MILESTONE", title, date, date, null, null, null, null, null, null,
+                    null, null, null, null, null);
+        }
     }
 
     /** Where an item's dates come from; start/end null while the base date is unknown. */

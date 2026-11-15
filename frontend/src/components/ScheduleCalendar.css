@@ -1,0 +1,23 @@
+/* FullCalendar themed through its own CSS variables with the app's tokens (no FullCalendar CSS overrides of layout). */
+.schedule-calendar {
+  --fc-border-color: #E5E3DC;
+  --fc-page-bg-color: #fff;
+  --fc-neutral-bg-color: #F8F7F2;
+  --fc-today-bg-color: rgba(31, 78, 121, 0.06);
+  --fc-button-text-color: #374151;
+  --fc-button-bg-color: #fff;
+  --fc-button-border-color: #E5E3DC;
+  --fc-button-hover-bg-color: #F8F7F2;
+  --fc-button-hover-border-color: #1F4E79;
+  --fc-button-active-bg-color: #1F4E79;
+  --fc-button-active-border-color: #1F4E79;
+  --fc-event-bg-color: #1F4E79;
+  --fc-event-border-color: #1F4E79;
+  --fc-small-font-size: 0.75rem;
+  font-size: 0.8125rem;
+}
+.schedule-calendar .fc .fc-toolbar-title { font-size: 1rem; font-weight: 600; color: #111827; }
+.schedule-calendar .fc .fc-button { font-size: 0.75rem; padding: 0.3rem 0.65rem; box-shadow: none; }
+.schedule-calendar .fc .fc-button-primary:not(:disabled).fc-button-active { color: #fff; }
+.schedule-calendar .fc .fc-event { cursor: pointer; }
+.schedule-calendar .fc .fc-daygrid-event { white-space: nowrap; }

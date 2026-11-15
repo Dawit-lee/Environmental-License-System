@@ -65,7 +65,10 @@ class NotificationApiTest extends IntegrationTest {
             "PERMIT_EXPIRY, 90, 90", "PERMIT_EXPIRY, 91, none", "OBLIGATION, 1, 7",
             // schedule items: D-7 and D-1 only
             "SCHEDULE_ITEM, -1, none", "SCHEDULE_ITEM, 0, 1", "SCHEDULE_ITEM, 1, 1", "SCHEDULE_ITEM, 2, 7",
-            "SCHEDULE_ITEM, 7, 7", "SCHEDULE_ITEM, 8, none", "SCHEDULE_ITEM, 90, none"})
+            "SCHEDULE_ITEM, 7, 7", "SCHEDULE_ITEM, 8, none", "SCHEDULE_ITEM, 90, none",
+            // project events: D-3 and D-1 only (a meeting's D-3 is dropped by its recipients)
+            "PROJECT_EVENT, -1, none", "PROJECT_EVENT, 0, 1", "PROJECT_EVENT, 1, 1", "PROJECT_EVENT, 2, 3",
+            "PROJECT_EVENT, 3, 3", "PROJECT_EVENT, 4, none"})
     void crossed_offset_is_the_tightest_reminder_already_reached(String kind, long daysLeft, Integer expected) {
         assertThat(NotificationJob.crossedOffset(kind, daysLeft)).isEqualTo(expected);
     }
@@ -113,7 +116,9 @@ class NotificationApiTest extends IntegrationTest {
                 .andExpect(status().isOk());
         job.createDueNotifications();
 
-        assertThat(count(kimId)).isEqualTo(2);
+        // the old date's reminder was not mailed yet, so it is dropped rather than sent stale (design-schedule/04)
+        assertThat(jdbc.queryForList("SELECT due_date FROM notification WHERE user_id = ?", java.time.LocalDate.class, kimId))
+                .containsExactly(TODAY.plusDays(6));
     }
 
     @Test

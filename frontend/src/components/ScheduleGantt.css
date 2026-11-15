@@ -44,6 +44,13 @@
   pointer-events: none;
 }
 
+/* 이벤트 row (design-schedule/04): an invisible bar, one dot per event */
+.schedule-gantt .wx-bar.events { background: transparent; border: none; box-shadow: none; overflow: visible; }
+.schedule-gantt .schedule-event-dot {
+  position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 9999px; background: #1F4E79; border: 2px solid #fff;
+}
+.schedule-gantt .schedule-event-dot.trip { background: #0F6E56; }
 /* bar content (taskTemplate): title inside a task bar, beside a milestone; "+N일" right of the bar */
 .schedule-gantt .schedule-bar-text {
   overflow: hidden;

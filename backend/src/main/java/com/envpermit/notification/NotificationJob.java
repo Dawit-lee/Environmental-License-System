@@ -34,7 +34,8 @@ public class NotificationJob {
     private static final int[] OFFSETS = {7, 30, 60, 90}; // ascending
     public static final String SCHEDULE_ITEM = "SCHEDULE_ITEM";
     /** Kinds with their own reminder offsets (ascending, at most the last of {@link #OFFSETS}). */
-    private static final Map<String, int[]> OFFSETS_BY_KIND = Map.of(SCHEDULE_ITEM, new int[] {1, 7});
+    private static final Map<String, int[]> OFFSETS_BY_KIND = Map.of(SCHEDULE_ITEM, new int[] {1, 7},
+            Deadlines.PROJECT_EVENT, new int[] {1, 3});
     /** offset_days of the overdue notice. */
     public static final int OVERDUE = -1;
     // a task's deadline exists exactly while the task is open, so "due yesterday" means an open task went overdue
@@ -96,7 +97,11 @@ public class NotificationJob {
             Integer offset = crossedOffset(e.getKind(), ChronoUnit.DAYS.between(today, e.getDueDate()));
             if (offset == null) continue; // e.g. a schedule item at D-20
             String message = "%s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
-            remind(e, offset, message, link(e, "/projects/" + e.getProjectId()));
+            if (Deadlines.PROJECT_EVENT.equals(e.getKind())) {
+                notify(e, offset, message, link(e, null), eventRecipients(e.getTargetId(), offset));
+            } else {
+                remind(e, offset, message, link(e, "/projects/" + e.getProjectId()));
+            }
         }
         for (DeadlineEvent e : overdue) { // once: only on the day after, and the unique key stops a rerun
             String message = "기한 경과 · %s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
@@ -113,7 +118,22 @@ public class NotificationJob {
     }
 
     private static String link(DeadlineEvent e, String fallback) {
-        return SCHEDULE_ITEM.equals(e.getKind()) ? "/projects/" + e.getProjectId() + "/schedule" : fallback;
+        return SCHEDULE_ITEM.equals(e.getKind()) || Deadlines.PROJECT_EVENT.equals(e.getKind())
+                ? "/projects/" + e.getProjectId() + "/schedule" : fallback;
+    }
+
+    /**
+     * 설계 §3: a meeting reminds its attendees at D-1 only; every other event (출장·심의·현설·보고회·제출 …)
+     * reminds its attendees and the project PM at D-3 and D-1. Outside attendees (by name only) get nothing.
+     */
+    private List<Long> eventRecipients(long eventId, int offset) {
+        return jdbc.queryForList("""
+                SELECT a.user_id FROM project_event e JOIN project_event_attendee a ON a.event_id = e.id
+                WHERE e.id = ? AND a.user_id IS NOT NULL AND (e.kind <> 'MEETING' OR ? = 1)
+                UNION
+                SELECT p.pm_user_id FROM project_event e JOIN project p ON p.id = e.project_id
+                WHERE e.id = ? AND e.kind <> 'MEETING' AND p.pm_user_id IS NOT NULL
+                ORDER BY 1""", Long.class, eventId, offset, eventId);
     }
 
     /** To the assignee, or to every project member when nobody is assigned; never twice for the same due date and offset. */
