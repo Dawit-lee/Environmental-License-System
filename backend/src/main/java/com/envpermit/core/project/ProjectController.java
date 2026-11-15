@@ -136,7 +136,13 @@ public class ProjectController {
         access.member(id, jwt);
         Project p = projects.findById(id).orElseThrow();
         checkOrg(p.getCompanyId(), req);
+        LocalDate oldStart = p.getStartDate();
+        LocalDate oldEnd = p.getExpectedEndDate();
         p.apply(req);
+        if (!Objects.equals(oldStart, p.getStartDate()) || !Objects.equals(oldEnd, p.getExpectedEndDate())) {
+            events.publishEvent(new ProjectDatesChanged(id, userId(jwt), oldStart, p.getStartDate(), oldEnd,
+                    p.getExpectedEndDate())); // relative schedule items follow 착수일·완료일
+        }
         return views(List.of(p), userId(jwt)).get(0);
     }
 
