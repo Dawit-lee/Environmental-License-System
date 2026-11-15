@@ -4,6 +4,7 @@ import { api, isMaster } from '../api/client';
 import { EVENT_KIND_LABEL, EVENT_KINDS, eventWhen, getCalendar, type CalendarData, type CalendarFilter, type ProjectEvent } from '../api/events';
 import { getDepartments, type Department } from '../api/org';
 import { EntryDetail } from '../components/EventPanels';
+import GoogleCalendarSync from '../components/GoogleCalendarSync';
 import type { CalendarEntry } from '../components/ScheduleCalendar';
 import type { Project } from '../types';
 
@@ -93,6 +94,7 @@ export default function CompanyCalendarPage() {
         </Suspense>
 
         <PeopleWeeks events={weeks.filter((e) => filter.kind || PEOPLE_KINDS.has(e.kind))} nextMonday={ymd(nextMonday)} />
+        <GoogleCalendarSync />
       </div>
       {open && <EntryDetail entry={open} onClose={() => setOpen(null)} />}
     </div>

@@ -102,6 +102,12 @@ public abstract class IntegrationTest {
 
         @Bean
         @Primary
+        FakeCalendarPublisher fakeCalendarPublisher() {
+            return new FakeCalendarPublisher();
+        }
+
+        @Bean
+        @Primary
         LawApiClient fixtureLawApi() {
             return new FixtureLawApi();
         }
