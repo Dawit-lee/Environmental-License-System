@@ -28,6 +28,12 @@ app:
     username: ${SMTP_USERNAME:}
     password: ${SMTP_PASSWORD:}
     from: ${SMTP_FROM:}
+  # ⑤ Google calendar one-way sync (design-schedule/06). Any of the three empty = feature off (API 404, UI hidden).
+  # Redirect URI = base-url + /api/me/google-calendar/callback (Vite proxies /api to the API).
+  google:
+    client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
+    client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
+    token-enc-key: ${GOOGLE_TOKEN_ENC_KEY:} # base64 of 32 bytes: openssl rand -base64 32
   corrective:
     default-days: 7 # 초과 조치 업무 기한 = 입력일 + N일
   jwt:

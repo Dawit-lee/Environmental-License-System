@@ -217,7 +217,7 @@ public final class ExtractionEval {
     }
 
     /** The app's own adapters and model settings (application.yml, so CLAUDE_MODEL etc. apply); only providers with a key. */
-    private static List<LlmClient> clients(String wanted) throws IOException {
+    static List<LlmClient> clients(String wanted) throws IOException {
         StandardEnvironment env = new StandardEnvironment();
         new YamlPropertySourceLoader().load("application", new ClassPathResource("application.yml"))
                 .forEach(env.getPropertySources()::addLast);

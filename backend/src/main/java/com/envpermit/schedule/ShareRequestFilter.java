@@ -47,8 +47,9 @@ class ShareRequestFilter extends OncePerRequestFilter {
                 minute = now;
             }
         }
-        // shortcut: remote address only — behind a reverse proxy every partner shares the proxy's IP;
-        // trust X-Forwarded-For from that proxy once one is deployed
+        // shortcut: keyed by remote IP only. Calendar services (Google, Outlook) fetch many feeds from shared IPs and a
+        // reverse proxy makes every caller one IP: key by IP + token hash once feeds go to real calendar services,
+        // and trust X-Forwarded-For from the proxy once one is deployed
         if (counts.merge(req.getRemoteAddr(), 1, Integer::sum) > LIMIT_PER_MINUTE) {
             res.setStatus(429);
             return;

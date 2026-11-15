@@ -132,6 +132,11 @@ class EventController {
     @Transactional
     EventView create(@AuthenticationPrincipal Jwt jwt, @PathVariable long pid, @Valid @RequestBody EventRequest req) {
         access.member(pid, jwt);
+        return find(pid, create(pid, userId(jwt), req));
+    }
+
+    /** The route's rules for a caller that already checked membership (the document → schedule applier). */
+    long create(long pid, Long actor, EventRequest req) {
         validate(pid, req);
         long id = jdbc.queryForObject("""
                 INSERT INTO project_event (project_id, kind, subkind, title, starts_at, ends_at, all_day, location,
@@ -143,12 +148,11 @@ class EventController {
                 blankToNull(req.checklist()));
         setAttendees(id, req.attendees());
         if (req.addMilestone() != null ? req.addMilestone() : MILESTONE_BY_DEFAULT.contains(req.kind())) {
-            schedule.create(jwt, pid, ScheduleController.ItemRequest.milestone(
+            schedule.create(pid, actor, ScheduleController.ItemRequest.milestone(
                     req.disciplineId(), req.title().trim(), req.start().toLocalDate()));
         }
-        EventView v = find(pid, id);
-        remind(v);
-        return v;
+        remind(find(pid, id));
+        return id;
     }
 
     @PatchMapping("/api/projects/{pid}/events/{id}")
@@ -156,6 +160,11 @@ class EventController {
     EventView update(@AuthenticationPrincipal Jwt jwt, @PathVariable long pid, @PathVariable long id,
                      @Valid @RequestBody EventRequest req) {
         access.member(pid, jwt);
+        update(pid, id, req);
+        return find(pid, id);
+    }
+
+    void update(long pid, long id, EventRequest req) {
         lock(pid, id, req.version());
         validate(pid, req);
         jdbc.update("""
@@ -168,9 +177,21 @@ class EventController {
                 blankToNull(req.counterpartOrg()), blankToNull(req.purpose()), req.disciplineId(),
                 blankToNull(req.checklist()), id);
         setAttendees(id, req.attendees());
-        EventView v = find(pid, id);
-        remind(v); // a moved date drops the old date's unsent reminders (Deadlines.register)
-        return v;
+        remind(find(pid, id)); // a moved date drops the old date's unsent reminders (Deadlines.register)
+    }
+
+    /** A live event as a full request (PATCH replaces everything, attendees included); 404 when gone or elsewhere. */
+    EventRequest requestOf(long pid, long id) {
+        EventView e = withAttendees(jdbc.query(EVENTS + " WHERE e.project_id = ? AND e.id = ?", EventController::event,
+                pid, id)).stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        return new EventRequest(e.kind(), e.subkind(), e.title(), e.startsAt(), e.endsAt(), e.allDay(), e.location(),
+                e.counterpartOrg(), e.purpose(), e.disciplineId(), e.checklist(), e.attendees().stream()
+                .map(a -> new AttendeeRequest(a.userId(), a.externalName(), a.role())).toList(), false, null);
+    }
+
+    /** Approved document row (design-schedule/07): trace only, never read by queries. */
+    void applied(long id, long suggestionId) {
+        jdbc.update("UPDATE project_event SET source_suggestion_id = ? WHERE id = ?", suggestionId, id);
     }
 
     /** Hard delete; its reminder (and that reminder's notifications) go with it via the V330 trigger. */

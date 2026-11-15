@@ -4,7 +4,8 @@ package com.envpermit.review;
  * What a suggestion turns into when approved. Each kind has exactly one {@link SuggestionApplier}.
  * PERMIT_ITEM: auto-derivation (Applier in permit-derivation/02). Later: DERIVATION_RULE (company/project-less).
  * OBLIGATION_REVISION: version diff; its Applier comes with version-diff/02, until then accept answers 422.
+ * SCHEDULE_ITEM / PROJECT_EVENT: document → schedule rows (design-schedule/07); target_parent_id = the project.
  */
 public enum Kind {
-    OBLIGATION, PERMIT_ITEM, OBLIGATION_REVISION
+    OBLIGATION, PERMIT_ITEM, OBLIGATION_REVISION, SCHEDULE_ITEM, PROJECT_EVENT
 }

@@ -40,6 +40,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
       const latest: Record<number, AiRun> = {};
       for (const r of rs) {
         const d = r.inputRef?.document_id;
+        if (r.inputRef?.doc_type) continue; // schedule extraction (프로젝트 › 문서), not this drawer's
         if (d != null && !(d in latest)) latest[d] = r; // newest first
       }
       setRuns(latest);

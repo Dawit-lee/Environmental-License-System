@@ -32,6 +32,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/**", "/error").permitAll()
                         // partner share links and personal .ics: the token is the credential, and GET only
                         .requestMatchers(HttpMethod.GET, "/share/**", "/api/me/calendar.ics").permitAll()
+                        // Google redirects the browser here without our token; the one-time state names the user
+                        .requestMatchers("/api/me/google-calendar/callback").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(o -> o.jwt(j -> {}))
                 .build();

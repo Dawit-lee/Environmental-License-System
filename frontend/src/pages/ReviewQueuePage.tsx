@@ -7,6 +7,7 @@ import {
 } from '../api/review';
 import type { PermitItem, Project } from '../types';
 import RevisionSuggestions from '../components/RevisionSuggestions';
+import ScheduleSuggestionReview from '../components/ScheduleSuggestionReview';
 
 // ---------------------------------------------------------------------------
 // ReviewQueuePage — ③ human review of permit conditions (obligations).
@@ -182,6 +183,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
         {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
 
         {projectId && <RevisionSuggestions projectId={projectId} />}
+        {projectId && <ScheduleSuggestionReview key={projectId} projectId={projectId} />}
 
         <div className="mt-5 flex flex-wrap gap-2">
           {(['ALL', 'PENDING', 'SUBMITTED', 'ACCEPTED', 'REJECTED'] as const).map((f) => (
