@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Navigate, useParams } from 'react-router';
 import type { FacilityType, PermitCategory, PermitItem, PermitStatus, Project } from '../types';
-import { api } from '../api/client';
+import { api, apiBlob } from '../api/client';
 import { latestDerivation, type DerivationWarning } from '../api/derivation';
 import PermitDetailDrawer from '../components/PermitDetailDrawer';
 import ReviewQueuePage from './ReviewQueuePage';
@@ -98,6 +98,16 @@ const TABS = [
   { key: 'documents', label: '문서' },
   { key: 'settings', label: '설정' },
 ] as const;
+
+/** 인허가 진행 현황 보고 1쪽 (design-schedule/08): built from current values on every click. */
+async function downloadReport(projectId: number) {
+  const url = URL.createObjectURL(await apiBlob(`/api/projects/${projectId}/permit-status-report.xlsx`));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${new Date().toLocaleDateString('sv-SE').slice(2).replaceAll('-', '')} 인허가 진행 현황.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 export default function ProjectDetailPage() {
   const { id, tab = 'overview' } = useParams();
@@ -272,6 +282,14 @@ export default function ProjectDetailPage() {
               />
             ))}
           </div>
+          <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => downloadReport(project.id).catch((e: Error) => window.alert(e.message))}
+            className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20"
+          >
+            진행 현황 보고 ⬇
+          </button>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'ALL' | PermitStatus)}
@@ -282,6 +300,7 @@ export default function ProjectDetailPage() {
               <option key={value} value={value}>{label}</option>
             ))}
           </select>
+          </div>
         </div>
 
         {/* Permit table */}
@@ -344,7 +363,18 @@ export default function ProjectDetailPage() {
         </>)}
       </div>
 
-      <PermitDetailDrawer permit={selected} onClose={() => setSelected(null)} />
+      <PermitDetailDrawer
+        permit={selected}
+        onClose={() => setSelected(null)}
+        onSaved={
+          project.member
+            ? (p) => {
+                setSelected(p);
+                setPermits((list) => list.map((x) => (x.id === p.id ? p : x)));
+              }
+            : undefined
+        }
+      />
     </div>
   );
 }

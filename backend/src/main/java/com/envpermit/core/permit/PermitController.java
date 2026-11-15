@@ -66,14 +66,17 @@ public class PermitController {
                          LocalDate expiryDate,
                          @NotNull PermitItem.Status status,
                          String nextAction,
-                         @Size(max = 500) String nextActionUrl) {
+                         @Size(max = 500) String nextActionUrl,
+                         @Size(max = 200) String progressNote,
+                         @Size(max = 50) String expectedCompletion,
+                         @Size(max = 300) String issueNote) {
     }
 
     record PermitView(long id, long projectId, String name, PermitItem.Category category, String regulation,
                       String regulationUrl, String authority, String authorityUrl, String reason,
                       String approvalDate, LocalDate applicationDate, LocalDate acquisitionDate,
                       LocalDate expiryDate, PermitItem.Status status, String nextAction, String nextActionUrl,
-                      Long dDay) {
+                      String progressNote, String expectedCompletion, String issueNote, Long dDay) {
     }
 
     record HistoryView(long id, PermitItem.Status fromStatus, PermitItem.Status toStatus,
@@ -154,6 +157,6 @@ public class PermitController {
         return new PermitView(p.getId(), p.getProjectId(), p.getName(), p.getCategory(), p.getRegulation(),
                 p.getRegulationUrl(), p.getAuthority(), p.getAuthorityUrl(), p.getReason(), p.getApprovalDate(),
                 p.getApplicationDate(), p.getAcquisitionDate(), p.getExpiryDate(), p.getStatus(), p.getNextAction(),
-                p.getNextActionUrl(), dDay);
+                p.getNextActionUrl(), p.getProgressNote(), p.getExpectedCompletion(), p.getIssueNote(), dDay);
     }
 }

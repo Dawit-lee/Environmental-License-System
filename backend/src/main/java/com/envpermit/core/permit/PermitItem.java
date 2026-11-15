@@ -42,6 +42,9 @@ public class PermitItem {
 
     private String nextAction;
     private String nextActionUrl;
+    private String progressNote;
+    private String expectedCompletion;
+    private String issueNote;
 
     protected PermitItem() {
     }
@@ -79,6 +82,9 @@ public class PermitItem {
         status = r.status();
         nextAction = r.nextAction();
         nextActionUrl = r.nextActionUrl();
+        progressNote = r.progressNote();
+        expectedCompletion = r.expectedCompletion();
+        issueNote = r.issueNote();
     }
 
     public Long getId() { return id; }
@@ -97,4 +103,7 @@ public class PermitItem {
     public Status getStatus() { return status; }
     public String getNextAction() { return nextAction; }
     public String getNextActionUrl() { return nextActionUrl; }
+    public String getProgressNote() { return progressNote; }
+    public String getExpectedCompletion() { return expectedCompletion; }
+    public String getIssueNote() { return issueNote; }
 }
