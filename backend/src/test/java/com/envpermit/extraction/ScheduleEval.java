@@ -157,7 +157,8 @@ public final class ScheduleEval {
     private static final Pattern NO_YEAR = Pattern.compile(
             "(?<![\\d.])(\\d{1,2})\\s*(?:월\\s*(\\d{1,2})\\s*일|/(\\d{1,2})(?![\\d/]))");
     private static final Pattern RELATIVE = Pattern.compile(
-            "(계약일|계약|착수일|착수|제출일|심의일|심의|준공일|준공|과업\\s*종료일)\\s*(?:로부터|부터|후|전까지|전)?\\s*(\\d+)\\s*(일|개월)\\s*(이내|내|전|후|까지)?");
+            "(현장\\s*설명일|설명일|통보일|통지일|통지|착공일|착공|계약일|계약|착수일|착수|제출일|심의일|심의|준공일|준공|과업\\s*종료일)"
+                    + "\\s*(?:로부터|부터|후|을\\s*받은\\s*후|를\\s*받은\\s*후|전까지|전)?\\s*(\\d+)\\s*(일|개월|주)\\s*(이내|내|전|후|까지)?");
     private static final Map<String, Interval> RECURRING = Map.of("매월", Interval.MONTHLY, "월 1회", Interval.MONTHLY,
             "격주", Interval.BIWEEKLY, "매주", Interval.WEEKLY, "분기", Interval.QUARTERLY);
 
@@ -189,9 +190,12 @@ public final class ScheduleEval {
             Matcher r = RELATIVE.matcher(text);
             while (r.find()) {
                 String base = r.group(1).replace(" ", "");
-                String anchor = base.startsWith("계약") ? "CONTRACT" : base.startsWith("착수") ? "KICKOFF"
-                        : base.startsWith("제출") ? "SUBMISSION" : base.startsWith("심의") ? "REVIEW" : "COMPLETION";
-                int value = Integer.parseInt(r.group(2));
+                String anchor = base.contains("설명") ? "SITE_BRIEFING" : base.startsWith("통") ? "NOTICE"
+                        : base.startsWith("착공") ? "CONSTRUCTION_START" : base.startsWith("계약") ? "CONTRACT"
+                        : base.startsWith("착수") ? "KICKOFF" : base.startsWith("제출") ? "SUBMISSION"
+                        : base.startsWith("심의") ? "REVIEW" : "COMPLETION";
+                boolean weeks = "주".equals(r.group(3));
+                int value = Integer.parseInt(r.group(2)) * (weeks ? 7 : 1);
                 boolean before = "전".equals(r.group(4)) || r.group(0).contains("전까지");
                 int signed = before ? -value : value;
                 boolean months = "개월".equals(r.group(3));

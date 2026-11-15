@@ -4,6 +4,7 @@ import {
   acceptSuggestion, editSuggestion, effective, listScheduleSuggestions, rejectSuggestion, submitSuggestion,
   type ScheduleRowPayload, type ScheduleSuggestion,
 } from '../api/review';
+import { ANCHOR_LABEL } from '../api/schedule';
 
 // ---------------------------------------------------------------------------
 // ScheduleSuggestionReview — design-schedule/07: dates found in a project document (프로젝트 › 문서 [일정 추출]),
@@ -18,7 +19,7 @@ const EVENT_KIND: Record<string, string> = {
   SITE_BRIEFING: '현장설명회', QNA_DEADLINE: '질의 마감', SUBMISSION: '제출', CLIENT_REPORT: '발주처 보고', REVIEW: '심의',
   MEETING: '회의', TRIP: '출장', OTHER: '기타',
 };
-const ANCHOR: Record<string, string> = { CONTRACT: '계약일', KICKOFF: '착수일', SUBMISSION: '입찰(제출)일', COMPLETION: '완료일', REVIEW: '심의일' };
+const ANCHOR: Record<string, string> = ANCHOR_LABEL;
 const INTERVAL: Record<string, string> = { WEEKLY: '매주', BIWEEKLY: '격주', MONTHLY: '매월', QUARTERLY: '분기마다' };
 const CHECK: Record<string, string> = { YEAR_INFERRED: '연도 추정', RELATIVE_RULE: '상대 규칙', BASE_DATE_MISSING: '기준일 미입력' };
 const STATUS: Record<string, string> = {

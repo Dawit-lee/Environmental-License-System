@@ -41,7 +41,7 @@ class ScheduleTemplateController {
 
     /** Whole replacement of an item's editable fields: exactly one of offsetDays / offsetMonths; a task needs its length. */
     record ItemRequest(@NotBlank @Size(max = 200) String title,
-                       @NotNull @Pattern(regexp = "CONTRACT|KICKOFF|SUBMISSION|COMPLETION|REVIEW") String anchor,
+                       @NotNull @Pattern(regexp = ScheduleController.ANCHOR_PATTERN) String anchor,
                        Integer offsetDays, Integer offsetMonths, @Min(1) Integer durationDays) {
     }
 

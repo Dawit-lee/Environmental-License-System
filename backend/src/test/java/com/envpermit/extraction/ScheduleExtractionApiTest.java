@@ -116,7 +116,7 @@ class ScheduleExtractionApiTest extends IntegrationTest {
         long runId = run();
 
         call(kim, get("/api/ai-runs/" + runId)).andExpect(jsonPath("$.status").value("SUCCEEDED"))
-                .andExpect(jsonPath("$.promptVersion").value("schedule-bid_notice-v1"))
+                .andExpect(jsonPath("$.promptVersion").value("schedule-bid_notice-v2"))
                 .andExpect(jsonPath("$.inputRef.doc_type").value("BID_NOTICE"));
         assertThat(llm.calls.get(0).system()).isEqualTo(SchedulePrompt.SYSTEM);
         List<Map<String, Object>> rows = suggestions();

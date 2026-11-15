@@ -63,9 +63,13 @@ import org.springframework.web.server.ResponseStatusException;
 class ScheduleController {
 
     static final String KIND = "SCHEDULE_ITEM";
-    static final List<String> ANCHORS = List.of("CONTRACT", "KICKOFF", "SUBMISSION", "COMPLETION", "REVIEW");
+    /** Base dates in display order; 07b added the bid-stage ones that 현장설명서 count from. */
+    static final List<String> ANCHORS = List.of("CONTRACT", "KICKOFF", "SUBMISSION", "COMPLETION", "REVIEW",
+            "SITE_BRIEFING", "NOTICE", "CONSTRUCTION_START");
+    static final String ANCHOR_PATTERN = "CONTRACT|KICKOFF|SUBMISSION|COMPLETION|REVIEW|SITE_BRIEFING|NOTICE|CONSTRUCTION_START";
     private static final Map<String, String> ANCHOR_LABEL = Map.of("CONTRACT", "계약일", "KICKOFF", "착수일",
-            "SUBMISSION", "입찰(제출)일", "COMPLETION", "완료일", "REVIEW", "심의일");
+            "SUBMISSION", "입찰(제출)일", "COMPLETION", "완료일", "REVIEW", "심의일", "SITE_BRIEFING", "현장설명일",
+            "NOTICE", "적격자 통보일", "CONSTRUCTION_START", "착공일");
 
     private static final String ITEMS = """
             SELECT i.id, i.discipline_id, d.name AS discipline_name, i.parent_id, i.kind, i.title, i.start_date,
@@ -124,7 +128,7 @@ class ScheduleController {
      */
     record ItemRequest(Long disciplineId, Long parentId, @NotNull @Pattern(regexp = "TASK|MILESTONE") String kind,
                        @NotBlank @Size(max = 200) String title, LocalDate startDate, LocalDate endDate,
-                       @Pattern(regexp = "CONTRACT|KICKOFF|SUBMISSION|COMPLETION|REVIEW") String anchor,
+                       @Pattern(regexp = ANCHOR_PATTERN) String anchor,
                        Integer offsetDays, Integer offsetMonths, @Min(1) Integer durationDays,
                        Long ownerUserId, @Size(max = 100) String partnerName,
                        @DecimalMin("0") @DecimalMax("100") BigDecimal weight, @Min(0) @Max(100) Integer progress,
