@@ -10,17 +10,19 @@ import { getProjectEvents, type ProjectEvent } from '../api/events';
 import ProjectCalendar from './ProjectCalendar';
 import type { Scale } from './ScheduleGantt';
 import { BaseDatesDialog, DelayTable, PasteDialog, TemplateDialog } from './ScheduleTools';
+import ReadOnlySchedule from './ReadOnlySchedule';
+import ShareDialog from './ShareDialog';
 
 // the Gantt library is large; only this tab loads it
 const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
 
 // ---------------------------------------------------------------------------
-// ProjectSchedule — 프로젝트 › 일정 tab: view switch [간트] [지연 현황] [인허가 기한], a summary line (기준 회차,
+// ProjectSchedule — 프로젝트 › 일정 tab: view switch [간트] [달력] [지연 현황] [인허가 기한] [인쇄본], a summary line (기준 회차,
 // 공정률, 지연 N건) and the base-date / baseline / template / paste tools. Clicking a row opens the item form;
 // dragging a bar saves (a slip past the baseline asks for the reason first).
 // ---------------------------------------------------------------------------
 
-type View = 'gantt' | 'calendar' | 'delays' | 'deadlines';
+type View = 'gantt' | 'calendar' | 'delays' | 'deadlines' | 'print';
 interface Member { userId: number; name: string }
 
 const btn = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
@@ -38,7 +40,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
   const [filter, setFilter] = useState({ discipline: '', owner: '', delayedOnly: false });
   const [editing, setEditing] = useState<ScheduleItem | 'new' | null>(null);
   const [events, setEvents] = useState<ProjectEvent[]>([]); // the Gantt's 이벤트 row
-  const [tool, setTool] = useState<'base' | 'template' | 'paste' | null>(null);
+  const [tool, setTool] = useState<'base' | 'template' | 'paste' | 'share' | null>(null);
 
   // together: the Gantt copies its data once per key (loads)
   const load = () =>
@@ -105,6 +107,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
           <button type="button" className={seg(view === 'calendar')} onClick={() => setView('calendar')}>달력</button>
           <button type="button" className={seg(view === 'delays')} onClick={() => setView('delays')}>지연 현황</button>
           <button type="button" className={seg(view === 'deadlines')} onClick={() => setView('deadlines')}>인허가 기한</button>
+          <button type="button" className={seg(view === 'print')} onClick={() => setView('print')}>인쇄본</button>
         </div>
         {view !== 'deadlines' && schedule && (
           <p className="truncate text-sm text-gray-500">
@@ -121,6 +124,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
               {schedule.baselineNo ? '기준 재확정' : '기준 확정'}</button>
             <button type="button" className={btn} onClick={() => setTool('template')}>템플릿</button>
             <button type="button" className={btn} onClick={() => setTool('paste')}>붙여넣기</button>
+            <button type="button" className={btn} onClick={() => setTool('share')}>공유</button>
           </div>
         )}
       </div>
@@ -128,6 +132,24 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
       {view === 'delays' && <DelayTable key={loads} projectId={projectId} />}
 
       {view === 'deadlines' && <CalendarPage projectId={projectId} />}
+      {view === 'print' && schedule && (
+        <>
+          <div className="flex items-center gap-2">
+            <select aria-label="분야 필터" className="rounded-lg border border-[#E5E3DC] bg-white px-2 py-1.5 text-xs"
+              value={filter.discipline} onChange={(e) => setFilter({ ...filter, discipline: e.target.value })}>
+              <option value="">분야 전체</option>
+              <option value="0">공통(미지정)</option>
+              {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            <button type="button" className={btn} onClick={() => window.print()}>인쇄 · PDF</button>
+          </div>
+          <ReadOnlySchedule title="공정표"
+            subtitle={`${schedule.today} 기준${filter.discipline ? ` · ${filter.discipline === '0' ? '공통' : disciplines.find((d) => String(d.id) === filter.discipline)?.name ?? ''}` : ''}`}
+            items={schedule.items.filter((i) => i.endDate && (!filter.discipline || String(i.disciplineId ?? 0) === filter.discipline))
+              .map((i) => ({ ...i, startDate: i.startDate!, endDate: i.endDate! }))}
+            events={events.filter((e) => !filter.discipline || String(e.disciplineId ?? 0) === filter.discipline)} />
+        </>
+      )}
       {view === 'calendar' && (
         <ProjectCalendar projectId={projectId} disciplines={disciplines} members={members} onChanged={load}
           onOpenItem={(id) => setEditing(schedule?.items.find((i) => i.id === id) ?? null)} />
@@ -192,6 +214,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
       {tool === 'paste' && (
         <PasteDialog projectId={projectId} onClose={() => setTool(null)} onChanged={() => { setTool(null); load(); }} />
       )}
+      {tool === 'share' && <ShareDialog projectId={projectId} disciplines={disciplines} onClose={() => setTool(null)} />}
       {editing && schedule && (
         <ItemDrawer projectId={projectId} item={editing === 'new' ? null : editing} schedule={schedule}
           disciplines={disciplines} members={members}
