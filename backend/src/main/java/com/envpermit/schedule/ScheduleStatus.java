@@ -23,7 +23,11 @@ final class ScheduleStatus {
     private ScheduleStatus() {
     }
 
+    /** An item without dates (its base date is not set yet) is 예정, or 완료 if it was finished anyway. */
     static Computed of(LocalDate start, LocalDate end, LocalDate actualEnd, LocalDate today) {
+        if (end == null) {
+            return new Computed(actualEnd != null ? Status.DONE : Status.PLANNED, 0);
+        }
         if (actualEnd != null) {
             return new Computed(Status.DONE, daysAfter(end, actualEnd));
         }
