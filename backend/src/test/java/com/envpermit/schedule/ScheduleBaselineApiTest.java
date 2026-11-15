@@ -106,6 +106,36 @@ class ScheduleBaselineApiTest extends IntegrationTest {
     }
 
     @Test
+    void bid_stage_base_dates_place_items_and_move_them() throws Exception {
+        long qna = item("{\"kind\":\"MILESTONE\",\"title\":\"질의 마감\",\"anchor\":\"SITE_BRIEFING\",\"offsetDays\":10}");
+        long design = item("""
+                {"kind":"TASK","title":"실시설계","anchor":"NOTICE","offsetDays":150,"durationDays":150}""");
+        long build = item("{\"kind\":\"MILESTONE\",\"title\":\"준공\",\"anchor\":\"CONSTRUCTION_START\",\"offsetMonths\":36}");
+        call(lee, get(schedule())).andExpect(jsonPath(at(qna, "endDate")).value(org.hamcrest.Matchers.contains((Object) null))) // no base date yet
+                .andExpect(jsonPath("$.anchors.length()").value(8))
+                .andExpect(jsonPath("$.anchors[5].anchor").value("SITE_BRIEFING"))
+                .andExpect(jsonPath("$.anchors[6].anchor").value("NOTICE"))
+                .andExpect(jsonPath("$.anchors[7].anchor").value("CONSTRUCTION_START"));
+
+        anchor("SITE_BRIEFING", "2027-03-08", false);
+        anchor("NOTICE", "2027-09-01", false);
+        anchor("CONSTRUCTION_START", "2028-01-31", false);
+        call(lee, get(schedule()))
+                .andExpect(jsonPath(at(qna, "endDate")).value("2027-03-18"))
+                .andExpect(jsonPath(at(design, "startDate")).value("2027-09-02"))
+                .andExpect(jsonPath(at(design, "endDate")).value("2028-01-29"))
+                .andExpect(jsonPath(at(build, "endDate")).value("2031-01-31"))
+                .andExpect(jsonPath("$.anchors[5].date").value("2027-03-08"));
+
+        call(lee, json(put(schedule() + "/anchors/SITE_BRIEFING?preview=false"), "{\"date\":\"2027-03-15\"}"))
+                .andExpect(jsonPath("$.count").value(1));
+        call(lee, get(schedule())).andExpect(jsonPath(at(qna, "endDate")).value("2027-03-25"));
+        assertThat(jdbc.queryForObject("""
+                SELECT data->>'reason' FROM schedule_item_event WHERE item_id = ? AND type = 'DATES_CHANGED'
+                ORDER BY id DESC LIMIT 1""", String.class, qna)).isEqualTo("기준일 변경: 현장설명일 3/8 → 3/15");
+    }
+
+    @Test
     void pin_and_link_back_keep_the_dates_and_leave_history() throws Exception {
         anchor("SUBMISSION", "2027-07-12", false);
         long id = item("{\"kind\":\"MILESTONE\",\"title\":\"중간보고회\",\"anchor\":\"SUBMISSION\",\"offsetDays\":-60}");

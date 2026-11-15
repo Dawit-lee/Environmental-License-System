@@ -6,7 +6,7 @@ export interface Discipline { id: number; code: string | null; name: string; sor
 
 export type ItemKind = 'TASK' | 'MILESTONE';
 export type ItemStatus = 'DONE' | 'DELAYED' | 'IN_PROGRESS' | 'PLANNED';
-export type Anchor = 'CONTRACT' | 'KICKOFF' | 'SUBMISSION' | 'COMPLETION' | 'REVIEW';
+export type Anchor = 'CONTRACT' | 'KICKOFF' | 'SUBMISSION' | 'COMPLETION' | 'REVIEW' | 'SITE_BRIEFING' | 'NOTICE' | 'CONSTRUCTION_START';
 export type ScheduleBase = 'SUBMISSION' | 'KICKOFF';
 
 export interface ScheduleItem {
@@ -98,6 +98,7 @@ export const STATUS_LABEL: Record<ItemStatus, string> = {
 
 export const ANCHOR_LABEL: Record<Anchor, string> = {
   CONTRACT: '계약일', KICKOFF: '착수일', SUBMISSION: '입찰(제출)일', COMPLETION: '완료일', REVIEW: '심의일',
+  SITE_BRIEFING: '현장설명일', NOTICE: '적격자 통보일', CONSTRUCTION_START: '착공일',
 };
 export const ANCHORS = Object.keys(ANCHOR_LABEL) as Anchor[];
 
