@@ -138,6 +138,13 @@ class ScheduleController {
             return milestone() ? endDate : startDate;
         }
 
+        /** Same item with other dates (document → schedule update, design-schedule/07); the rest is kept. */
+        ItemRequest withDates(LocalDate startDate, LocalDate endDate, String anchor, Integer offsetDays,
+                              Integer offsetMonths, Integer durationDays, String reason) {
+            return new ItemRequest(disciplineId, parentId, kind, title, startDate, endDate, anchor, offsetDays,
+                    offsetMonths, durationDays, ownerUserId, partnerName, weight, progress, predecessorIds, null, reason);
+        }
+
         /** The milestone a 제출·보고회 event adds to the schedule (design-schedule/04). */
         static ItemRequest milestone(Long disciplineId, String title, LocalDate date) {
             return new ItemRequest(disciplineId, null, "MILESTONE", title, date, date, null, null, null, null, null, null,
@@ -164,16 +171,20 @@ class ScheduleController {
     @Transactional
     ItemView create(@AuthenticationPrincipal Jwt jwt, @PathVariable long pid, @Valid @RequestBody ItemRequest req) {
         access.member(pid, jwt);
+        return find(pid, create(pid, userId(jwt), req));
+    }
+
+    /** The route's rules for a caller that already checked membership (events, the document → schedule applier). */
+    long create(long pid, Long actor, ItemRequest req) {
         validate(pid, null, req);
         Plan plan = plan(pid, req);
         long id = insert(pid, req.disciplineId(), req.parentId(), req.kind(), req.title().trim(), plan,
                 req.ownerUserId(), blankToNull(req.partnerName()), Objects.requireNonNullElse(req.progress(), 0),
                 req.weight());
         setPredecessors(pid, id, req.predecessorIds());
-        event(id, userId(jwt), "CREATED", created(req.title().trim(), plan));
-        ItemView v = find(pid, id);
-        remind(pid, v);
-        return v;
+        event(id, actor, "CREATED", created(req.title().trim(), plan));
+        remind(pid, find(pid, id));
+        return id;
     }
 
     @PatchMapping("/api/projects/{pid}/schedule/items/{id}")
@@ -181,6 +192,12 @@ class ScheduleController {
     ItemView update(@AuthenticationPrincipal Jwt jwt, @PathVariable long pid, @PathVariable long id,
                     @Valid @RequestBody ItemRequest req) {
         access.member(pid, jwt);
+        update(pid, id, userId(jwt), req);
+        return find(pid, id);
+    }
+
+    /** The PATCH rules (lock, reason on a slip past the baseline, history) for a caller that checked membership. */
+    void update(long pid, long id, Long actor, ItemRequest req) {
         ItemView before = lock(pid, id, req.version());
         validate(pid, id, req);
         Plan plan = plan(pid, req);
@@ -200,7 +217,6 @@ class ScheduleController {
                 req.ownerUserId(), blankToNull(req.partnerName()), req.weight(),
                 Objects.requireNonNullElse(req.progress(), before.progress()), slips, reason, id);
         setPredecessors(pid, id, req.predecessorIds());
-        Long actor = userId(jwt);
         if (!Objects.equals(plan.start(), before.startDate()) || !Objects.equals(plan.end(), before.endDate())) {
             datesChanged(id, actor, before.startDate(), before.endDate(), plan.start(), plan.end(), reason);
         }
@@ -213,9 +229,26 @@ class ScheduleController {
         if (!Objects.equals(before.ownerUserId(), req.ownerUserId())) {
             event(id, actor, "OWNER_CHANGED", nullable("from", before.ownerUserId(), "to", req.ownerUserId()));
         }
-        ItemView v = find(pid, id);
-        remind(pid, v);
-        return v;
+        remind(pid, find(pid, id));
+    }
+
+    /** A live item's editable fields as a full request (PATCH replaces them all); 404 when gone or elsewhere. */
+    ItemRequest requestOf(long pid, long id) {
+        ItemView v = jdbc.query(ITEMS + " AND i.project_id = ? AND i.id = ?", (rs, n) -> item(rs, LocalDate.now(clock)),
+                pid, id).stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        List<Long> preds = jdbc.queryForList(
+                "SELECT predecessor_id FROM schedule_item_dependency WHERE successor_id = ? ORDER BY predecessor_id",
+                Long.class, id);
+        return new ItemRequest(v.disciplineId(), v.parentId(), v.kind(), v.title(), v.startDate(), v.endDate(),
+                v.anchor(), v.offsetDays(), v.offsetMonths(), v.durationDays(), v.ownerUserId(), v.partnerName(),
+                v.weight(), v.progress(), preds, null, null);
+    }
+
+    /** Approved document row (design-schedule/07): trace the suggestion (never read by queries) and log it. */
+    void applied(long id, Long actor, long suggestionId, boolean created, String documentName) {
+        jdbc.update("UPDATE schedule_item SET source_suggestion_id = ? WHERE id = ?", suggestionId, id);
+        event(id, actor, "APPLIED_FROM_SUGGESTION", nullable("suggestionId", suggestionId,
+                "action", created ? "CREATED" : "UPDATED", "document", documentName));
     }
 
     /** 실적 종료일 → 완료. Its reminders stop. */
@@ -617,7 +650,7 @@ class ScheduleController {
     }
 
     /** All five base dates; missing ones are absent. */
-    private Map<String, LocalDate> anchorDates(long pid) {
+    Map<String, LocalDate> anchorDates(long pid) {
         Map<String, LocalDate> m = new HashMap<>();
         jdbc.query("SELECT start_date, expected_end_date FROM project WHERE id = ?", rs -> {
             m.put("KICKOFF", rs.getObject(1, LocalDate.class));

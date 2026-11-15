@@ -2,7 +2,6 @@ package com.envpermit.core.document;
 
 import static com.envpermit.core.project.ProjectAccess.userId;
 
-import com.envpermit.core.permit.PermitItem;
 import com.envpermit.core.permit.PermitItemRepository;
 import com.envpermit.core.project.ProjectAccess;
 import com.envpermit.core.user.User;
@@ -18,6 +17,7 @@ import java.time.LocalDate;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.springframework.core.io.InputStreamResource;
@@ -47,6 +47,9 @@ public class DocumentController {
     static final String TOO_LARGE = "파일은 10MB 이하만 올릴 수 있습니다.";
     static final String ALREADY_SUPERSEDED = "이미 다른 문서로 대체된 문서입니다. 최신 문서를 선택하세요.";
     static final String BAD_TYPE = "PDF, JPG, PNG, XLSX 파일만 올릴 수 있습니다.";
+    /** design-schedule/07 문서 종류; WEEKLY_REPORT is stored only (its extraction is v1.1). */
+    public static final Set<String> DOC_TYPES = Set.of("BID_NOTICE", "SITE_BRIEFING_DOC", "TASK_SPEC", "MINUTES",
+            "OFFICIAL_LETTER", "WEEKLY_REPORT");
 
     private final DocumentRepository documents;
     private final DocumentStorage storage;
@@ -67,7 +70,7 @@ public class DocumentController {
 
     record DocumentView(long id, String fileName, String contentType, long size, String sha256,
                         String uploadedBy, Instant uploadedAt, Long supersedesDocumentId, LocalDate effectiveDate,
-                        long permitItemId) {
+                        Long permitItemId, String docType) {
     }
 
     @GetMapping("/api/projects/{projectId}/permits/{permitId}/documents")
@@ -81,8 +84,7 @@ public class DocumentController {
     @GetMapping("/api/projects/{projectId}/documents")
     List<DocumentView> projectList(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
         access.member(projectId, jwt);
-        return views(documents.findByPermitItemIdInOrderByUploadedAtDescIdDesc(
-                permits.findByProjectIdOrderById(projectId).stream().map(PermitItem::getId).toList()));
+        return views(documents.findByProjectIdOrderByUploadedAtDescIdDesc(projectId));
     }
 
     private List<DocumentView> views(List<Document> rows) {
@@ -95,9 +97,28 @@ public class DocumentController {
     ResponseEntity<?> upload(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                              @PathVariable long permitId, @RequestParam("file") MultipartFile file,
                              @RequestParam(required = false) Long supersedesDocumentId,
-                             @RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE) LocalDate effectiveDate)
+                             @RequestParam(required = false) @DateTimeFormat(iso = ISO.DATE) LocalDate effectiveDate,
+                             @RequestParam(required = false) String docType)
             throws IOException {
         checkPermit(jwt, projectId, permitId);
+        return store(jwt, projectId, permitId, file, supersedesDocumentId, effectiveDate, docType);
+    }
+
+    /** A project document without a permit item (공고문·과업내용서·공문·회의록 …), design-schedule/07. */
+    @PostMapping("/api/projects/{projectId}/documents")
+    ResponseEntity<?> uploadToProject(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
+                                      @RequestParam("file") MultipartFile file,
+                                      @RequestParam(required = false) String docType) throws IOException {
+        access.member(projectId, jwt);
+        return store(jwt, projectId, null, file, null, null, docType);
+    }
+
+    private ResponseEntity<?> store(Jwt jwt, long projectId, Long permitId, MultipartFile file,
+                                    Long supersedesDocumentId, LocalDate effectiveDate, String docType)
+            throws IOException {
+        if (docType != null && !DOC_TYPES.contains(docType)) {
+            return reject(HttpStatus.BAD_REQUEST, "알 수 없는 문서 종류입니다.");
+        }
         if (supersedesDocumentId != null) {
             String why = cannotSupersede(permitId, supersedesDocumentId);
             if (why != null) {
@@ -116,12 +137,13 @@ public class DocumentController {
         if (name.length() > 255) {
             return reject(HttpStatus.BAD_REQUEST, "파일 이름은 255자 이하여야 합니다.");
         }
-        String key = "permits/" + permitId + "/" + UUID.randomUUID();
+        String key = (permitId != null ? "permits/" + permitId : "projects/" + projectId + "/documents") + "/"
+                + UUID.randomUUID();
         storage.put(key, new ByteArrayInputStream(bytes), bytes.length, type.contentType);
         // shortcut: if this save fails the stored object is orphaned; add a sweep if that ever matters
         Document d;
         try {
-            d = documents.save(new Document(permitId, name, type.contentType, bytes.length, sha256(bytes),
+            d = documents.save(new Document(projectId, permitId, docType, name, type.contentType, bytes.length, sha256(bytes),
                     key, userId(jwt), clock.instant(), supersedesDocumentId, effectiveDate));
         } catch (DataIntegrityViolationException e) { // a concurrent upload superseded the same document first
             storage.delete(key);
@@ -134,7 +156,10 @@ public class DocumentController {
     @GetMapping("/api/projects/{projectId}/permits/{permitId}/documents/{id}")
     ResponseEntity<InputStreamResource> download(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                                                  @PathVariable long permitId, @PathVariable long id) {
-        Document d = find(jwt, projectId, permitId, id);
+        return file(find(jwt, projectId, permitId, id));
+    }
+
+    private ResponseEntity<InputStreamResource> file(Document d) {
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(d.getContentType()))
                 .contentLength(d.getSizeBytes())
@@ -143,11 +168,31 @@ public class DocumentController {
                 .body(new InputStreamResource(storage.open(d.getStorageKey())));
     }
 
+    /** Any document of the project, by project membership (문서 탭). */
+    @GetMapping("/api/projects/{projectId}/documents/{id}")
+    ResponseEntity<InputStreamResource> downloadFromProject(@AuthenticationPrincipal Jwt jwt,
+                                                            @PathVariable long projectId, @PathVariable long id) {
+        access.member(projectId, jwt);
+        return file(documents.findByIdAndProjectId(id, projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
+    }
+
+    @DeleteMapping("/api/projects/{projectId}/documents/{id}")
+    ResponseEntity<Void> deleteFromProject(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
+                                           @PathVariable long id) {
+        access.member(projectId, jwt);
+        return remove(documents.findByIdAndProjectId(id, projectId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)));
+    }
+
     // no @Transactional: the row is gone (committed) before the bytes are, so a failure never leaves a dangling row
     @DeleteMapping("/api/projects/{projectId}/permits/{permitId}/documents/{id}")
     ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                                 @PathVariable long permitId, @PathVariable long id) {
-        Document d = find(jwt, projectId, permitId, id);
+        return remove(find(jwt, projectId, permitId, id));
+    }
+
+    private ResponseEntity<Void> remove(Document d) {
         try {
             documents.delete(d);
         } catch (DataIntegrityViolationException e) { // task_evidence: proof of a fulfilled cycle stays
@@ -206,6 +251,7 @@ public class DocumentController {
 
     private static DocumentView view(Document d, String uploader) {
         return new DocumentView(d.getId(), d.getFileName(), d.getContentType(), d.getSizeBytes(), d.getSha256(),
-                uploader, d.getUploadedAt(), d.getSupersedesDocumentId(), d.getEffectiveDate(), d.getPermitItemId());
+                uploader, d.getUploadedAt(), d.getSupersedesDocumentId(), d.getEffectiveDate(), d.getPermitItemId(),
+                d.getDocType());
     }
 }
