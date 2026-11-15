@@ -11,6 +11,7 @@ import OrgPage from './pages/OrgPage';
 import InboxPage from './pages/InboxPage';
 import CompanyCalendarPage from './pages/CompanyCalendarPage';
 import LegacyRedirect from './pages/LegacyRedirect';
+import SharePage from './pages/SharePage';
 import NotificationBell from './components/NotificationBell';
 import type { Session } from './api/auth';
 import { isMaster } from './api/client';
@@ -55,6 +56,11 @@ export default function PermitApp() {
     localStorage.removeItem(STORAGE_KEY);
     setSession(null);
   };
+
+  // partner share page: no login, no app shell, same for signed-in users
+  if (window.location.pathname.startsWith('/share/')) {
+    return <BrowserRouter><Routes><Route path="/share/:token" element={<SharePage />} /></Routes></BrowserRouter>;
+  }
 
   return (
     <BrowserRouter>

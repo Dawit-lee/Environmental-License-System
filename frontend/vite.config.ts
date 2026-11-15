@@ -34,6 +34,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': process.env.API_URL ?? 'http://localhost:8080',
+      // partner links: the page itself is the SPA, its data (JSON, .ics) comes from the API
+      '/share': {
+        target: process.env.API_URL ?? 'http://localhost:8080',
+        bypass: (req) => (req.headers.accept?.includes('text/html') ? '/index.html' : undefined),
+      },
     },
   },
 

@@ -15,7 +15,7 @@ const cell = 'max-w-[220px] truncate px-3 py-2';
 const head = 'px-3 py-2 font-medium';
 const md = (d: string | null) => (d ? d.slice(2).replaceAll('-', '.') : '미정');
 
-function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10">
       <div role="dialog" aria-modal="true" aria-label={title}
@@ -30,7 +30,7 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
   );
 }
 
-const Alert = ({ error }: { error: string | null }) =>
+export const Alert = ({ error }: { error: string | null }) =>
   error ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p> : null;
 
 /** 기준일: the main base, the five dates, and "N건이 이동합니다" before a date is applied. */

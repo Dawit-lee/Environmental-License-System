@@ -3,6 +3,7 @@ import { addDays, format, startOfWeek } from 'date-fns';
 import { api, isMaster } from '../api/client';
 import { EVENT_KIND_LABEL, EVENT_KINDS, eventWhen, getCalendar, type CalendarData, type CalendarFilter, type ProjectEvent } from '../api/events';
 import { getDepartments, type Department } from '../api/org';
+import { issueCalendarToken, webcal } from '../api/share';
 import { EntryDetail } from '../components/EventPanels';
 import GoogleCalendarSync from '../components/GoogleCalendarSync';
 import type { CalendarEntry } from '../components/ScheduleCalendar';
@@ -59,6 +60,7 @@ export default function CompanyCalendarPage() {
             {isMaster() ? '회사 전체 프로젝트' : '내가 멤버인 프로젝트'}의 이벤트·출장·마일스톤입니다. 항목을 누르면 상세가 열립니다.
           </p>
         </div>
+        <MySubscription />
 
         <div className="flex flex-wrap items-center gap-2">
           <select aria-label="프로젝트" className={select} value={filter.project ?? ''} onChange={(e) => set({ project: e.target.value })}>
@@ -146,5 +148,29 @@ function PeopleWeeks({ events, nextMonday }: { events: ProjectEvent[]; nextMonda
         </table>
       </div>
     </section>
+  );
+}
+
+/** 개인 구독 주소 (설계 §6.4 대안): my attended events and my milestones as .ics. A new address kills the old one. */
+function MySubscription() {
+  const [url, setUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const issue = async () => {
+    if (!window.confirm('새 구독 주소를 만들까요? 이전에 만든 주소는 더 이상 동작하지 않습니다.')) return;
+    try {
+      setUrl(webcal((await issueCalendarToken()).icsPath));
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+      <button type="button" onClick={issue}
+        className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-[#1F4E79]">내 달력 구독 주소</button>
+      {url
+        ? <input readOnly value={url} onFocus={(e) => e.target.select()} className="min-w-0 flex-1 rounded border border-[#E5E3DC] px-2 py-1 font-mono" />
+        : <span>내가 참석하는 이벤트와 내 담당 마일스톤을 Google·Outlook 달력에서 구독합니다. 반영은 달력 앱 주기(보통 수 시간)를 따릅니다.</span>}
+      {error && <span role="alert" className="text-[#991B1B]">{error}</span>}
+    </div>
   );
 }
