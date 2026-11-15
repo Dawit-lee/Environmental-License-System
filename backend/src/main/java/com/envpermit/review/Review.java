@@ -136,14 +136,14 @@ public class Review {
 
     public List<SuggestionEvent> events(long id, Jwt jwt) {
         AiSuggestion s = suggestions.findById(id).orElseThrow(Review::notFound);
-        access.member(s.getProjectId(), jwt);
+        member(s, jwt);
         return events.findBySuggestionIdOrderById(id);
     }
 
     @Transactional
     public AiSuggestion edit(long id, Jwt jwt, JsonNode edited, long version) {
         AiSuggestion s = lock(id);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        ProjectMember m = member(s, jwt);
         checkVersion(s, version);
         Transition.next(s.getStatus(), Action.EDIT, m.canSelfApprove(), true);
         applier(s.getKind()).validate(edited);
@@ -156,7 +156,7 @@ public class Review {
     @Transactional
     public AiSuggestion submit(long id, Jwt jwt, Decision decision, String reason, long version) {
         AiSuggestion s = lock(id);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        ProjectMember m = member(s, jwt);
         checkVersion(s, version);
         Transition.next(s.getStatus(), Action.SUBMIT, m.canSelfApprove(), false);
         s.submit(decision, m.getUserId(), now());
@@ -170,7 +170,7 @@ public class Review {
     public AiSuggestion accept(long id, Jwt jwt, LocalDate firstDueDate, boolean confirmAbsent, Long version,
                                boolean bulk) {
         AiSuggestion s = lock(id);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        ProjectMember m = member(s, jwt);
         if (version != null) {
             checkVersion(s, version);
         }
@@ -191,7 +191,7 @@ public class Review {
     @Transactional
     public AiSuggestion reject(long id, Jwt jwt, String reason, long version) {
         AiSuggestion s = lock(id);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        ProjectMember m = member(s, jwt);
         checkVersion(s, version);
         Status next = Transition.next(s.getStatus(), Action.REJECT, m.canSelfApprove(), false);
         return close(s, next, m.getUserId(), reason);
@@ -200,7 +200,7 @@ public class Review {
     @Transactional
     public AiSuggestion returnToPending(long id, Jwt jwt, String reason, long version) {
         AiSuggestion s = lock(id);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        ProjectMember m = member(s, jwt);
         checkVersion(s, version);
         Transition.next(s.getStatus(), Action.RETURN, m.canSelfApprove(), false);
         s.backToPending();
@@ -211,7 +211,7 @@ public class Review {
     @Transactional
     public AiSuggestion reopen(long id, Jwt jwt, long version) {
         AiSuggestion s = lock(id);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        ProjectMember m = member(s, jwt);
         checkVersion(s, version);
         Transition.next(s.getStatus(), Action.REOPEN, m.canSelfApprove(), false);
         if (Restructure.isRestructure(s.getRejectReason())) {
@@ -258,7 +258,7 @@ public class Review {
     @Transactional
     public AiSuggestion lockForRestructure(long id, long version, Jwt jwt) {
         AiSuggestion s = lock(id);
-        access.member(s.getProjectId(), jwt);
+        member(s, jwt);
         checkVersion(s, version);
         requirePending(s);
         return s;
@@ -299,7 +299,7 @@ public class Review {
     @Transactional
     public void pageViewed(long id, Jwt jwt, int pageNo) {
         AiSuggestion s = suggestions.findById(id).orElseThrow(Review::notFound);
-        long userId = access.member(s.getProjectId(), jwt).getUserId();
+        long userId = member(s, jwt).getUserId();
         if (events.findBySuggestionIdOrderById(id).stream().noneMatch(e -> e.isPageView(pageNo, userId))) {
             event(s, userId, Type.PAGE_VIEWED, json.createObjectNode().put("page_no", pageNo));
         }
@@ -308,7 +308,7 @@ public class Review {
     /** The run a suggestion came from, for members of its project (source document lookup). */
     public AiRun runOf(long id, Jwt jwt) {
         AiSuggestion s = suggestions.findById(id).orElseThrow(Review::notFound);
-        access.member(s.getProjectId(), jwt);
+        member(s, jwt);
         return runs.findById(s.getRunId()).orElseThrow();
     }
 
@@ -339,6 +339,12 @@ public class Review {
         if (s.getStatus() != Status.PENDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "검토 대기 상태가 아닙니다.");
         }
+    }
+
+    /** A member of the suggestion's project; another company's suggestion is 404 like a missing id. */
+    private ProjectMember member(AiSuggestion s, Jwt jwt) {
+        access.hideForeign(s.getProjectId(), jwt);
+        return access.member(s.getProjectId(), jwt);
     }
 
     private AiSuggestion lock(long id) {

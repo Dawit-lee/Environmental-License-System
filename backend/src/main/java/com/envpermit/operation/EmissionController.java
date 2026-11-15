@@ -391,6 +391,7 @@ class EmissionController {
         Long projectId = jdbc.queryForList("SELECT e.project_id FROM measurement m JOIN emission_point e "
                         + "ON e.id = m.emission_point_id WHERE m.id = ? AND m.deleted_at IS NULL FOR UPDATE OF m", Long.class, id)
                 .stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        access.hideForeign(projectId, jwt);
         access.operations(projectId, jwt);
         jdbc.update("UPDATE measurement SET deleted_at = ?, deleted_by = ?, delete_reason = ? WHERE id = ?",
                 Timestamp.from(clock.instant()), userId(jwt), req.reason().trim(), id);
@@ -398,7 +399,7 @@ class EmissionController {
                 .forEach(taskId -> tasks.measurementEvent(taskId, userId(jwt), false, List.of(id)));
     }
 
-    // --- lookups: 404 unknown, 403 not a project member ----------------------------------------------------------
+    // --- lookups: 404 unknown (or another company's), 403 not a project member ----------------------------------------------------------
 
     private PointView point(long id, Jwt jwt) {
         PointView p = points("e.id = ?", id).stream().findFirst()
@@ -411,6 +412,7 @@ class EmissionController {
         Long projectId = jdbc.queryForList("SELECT e.project_id FROM permit_limit l JOIN emission_point e "
                         + "ON e.id = l.emission_point_id WHERE l.id = ? FOR UPDATE OF l", Long.class, id).stream().findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        access.hideForeign(projectId, jwt);
         access.operations(projectId, jwt);
         return limits("l.id = ?", id).get(0);
     }

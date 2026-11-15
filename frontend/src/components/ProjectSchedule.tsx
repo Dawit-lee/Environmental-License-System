@@ -12,6 +12,7 @@ import type { Scale } from './ScheduleGantt';
 import { BaseDatesDialog, DelayTable, PasteDialog, TemplateDialog } from './ScheduleTools';
 import ReadOnlySchedule from './ReadOnlySchedule';
 import ShareDialog from './ShareDialog';
+import { usePrompt } from './PromptDialog';
 
 // the Gantt library is large; only this tab loads it
 const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
@@ -30,6 +31,7 @@ const field = 'w-full rounded-lg border border-[#E5E3DC] px-2.5 py-1.5 text-sm o
 const seg = (on: boolean) => `px-3 py-1.5 text-xs font-medium ${on ? 'bg-[#1F4E79] text-white' : 'text-gray-600 hover:bg-[#F8F7F2]'}`;
 
 export default function ProjectSchedule({ projectId }: { projectId: number }) {
+  const [ask, promptUi] = usePrompt();
   const [view, setView] = useState<View>('gantt');
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
@@ -67,7 +69,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
     if (!item || (item.startDate === dates.startDate && item.endDate === dates.endDate)) return;
     let reason: string | null = null;
     if (needsReason(item, dates.endDate)) {
-      reason = window.prompt(`기준(${item.baselineEnd})보다 늦어집니다. 연기 사유를 입력하세요.`)?.trim() || null;
+      reason = (await ask(`기준(${item.baselineEnd})보다 늦어집니다. 연기 사유를 입력하세요.`))?.trim() || null;
       if (!reason) return load();
     }
     setError(null);
@@ -87,7 +89,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
     if (schedule.baselineNo === 0) {
       if (!window.confirm('현재 계획을 기준 계획으로 확정할까요? 이후 기준보다 늦추면 사유가 필요합니다.')) return;
     } else {
-      reason = window.prompt(`기준 ${schedule.baselineNo}차를 현재 계획으로 다시 확정합니다(PM·프로젝트 어드민). 사유를 입력하세요.`)?.trim() || null;
+      reason = (await ask(`기준 ${schedule.baselineNo}차를 현재 계획으로 다시 확정합니다(PM·프로젝트 어드민). 사유를 입력하세요.`))?.trim() || null;
       if (!reason) return;
     }
     setError(null);
@@ -101,6 +103,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
 
   return (
     <div className="space-y-4">
+      {promptUi}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex overflow-hidden rounded-lg border border-[#E5E3DC] bg-white">
           <button type="button" className={seg(view === 'gantt')} onClick={() => setView('gantt')}>간트</button>

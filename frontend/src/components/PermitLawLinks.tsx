@@ -122,7 +122,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
                   {l.name}
                   {l.articleNo && ` ${l.articleNo}`}
                 </a>
-                <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{SOURCE_LABEL[l.source]}</span>
+                <span className="ml-2 whitespace-nowrap text-xs text-gray-600">{SOURCE_LABEL[l.source]}</span>
                 <div>
                   <Revision promulgated={l.lastPromulgatedOn} enforced={l.lastEnforcedOn} />
                 </div>

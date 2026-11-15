@@ -149,7 +149,7 @@ class ReviewApiTest extends IntegrationTest {
     }
 
     @Test
-    void invalid_payload_is_422_and_other_company_is_403() throws Exception {
+    void invalid_payload_is_422_and_other_company_sees_no_suggestion() throws Exception {
         call(lee, json(post("/api/projects/" + projectId + "/suggestions"),
                 "{\"permitItemId\":" + permitId + ",\"payload\":{\"summary\":\"\",\"frequency\":\"MONTHLY\"}}"))
                 .andExpect(status().isUnprocessableEntity());
@@ -158,12 +158,14 @@ class ReviewApiTest extends IntegrationTest {
                 .andExpect(status().isUnprocessableEntity());
         long id = addSuggestion(lee, "MONTHLY");
         call(park, get("/api/projects/" + projectId + "/suggestions")).andExpect(status().isForbidden());
-        call(park, json(post("/api/suggestions/" + id + "/accept"), "{\"version\":0}")).andExpect(status().isForbidden());
-        // a wrong version must not answer 409 to an outsider: that would confirm the id and leak its version
-        call(park, json(post("/api/suggestions/" + id + "/accept"), "{\"version\":7}")).andExpect(status().isForbidden());
-        call(park, json(post("/api/suggestions/" + id + "/reject"), "{\"reason\":\"x\",\"version\":7}")).andExpect(status().isForbidden());
+        // another company's id answers like a missing one (404), never 403 or 409: either would confirm the id
+        call(park, json(post("/api/suggestions/" + id + "/accept"), "{\"version\":0}")).andExpect(status().isNotFound());
+        call(park, json(post("/api/suggestions/" + id + "/accept"), "{\"version\":7}")).andExpect(status().isNotFound());
+        call(park, json(post("/api/suggestions/" + id + "/reject"), "{\"reason\":\"x\",\"version\":7}")).andExpect(status().isNotFound());
         call(park, json(patch("/api/suggestions/" + id), "{\"editedPayload\":" + payload("ANNUAL") + ",\"version\":7}"))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isNotFound());
+        call(park, get("/api/suggestions/" + id + "/events")).andExpect(status().isNotFound());
+        call(park, json(post("/api/suggestions/" + (id + 999) + "/accept"), "{\"version\":0}")).andExpect(status().isNotFound());
     }
 
     // --- transaction & concurrency ------------------------------------------------------------------------

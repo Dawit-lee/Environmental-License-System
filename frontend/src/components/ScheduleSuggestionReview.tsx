@@ -5,6 +5,7 @@ import {
   type ScheduleRowPayload, type ScheduleSuggestion,
 } from '../api/review';
 import { ANCHOR_LABEL } from '../api/schedule';
+import { usePrompt } from './PromptDialog';
 
 // ---------------------------------------------------------------------------
 // ScheduleSuggestionReview — design-schedule/07: dates found in a project document (프로젝트 › 문서 [일정 추출]),
@@ -40,6 +41,7 @@ function when(p: ScheduleRowPayload): string {
 }
 
 export default function ScheduleSuggestionReview({ projectId }: { projectId: number }) {
+  const [ask, promptUi] = usePrompt();
   const [items, setItems] = useState<ScheduleSuggestion[]>([]);
   const [lead, setLead] = useState(false);
   const [kind, setKind] = useState<'ALL' | 'SCHEDULE_ITEM' | 'PROJECT_EVENT'>('ALL');
@@ -71,6 +73,7 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
 
   return (
     <section className="mt-5 rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+      {promptUi}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E3DC] px-4 py-3">
         <div>
           <h2 className="text-sm font-semibold text-gray-800">문서에서 찾은 일정 {rows.length}건</h2>
@@ -160,8 +163,8 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
                                 await acceptSuggestion(await editSuggestion(s, { ...rest, createNew: true }), null);
                               }, '새 항목으로 추가했습니다.')}>새로 추가</button>
                             )}
-                            <button type="button" className={`${btn} text-[#991B1B]`} onClick={() => {
-                              const r = window.prompt('거절 사유')?.trim();
+                            <button type="button" className={`${btn} text-[#991B1B]`} onClick={async () => {
+                              const r = (await ask('거절 사유'))?.trim();
                               if (r) run(() => rejectSuggestion(s, r), '거절했습니다.');
                             }}>거절</button>
                           </>

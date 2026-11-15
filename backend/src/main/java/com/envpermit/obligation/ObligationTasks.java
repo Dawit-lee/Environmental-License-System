@@ -98,8 +98,9 @@ public class ObligationTasks {
     public record EventView(String type, JsonNode data, Instant at, String byName) {
     }
 
+    /** people: id → name of everyone the 담당 변경 history names, so a member removed since still shows by name. */
     public record TaskDetail(TaskView task, List<EvidenceView> evidence, List<MeasurementView> measurements,
-                             List<EventView> events) {
+                             List<EventView> events, Map<Long, String> people) {
     }
 
     // --- lifecycle --------------------------------------------------------------------------------------------
@@ -330,12 +331,20 @@ public class ObligationTasks {
                 this::view, projectId, obligationId, obligationId);
     }
 
-    /** 내 할 일: my open tasks in projects I am still a member of, soonest due first. */
+    /**
+     * 내 할 일: my open tasks in projects I am still a member of, soonest due first. An overdue task nobody is assigned
+     * to goes to the project's PM, EM and project admins (assigneeId null: the screen marks it 미지정).
+     */
     public List<TaskView> mine(long userId) {
         return jdbc.query(SELECT + """
-                WHERE t.assignee_id = ? AND t.status = 'OPEN' AND EXISTS (SELECT 1 FROM project_member m
-                      WHERE m.project_id = t.project_id AND m.user_id = t.assignee_id)
-                ORDER BY t.due_date, t.id""", this::view, userId);
+                WHERE t.status = 'OPEN' AND (
+                      (t.assignee_id = ? AND EXISTS (SELECT 1 FROM project_member m
+                            WHERE m.project_id = t.project_id AND m.user_id = t.assignee_id))
+                   OR (t.assignee_id IS NULL AND t.due_date < ? AND EXISTS (SELECT 1 FROM project_member m
+                            JOIN project p ON p.id = m.project_id
+                            WHERE m.project_id = t.project_id AND m.user_id = ?
+                              AND (m.is_admin OR p.pm_user_id = m.user_id OR p.em_user_id = m.user_id))))
+                ORDER BY t.due_date, t.id""", this::view, userId, LocalDate.now(clock), userId);
     }
 
     public TaskDetail detail(long taskId) {
@@ -357,7 +366,13 @@ public class ObligationTasks {
                 (rs, i) -> new MeasurementView(rs.getLong(1), rs.getString(2), rs.getString(3),
                         rs.getObject(4, LocalDate.class), rs.getBigDecimal(5), rs.getString(6), rs.getBoolean(7),
                         rs.getString(8)), taskId);
-        return new TaskDetail(get(taskId), evidence, measurements, events);
+        Map<Long, String> people = new java.util.HashMap<>();
+        jdbc.query("""
+                SELECT DISTINCT u.id, u.name FROM task_event e
+                JOIN users u ON u.id IN ((e.data->>'from')::bigint, (e.data->>'to')::bigint)
+                WHERE e.task_id = ? AND e.type = 'ASSIGNED'""",
+                (org.springframework.jdbc.core.RowCallbackHandler) rs -> people.put(rs.getLong(1), rs.getString(2)), taskId);
+        return new TaskDetail(get(taskId), evidence, measurements, events, people);
     }
 
     TaskView openTask(long obligationId) {

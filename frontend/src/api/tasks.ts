@@ -59,6 +59,8 @@ export interface TaskDetail {
   evidence: TaskEvidence[];
   measurements: TaskMeasurement[];
   events: TaskEvent[];
+  /** names of everyone the 담당 변경 history mentions, incl. people no longer in the project */
+  people: Record<number, string>;
 }
 
 const today = () => new Date().toLocaleDateString('sv-SE');

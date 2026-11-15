@@ -19,14 +19,6 @@ const CATEGORY_LABEL: Record<PermitCategory, string> = {
   ENVIRONMENT: '환경평가',
 };
 
-const CATEGORY_BADGE: Record<PermitCategory, string> = {
-  LOCATION: 'bg-amber-100 text-amber-800',
-  FACILITY: 'bg-sky-100 text-sky-800',
-  CONSTRUCTION: 'bg-violet-100 text-violet-800',
-  ELECTRICAL: 'bg-emerald-100 text-emerald-800',
-  ENVIRONMENT: 'bg-rose-100 text-rose-800',
-};
-
 const STATUS_LABEL: Record<PermitStatus, string> = {
   NOT_APPLIED: '미신청',
   IN_PROGRESS: '진행중',
@@ -103,9 +95,7 @@ export default function PermitDetailDrawer({
             {/* Header */}
             <div className="flex items-start justify-between border-b border-[#E5E3DC] px-6 py-4">
               <div>
-                <span
-                  className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${CATEGORY_BADGE[permit.category]}`}
-                >
+                <span className="text-sm text-gray-500">
                   {CATEGORY_LABEL[permit.category]}
                 </span>
                 <h2 className="mt-2 text-lg font-semibold text-gray-900">{permit.name}</h2>

@@ -18,6 +18,7 @@ import {
 import { acceptSuggestion, editSuggestion, rejectSuggestion } from '../api/review';
 import { ANCHOR_LABEL, setAnchor } from '../api/schedule';
 import type { FacilityType, Project, ProjectStatus } from '../types';
+import { usePrompt } from '../components/PromptDialog';
 
 // ---------------------------------------------------------------------------
 // NewProjectPage — two-step wizard.
@@ -48,11 +49,6 @@ const WASTE_OPTIONS = [
 ];
 
 const CATEGORY_LABEL: Record<RuleCategory, string> = { SITE: '입지', FACILITY: '시설', GENERAL: '일반' };
-const CATEGORY_BADGE: Record<RuleCategory, string> = {
-  SITE: 'bg-amber-100 text-amber-800',
-  FACILITY: 'bg-sky-100 text-sky-800',
-  GENERAL: 'bg-violet-100 text-violet-800',
-};
 const CATEGORY_TAB_ORDER: RuleCategory[] = ['SITE', 'FACILITY', 'GENERAL'];
 
 // How the "추가 정보 필요" panel asks for a missing field. Default: plain number.
@@ -89,6 +85,7 @@ const input =
  * attributes, saving with PUT and re-running the derivation (step 2) when the facility type supports it.
  */
 export default function NewProjectPage({ projectId: editId, onSaved }: { projectId?: number; onSaved?: () => void } = {}) {
+  const [ask, promptUi] = usePrompt();
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -236,19 +233,17 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     }
   };
 
-  const approve = (s: PermitSuggestion) =>
-    act(async () => {
-      const p = s.editedPayload ?? s.payload;
-      if (p.determination !== 'ON_HOLD') return acceptSuggestion(s, null);
-      // ON_HOLD can't be approved as is: the reviewer judges it applicable and says why (EDITED_ACCEPTED)
-      const why = window.prompt('해당으로 판단한 근거를 입력하세요.')?.trim();
-      if (!why) return;
-      const edited = await editSuggestion(s, { ...p, determination: 'APPLICABLE', hold_info: null, reason: why });
-      return acceptSuggestion(edited, null);
-    });
+  const approve = async (s: PermitSuggestion) => {
+    const p = s.editedPayload ?? s.payload;
+    if (p.determination !== 'ON_HOLD') return act(() => acceptSuggestion(s, null));
+    // ON_HOLD can't be approved as is: the reviewer judges it applicable and says why (EDITED_ACCEPTED)
+    const why = (await ask('해당으로 판단한 근거를 입력하세요.'))?.trim();
+    if (!why) return;
+    act(async () => acceptSuggestion(await editSuggestion(s, { ...p, determination: 'APPLICABLE', hold_info: null, reason: why }), null));
+  };
 
-  const reject = (s: PermitSuggestion) => {
-    const why = window.prompt('거절 사유')?.trim();
+  const reject = async (s: PermitSuggestion) => {
+    const why = (await ask('거절 사유'))?.trim();
     if (why) act(() => rejectSuggestion(s, why));
   };
 
@@ -332,6 +327,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
   return (
     <div className={editId ? '' : 'min-h-full bg-[#F8F7F2]'}>
       <div className={editId ? 'max-w-5xl' : 'mx-auto max-w-5xl px-4 py-8 sm:px-6'}>
+      {promptUi}
         {/* Step indicator */}
         <ol className="mb-8 flex items-center gap-4 text-sm">
           <StepDot index={1} label={editId ? '프로젝트 정보·도출 조건' : '프로젝트 정보 입력'} active={step >= 1} current={step === 1} />
@@ -663,10 +659,10 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                     <tr key={p.rule_key} className="transition hover:bg-[#F8F7F2]">
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          className={`whitespace-nowrap ${
                             p.determination === 'ON_HOLD'
-                              ? 'bg-amber-100 text-[#B45309]'
-                              : 'bg-emerald-100 text-[#0F6E56]'
+                              ? 'text-[#B45309]'
+                              : 'text-[#0F6E56]'
                           }`}
                         >
                           {p.determination === 'ON_HOLD' ? '판정 보류' : '해당'}
@@ -674,7 +670,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                       </td>
                       <td className="px-4 py-3 font-medium text-gray-800">{p.permit_name}</td>
                       <td className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${CATEGORY_BADGE[p.category]}`}>
+                        <span className="whitespace-nowrap text-gray-700">
                           {CATEGORY_LABEL[p.category]}
                         </span>
                       </td>

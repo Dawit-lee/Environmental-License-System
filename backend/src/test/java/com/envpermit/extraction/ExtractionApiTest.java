@@ -370,7 +370,7 @@ class ExtractionApiTest extends IntegrationTest {
         // anyone in the project may be the one who opened it; once per user and page
         call(lee, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":1}")).andExpect(status().isNoContent());
         call(lee, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":1}")).andExpect(status().isNoContent());
-        call(park, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":1}")).andExpect(status().isForbidden());
+        call(park, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":1}")).andExpect(status().isNotFound());
         call(kim, get("/api/suggestions/" + onP1 + "/events"))
                 .andExpect(jsonPath("$[?(@.type=='PAGE_VIEWED')].data.page_no", contains(2, 1)));
 
@@ -406,7 +406,7 @@ class ExtractionApiTest extends IntegrationTest {
                 .andReturn().getResponse().getContentAsByteArray();
         assertThat(new String(png, 1, 3)).isEqualTo("PNG");
         call(lee, get("/api/suggestions/" + id + "/pages/3")).andExpect(status().isNotFound());
-        call(park, get("/api/suggestions/" + id + "/pages/1")).andExpect(status().isForbidden());
+        call(park, get("/api/suggestions/" + id + "/pages/1")).andExpect(status().isNotFound());
     }
 
     /** Runs extraction on an image-only PDF and returns the suggestion list JSON. */

@@ -81,7 +81,8 @@ export async function loadTodos(projects: { id: number; name: string }[], days =
     })),
     ...tasks.filter((t) => names.has(t.projectId)).map((t): Todo => ({
       key: `t${t.id}`, kind: 'TASK', projectId: t.projectId, projectName: names.get(t.projectId)!,
-      text: t.title, due: t.dueDate, to: `/projects/${t.projectId}/obligations`,
+      // an overdue task nobody holds comes to the PM/EM/admins too (server rule)
+      text: t.assigneeId == null ? `미지정 · ${t.title}` : t.title, due: t.dueDate, to: `/projects/${t.projectId}/obligations`,
     })),
     ...deadlines.filter((d) => names.has(d.projectId) && !skip(d)).map((d): Todo => ({
       key: `d${d.id}`, kind: 'DEADLINE', projectId: d.projectId, projectName: d.projectName,

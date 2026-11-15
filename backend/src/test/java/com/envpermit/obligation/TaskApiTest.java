@@ -309,11 +309,29 @@ class TaskApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.task.assigneeId").doesNotExist())
                 .andExpect(jsonPath("$.events[*].type", contains("CREATED", "ASSIGNED", "ASSIGNED")))
                 .andExpect(jsonPath("$.events[2].data.from").value(leeId))
-                .andExpect(jsonPath("$.events[2].data.to").doesNotExist());
+                .andExpect(jsonPath("$.events[2].data.to").doesNotExist())
+                .andExpect(jsonPath("$.people." + leeId).value("이에이")); // the history still names who it was
         call(kim, get("/api/tasks/" + done)).andExpect(jsonPath("$.task.assigneeName").value("이에이")); // closed work keeps who did it
         job.createDueNotifications(); // D-26 → the D-30 reminder goes to the members that are left
         assertThat(notified(kimId)).containsExactly(30);
         assertThat(notified(leeId)).isEmpty();
+    }
+
+    @Test
+    void an_overdue_task_nobody_holds_is_in_the_admins_todo_list() throws Exception {
+        long task = openTask(accepted("MONTHLY", "2026-01-31"));
+        call(kim, get("/api/tasks/mine")).andExpect(jsonPath("$.length()").value(0)); // not overdue yet
+
+        clock.advance(Duration.ofDays(27)); // 2026-02-01
+        kim = login("kim@a.com"); // the old tokens expired meanwhile
+        lee = login("lee@a.com");
+        park = login("park@b.com");
+        call(kim, get("/api/tasks/mine")) // kim created the project: project admin
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(task))
+                .andExpect(jsonPath("$[0].assigneeId").doesNotExist());
+        call(lee, get("/api/tasks/mine")).andExpect(jsonPath("$.length()").value(0)); // plain member, not PM/EM
+        call(park, get("/api/tasks/mine")).andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
