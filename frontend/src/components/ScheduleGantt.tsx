@@ -4,6 +4,7 @@ import '@svar-ui/react-gantt/all.css';
 import './ScheduleGantt.css';
 import { addDays, differenceInCalendarDays, format, getDaysInMonth, parseISO, subDays } from 'date-fns';
 import type { Dependency, Discipline, ScheduleItem } from '../api/schedule';
+import type { ProjectEvent } from '../api/events';
 
 // ---------------------------------------------------------------------------
 // ScheduleGantt — the only place that knows SVAR React Gantt (MIT edition; no PRO props such as markers or
@@ -15,12 +16,34 @@ import type { Dependency, Discipline, ScheduleItem } from '../api/schedule';
 
 export type Scale = 'week' | 'month';
 
-/** Group rows have string ids, items keep their numeric id. */
+/** Group rows and the 이벤트 row have string ids, items keep their numeric id. */
 const GROUP = 'd:';
-const isGroup = (id: unknown) => typeof id === 'string' && id.startsWith(GROUP);
+const isGroup = (id: unknown) => typeof id === 'string';
+/** The top "이벤트" row: one transparent bar over all events, a dot per event (its own task type → CSS class). */
+const EVENTS = 'events';
+const TASK_TYPES = [{ id: 'task', label: '작업' }, { id: 'summary', label: '묶음' }, { id: 'milestone', label: '마일스톤' },
+  { id: EVENTS, label: '이벤트' }];
+
+/** The 이벤트 row, dots placed by day (centre of the day) as a percent of the bar; null without events. */
+export function eventRow(events: ProjectEvent[]): ITask | null {
+  if (!events.length) return null;
+  const days = events.map((e) => parseISO(e.startsAt.slice(0, 10)));
+  const start = new Date(Math.min(...days.map((d) => d.getTime())));
+  const end = addDays(new Date(Math.max(...days.map((d) => d.getTime()))), 1);
+  const span = differenceInCalendarDays(end, start);
+  return {
+    id: EVENTS, type: EVENTS, text: `이벤트 ${events.length}건`, start, end, owner: '', endText: '', delayDays: 0,
+    dots: events.map((e, i) => ({
+      left: ((differenceInCalendarDays(days[i], start) + 0.5) / span) * 100,
+      title: `${e.startsAt.slice(5, 10).replace('-', '/')} ${e.title}`,
+      trip: e.kind === 'TRIP',
+    })),
+  };
+}
 
 /** Gantt end is exclusive; ours is the last day. */
-export function toGantt(items: ScheduleItem[], deps: Dependency[], disciplines: Discipline[]): { tasks: ITask[]; links: ILink[] } {
+export function toGantt(items: ScheduleItem[], deps: Dependency[], disciplines: Discipline[],
+                        events: ProjectEvent[] = []): { tasks: ITask[]; links: ILink[] } {
   const visible = new Set(items.map((i) => i.id));
   const order = new Map(disciplines.map((d) => [d.id, d.sortOrder]));
   const groups = new Map<number, ScheduleItem[]>(); // 0 = 공통 (no discipline)
@@ -28,7 +51,8 @@ export function toGantt(items: ScheduleItem[], deps: Dependency[], disciplines: 
     const key = i.disciplineId ?? 0;
     groups.set(key, [...(groups.get(key) ?? []), i]);
   }
-  const tasks: ITask[] = [];
+  const ev = eventRow(events);
+  const tasks: ITask[] = ev ? [ev] : [];
   [...groups.entries()]
     .sort(([a], [b]) => (order.get(a) ?? -1) - (order.get(b) ?? -1))
     .forEach(([key, rows]) => {
@@ -72,6 +96,21 @@ export function fromGantt(task: ITask, kind: ScheduleItem['kind']): { startDate:
 const DelayCell = ({ row }: { row: ITask }) =>
   row.delayDays > 0 ? <span className="text-[#991B1B]">+{row.delayDays}일</span> : null;
 
+/**
+ * Bar content. It replaces SVAR's own for every bar, so non-event bars repeat SVAR 2.8.2's markup (classes included).
+ * shortcut: copies the library's bar markup, re-check it when upgrading @svar-ui/react-gantt.
+ */
+const BarContent = ({ data }: { data: ITask }) => {
+  if (data.type === EVENTS) {
+    return (data.dots as { left: number; title: string; trip: boolean }[]).map((d, i) => (
+      <span key={i} title={d.title} className={`schedule-event-dot${d.trip ? ' trip' : ''}`} style={{ left: `${d.left}%` }} />
+    ));
+  }
+  return data.type === 'milestone'
+    ? <div className="wx-GKbcLEGA wx-text-out">{data.text}</div>
+    : <div className="wx-GKbcLEGA wx-content">{data.text || ''}</div>;
+};
+
 const COLUMNS = [
   { id: 'text', header: '항목', flexgrow: 1 },
   { id: 'owner', header: '담당', width: 72 },
@@ -111,8 +150,9 @@ const SCALES: Record<Scale, { cellWidth: number; scales: { unit: string; step: n
   },
 };
 
-export default function ScheduleGantt({ items, dependencies, disciplines, today, scale, onOpen, onMove }: {
+export default function ScheduleGantt({ items, dependencies, disciplines, events = [], today, scale, onOpen, onMove }: {
   items: ScheduleItem[];
+  events?: ProjectEvent[];
   dependencies: Dependency[];
   disciplines: Discipline[];
   today: string;
@@ -120,7 +160,8 @@ export default function ScheduleGantt({ items, dependencies, disciplines, today,
   onOpen: (id: number) => void;
   onMove: (id: number, dates: { startDate: string; endDate: string }) => void;
 }) {
-  const { tasks, links } = useMemo(() => toGantt(items, dependencies, disciplines), [items, dependencies, disciplines]);
+  const { tasks, links } = useMemo(() => toGantt(items, dependencies, disciplines, events),
+    [items, dependencies, disciplines, events]);
   const todayDate = parseISO(today);
   const kinds = useMemo(() => new Map(items.map((i) => [i.id, i.kind])), [items]);
 
@@ -150,6 +191,8 @@ export default function ScheduleGantt({ items, dependencies, disciplines, today,
           init={init}
           tasks={tasks}
           links={links}
+          taskTypes={TASK_TYPES}
+          taskTemplate={BarContent}
           columns={COLUMNS}
           scales={SCALES[scale].scales}
           cellWidth={SCALES[scale].cellWidth}

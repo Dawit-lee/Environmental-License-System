@@ -43,3 +43,11 @@
   background: #991b1b;
   pointer-events: none;
 }
+
+/* 이벤트 row (design-schedule/04): an invisible bar, one dot per event */
+.schedule-gantt .wx-bar.events { background: transparent; border: none; box-shadow: none; overflow: visible; }
+.schedule-gantt .schedule-event-dot {
+  position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 9999px; background: #1F4E79; border: 2px solid #fff;
+}
+.schedule-gantt .schedule-event-dot.trip { background: #0F6E56; }

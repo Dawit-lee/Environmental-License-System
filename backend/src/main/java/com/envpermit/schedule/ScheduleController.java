@@ -99,6 +99,11 @@ class ScheduleController {
         LocalDate start() {
             return "MILESTONE".equals(kind) ? endDate : startDate;
         }
+
+        /** The milestone a 제출·보고회 event adds to the schedule (design-schedule/04). */
+        static ItemRequest milestone(Long disciplineId, String title, LocalDate date) {
+            return new ItemRequest(disciplineId, null, "MILESTONE", title, date, date, null, null, null, null, null);
+        }
     }
 
     record CompleteRequest(@NotNull LocalDate actualEnd) {

@@ -5,6 +5,7 @@ import type { PermitItem, Project } from '../types';
 import { ActivityList, DeadlineTimeline, PendingRow, StatusDonut, recentActivity } from './dashboard';
 import { ProjectCompliance } from './Compliance';
 import TodoTable from './TodoTable';
+import { ScheduleSummary } from './ScheduleWidgets';
 
 // ---------------------------------------------------------------------------
 // ProjectOverview — 프로젝트 › 개요: the dashboard scoped to one project.
@@ -32,6 +33,7 @@ export default function ProjectOverview({ project, permits }: { project: Project
   return (
     <div className="space-y-6">
       {project.member && <ProjectCompliance projectId={project.id} />}
+      {project.member && <ScheduleSummary projectId={project.id} />}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section className={card}>
           <h2 className="text-lg font-semibold text-gray-900">인허가 상태</h2>

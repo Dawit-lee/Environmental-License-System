@@ -5,6 +5,8 @@ import {
   type Discipline, type ItemInput, type Schedule, type ScheduleItem,
 } from '../api/schedule';
 import CalendarPage from '../pages/CalendarPage';
+import { getProjectEvents, type ProjectEvent } from '../api/events';
+import ProjectCalendar from './ProjectCalendar';
 import type { Scale } from './ScheduleGantt';
 
 // the Gantt library is large; only this tab loads it
@@ -15,7 +17,7 @@ const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
 // (fixed dates; anchors/baselines come with ticket 03). Clicking a row opens the item form; dragging a bar saves.
 // ---------------------------------------------------------------------------
 
-type View = 'gantt' | 'deadlines';
+type View = 'gantt' | 'calendar' | 'deadlines';
 interface Member { userId: number; name: string }
 
 const btn = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
@@ -32,10 +34,13 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
   const [scale, setScale] = useState<Scale>('week');
   const [filter, setFilter] = useState({ discipline: '', owner: '', delayedOnly: false });
   const [editing, setEditing] = useState<ScheduleItem | 'new' | null>(null);
+  const [events, setEvents] = useState<ProjectEvent[]>([]); // the Gantt's 이벤트 row
 
+  // together: the Gantt copies its data once per key (loads)
   const load = () =>
-    getSchedule(projectId).then((s) => {
+    Promise.all([getSchedule(projectId), getProjectEvents(projectId).catch(() => [])]).then(([s, ev]) => {
       setSchedule(s);
+      setEvents(ev);
       setLoads((n) => n + 1);
     }, (e: Error) => setError(e.message));
   useEffect(() => {
@@ -67,6 +72,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex overflow-hidden rounded-lg border border-[#E5E3DC] bg-white">
           <button type="button" className={seg(view === 'gantt')} onClick={() => setView('gantt')}>간트</button>
+          <button type="button" className={seg(view === 'calendar')} onClick={() => setView('calendar')}>달력</button>
           <button type="button" className={seg(view === 'deadlines')} onClick={() => setView('deadlines')}>인허가 기한</button>
         </div>
         {view === 'gantt' && schedule && (
@@ -77,6 +83,10 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
       </div>
 
       {view === 'deadlines' && <CalendarPage projectId={projectId} />}
+      {view === 'calendar' && (
+        <ProjectCalendar projectId={projectId} disciplines={disciplines} members={members} onChanged={load}
+          onOpenItem={(id) => setEditing(schedule?.items.find((i) => i.id === id) ?? null)} />
+      )}
 
       {view === 'gantt' && (
         <>
@@ -112,7 +122,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
 
           {schedule && visible.length > 0 && (
             <Suspense fallback={<div className="h-[600px] rounded-xl border border-[#E5E3DC] bg-white" />}>
-            <ScheduleGantt key={`${scale}:${loads}`} items={visible} dependencies={schedule.dependencies}
+            <ScheduleGantt key={`${scale}:${loads}`} items={visible} dependencies={schedule.dependencies} events={events}
               disciplines={disciplines} today={schedule.today} scale={scale}
               onOpen={(id) => setEditing(schedule.items.find((i) => i.id === id) ?? null)} onMove={move} />
             </Suspense>

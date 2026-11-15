@@ -15,11 +15,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class Deadlines {
 
     public static final String PERMIT_EXPIRY = "PERMIT_EXPIRY";
+    public static final String PROJECT_EVENT = "PROJECT_EVENT";
 
     private final DeadlineEventRepository events;
+    private final NotificationRepository notifications;
 
-    Deadlines(DeadlineEventRepository events) {
+    Deadlines(DeadlineEventRepository events, NotificationRepository notifications) {
         this.events = events;
+        this.notifications = notifications;
     }
 
     /** @param assigneeId who is reminded; null = every project member. A null dueDate removes the event. */
@@ -32,6 +35,7 @@ public class Deadlines {
         DeadlineEvent e = events.findByKindAndTargetId(kind, targetId).orElseGet(() -> new DeadlineEvent(kind, targetId));
         e.set(projectId, title, dueDate, assigneeId);
         events.save(e);
+        notifications.deleteUnsentForOtherDates(e.getId(), dueDate);
     }
 
     @Transactional

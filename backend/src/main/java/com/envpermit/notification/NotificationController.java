@@ -45,7 +45,7 @@ class NotificationController {
     }
 
     record DeadlineView(long id, String kind, long targetId, long projectId, String projectName, String title,
-                        LocalDate dueDate, long dDay) {
+                        LocalDate dueDate, long dDay, Long assigneeId) {
     }
 
     @GetMapping("/api/notifications")
@@ -80,12 +80,14 @@ class NotificationController {
         if (to.isBefore(from) || ChronoUnit.DAYS.between(from, to) > 366) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "기간은 1년 이내로 지정해 주세요.");
         }
-        List<DeadlineEvent> list = events.findVisible(userId(jwt), from, to);
+        // project events have their own calendar and widgets (design-schedule/04); they are not 기한
+        List<DeadlineEvent> list = events.findVisible(userId(jwt), from, to).stream()
+                .filter(e -> !Deadlines.PROJECT_EVENT.equals(e.getKind())).toList();
         Map<Long, String> names = projects.findAllById(list.stream().map(DeadlineEvent::getProjectId).toList())
                 .stream().collect(Collectors.toMap(Project::getId, Project::getName));
         LocalDate today = LocalDate.now(clock);
         return list.stream().map(e -> new DeadlineView(e.getId(), e.getKind(), e.getTargetId(), e.getProjectId(),
                 names.get(e.getProjectId()), e.getTitle(), e.getDueDate(),
-                ChronoUnit.DAYS.between(today, e.getDueDate()))).toList();
+                ChronoUnit.DAYS.between(today, e.getDueDate()), e.getAssigneeId())).toList();
     }
 }

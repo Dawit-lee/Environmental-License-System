@@ -10,6 +10,7 @@ export interface Deadline {
   title: string;
   dueDate: string; // YYYY-MM-DD
   dDay: number;
+  assigneeId: number | null;
 }
 
 export interface AppNotification {
