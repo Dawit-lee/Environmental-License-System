@@ -43,3 +43,28 @@
   background: #991b1b;
   pointer-events: none;
 }
+
+/* bar content (taskTemplate): title inside a task bar, beside a milestone; "+N일" right of the bar */
+.schedule-gantt .schedule-bar-text {
+  overflow: hidden;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: inherit;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--wx-gantt-task-font-color);
+}
+.schedule-gantt .schedule-bar-slip,
+.schedule-gantt .schedule-bar-out {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 6px);
+  transform: translateY(-50%);
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--wx-color-font);
+  pointer-events: none;
+}
+.schedule-gantt .schedule-slip {
+  color: #991b1b;
+}

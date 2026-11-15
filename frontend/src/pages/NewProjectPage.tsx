@@ -16,6 +16,7 @@ import {
   type RuleCategory,
 } from '../api/derivation';
 import { acceptSuggestion, editSuggestion, rejectSuggestion } from '../api/review';
+import { ANCHOR_LABEL, setAnchor } from '../api/schedule';
 import type { FacilityType, Project, ProjectStatus } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -103,6 +104,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
   const [capacity, setCapacity] = useState('');
   const [startDate, setStartDate] = useState('');
   const [expectedEndDate, setExpectedEndDate] = useState('');
+  const [savedDates, setSavedDates] = useState({ start: '', end: '' }); // to preview the schedule move on save
   const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
   const [saved, setSaved] = useState(false);
   const [depts, setDepts] = useState<Department[]>([]);
@@ -141,6 +143,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setCapacity(p.capacity == null ? '' : String(p.capacity));
       setStartDate(p.startDate ?? '');
       setExpectedEndDate(p.expectedEndDate ?? '');
+      setSavedDates({ start: p.startDate ?? '', end: p.expectedEndDate ?? '' });
       setStatus(p.status);
       setTeamId(p.teamId);
       setPmUserId(p.pmUserId);
@@ -249,6 +252,16 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     if (why) act(() => rejectSuggestion(s, why));
   };
 
+  /** 착수일·완료일 move the schedule's relative items (설계 §2.3): show how many before saving. */
+  const confirmScheduleMove = async (pid: number) => {
+    const changes = ([['KICKOFF', savedDates.start, startDate], ['COMPLETION', savedDates.end, expectedEndDate]] as const)
+      .filter(([, from, to]) => to && to !== from);
+    const previews = await Promise.all(changes.map(([a, , to]) => setAnchor(pid, a, to, true)));
+    const moved = previews.filter((p) => p.count > 0);
+    return !moved.length || window.confirm(`${moved.map((p) => `${ANCHOR_LABEL[p.anchor]} ${p.from ?? '미정'} → ${p.to}: 일정 항목 ${p.count}건 이동`)
+      .join('\n')}\n완료·고정 항목과 기준 계획은 그대로입니다. 저장할까요?`);
+  };
+
   const handleNext = async (derivation = true) => {
     setBusy(true);
     setError(null);
@@ -270,7 +283,9 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       const pid =
         projectId ??
         (await api<{ id: number }>('/api/projects', { method: 'POST', body })).id;
+      if (projectId && !(await confirmScheduleMove(pid))) return;
       if (projectId) await api(`/api/projects/${pid}`, { method: 'PUT', body });
+      setSavedDates({ start: startDate, end: expectedEndDate });
       setProjectId(pid);
       onSaved?.();
       if (!derivation) return setSaved(true);

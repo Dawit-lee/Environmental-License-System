@@ -4,6 +4,7 @@ import {
   renameDepartment, renameTeam, teamLabels, type CompanyUser, type Department,
 } from '../api/org';
 import DisciplineSettings from '../components/DisciplineSettings';
+import TemplateSettings from '../components/TemplateSettings';
 
 // ---------------------------------------------------------------------------
 // OrgPage — company master only: departments > teams, which team each user is in, and the 분야 list.
@@ -19,7 +20,7 @@ export default function OrgPage() {
   const [newDept, setNewDept] = useState('');
   const [newTeam, setNewTeam] = useState<Record<number, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<'org' | 'disciplines'>('org');
+  const [tab, setTab] = useState<'org' | 'disciplines' | 'templates'>('org');
 
   const load = () =>
     Promise.all([getDepartments(), getCompanyUsers()]).then(([d, u]) => {
@@ -50,7 +51,7 @@ export default function OrgPage() {
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold text-[#1F4E79]">조직 관리</h1>
         <nav className="mt-4 flex gap-1 border-b border-[#E5E3DC]">
-          {([['org', '조직'], ['disciplines', '분야']] as const).map(([key, label]) => (
+          {([['org', '조직'], ['disciplines', '분야'], ['templates', '일정 템플릿']] as const).map(([key, label]) => (
             <button key={key} type="button" onClick={() => setTab(key)}
               className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === key ? 'border-[#1F4E79] text-[#1F4E79]' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
               {label}
@@ -58,6 +59,7 @@ export default function OrgPage() {
           ))}
         </nav>
         {tab === 'disciplines' && <DisciplineSettings />}
+        {tab === 'templates' && <TemplateSettings />}
         {tab === 'org' && (<>
         <p className="mt-4 text-sm text-gray-500">부서와 팀을 만들고 사용자를 팀에 배정합니다. 팀을 지우면 소속 사용자·프로젝트는 미지정이 됩니다.</p>
         {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}

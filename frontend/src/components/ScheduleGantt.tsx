@@ -8,7 +8,9 @@ import type { Dependency, Discipline, ScheduleItem } from '../api/schedule';
 // ---------------------------------------------------------------------------
 // ScheduleGantt — the only place that knows SVAR React Gantt (MIT edition; no PRO props such as markers or
 // baselines). It just maps schedule items to Gantt rows: discipline group › item (› sub-item), bars, milestone
-// diamonds, FS links, today column. Edits happen outside; a bar drag reports the new dates via onMove.
+// diamonds, FS links, today column, "+N일" past the baseline (text, not PRO baseline bars) and a D-day row when the
+// main base date is the bid date. Edits happen outside; a bar drag reports the new dates via onMove. Items without
+// dates are not passed in.
 // The chart keeps its own copy of the data after init: the parent re-keys it after every load, so a rejected
 // drag snaps back to the server's dates.
 // ---------------------------------------------------------------------------
@@ -32,15 +34,15 @@ export function toGantt(items: ScheduleItem[], deps: Dependency[], disciplines: 
   [...groups.entries()]
     .sort(([a], [b]) => (order.get(a) ?? -1) - (order.get(b) ?? -1))
     .forEach(([key, rows]) => {
-      const starts = rows.map((r) => parseISO(r.startDate).getTime());
-      const ends = rows.map((r) => parseISO(r.endDate).getTime());
+      const starts = rows.map((r) => parseISO(r.startDate!).getTime());
+      const ends = rows.map((r) => parseISO(r.endDate!).getTime());
       tasks.push({
         id: GROUP + key, type: 'summary', open: true, text: rows[0].disciplineName ?? '공통',
         start: new Date(Math.min(...starts)), end: addDays(new Date(Math.max(...ends)), 1),
         owner: '', endText: '', delayDays: 0, // shown in the grid columns
       });
       for (const r of rows) {
-        const start = parseISO(r.startDate);
+        const start = parseISO(r.startDate!);
         tasks.push({
           id: r.id,
           parent: r.parentId && visible.has(r.parentId) ? r.parentId : GROUP + key,
@@ -48,11 +50,12 @@ export function toGantt(items: ScheduleItem[], deps: Dependency[], disciplines: 
           text: r.title,
           type: r.kind === 'MILESTONE' ? 'milestone' : 'task',
           start,
-          end: r.kind === 'MILESTONE' ? start : addDays(parseISO(r.endDate), 1),
+          end: r.kind === 'MILESTONE' ? start : addDays(parseISO(r.endDate!), 1),
           progress: r.progress,
           owner: r.ownerName ?? '',
-          endText: r.endDate.slice(2).replaceAll('-', '.'),
+          endText: r.endDate!.slice(2).replaceAll('-', '.'),
           delayDays: r.delayDays,
+          slipDays: r.slipDays ?? 0,
           done: r.status === 'DONE',
         });
       }
@@ -71,6 +74,20 @@ export function fromGantt(task: ITask, kind: ScheduleItem['kind']): { startDate:
 
 const DelayCell = ({ row }: { row: ITask }) =>
   row.delayDays > 0 ? <span className="text-[#991B1B]">+{row.delayDays}일</span> : null;
+
+/** Bar content: the title, and 기준 대비 연기 as plain text just right of the bar. */
+const Bar = ({ data }: { data: ITask }) => {
+  const slip = data.slipDays > 0 ? <span className="schedule-slip">+{data.slipDays}일</span> : null;
+  return data.type === 'milestone'
+    ? <div className="schedule-bar-out">{data.text}{slip && <> {slip}</>}</div>
+    : <><div className="schedule-bar-text">{data.text}</div>{slip && <div className="schedule-bar-slip">{slip}</div>}</>;
+};
+
+/** "D-90" / "D-day" / "D+3" for the cell starting at d. */
+export const dDay = (submission: Date, d: Date) => {
+  const n = differenceInCalendarDays(submission, d);
+  return n === 0 ? 'D-day' : n > 0 ? `D-${n}` : `D+${-n}`;
+};
 
 const COLUMNS = [
   { id: 'text', header: '항목', flexgrow: 1 },
@@ -111,18 +128,22 @@ const SCALES: Record<Scale, { cellWidth: number; scales: { unit: string; step: n
   },
 };
 
-export default function ScheduleGantt({ items, dependencies, disciplines, today, scale, onOpen, onMove }: {
+export default function ScheduleGantt({ items, dependencies, disciplines, today, scale, submission, onOpen, onMove }: {
   items: ScheduleItem[];
   dependencies: Dependency[];
   disciplines: Discipline[];
   today: string;
   scale: Scale;
+  submission: string | null; // 주 기준일 = 입찰(제출)일이면 그 날짜: the axis gets a D-day row
   onOpen: (id: number) => void;
   onMove: (id: number, dates: { startDate: string; endDate: string }) => void;
 }) {
   const { tasks, links } = useMemo(() => toGantt(items, dependencies, disciplines), [items, dependencies, disciplines]);
   const todayDate = parseISO(today);
   const kinds = useMemo(() => new Map(items.map((i) => [i.id, i.kind])), [items]);
+  const scales = submission
+    ? [...SCALES[scale].scales, { unit: scale, step: 1, format: (d: Date) => dDay(parseISO(submission), d) }]
+    : SCALES[scale].scales;
 
   const init = (api: IApi) => {
     // edits go through our own form and API; the Gantt only drags bars
@@ -151,7 +172,8 @@ export default function ScheduleGantt({ items, dependencies, disciplines, today,
           tasks={tasks}
           links={links}
           columns={COLUMNS}
-          scales={SCALES[scale].scales}
+          scales={scales}
+          taskTemplate={Bar}
           cellWidth={SCALES[scale].cellWidth}
           lengthUnit="day"
           cellHeight={34}
