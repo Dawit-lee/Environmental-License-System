@@ -12,7 +12,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 
 /**
- * The seeded rules of ruleset v2 and v3 (V290, V300) against made-up attribute sets: each threshold at and just under its
+ * The seeded rules of ruleset v2, v3 and v4 (V290, V300, V370) against made-up attribute sets: each threshold at and just under its
  * boundary, and the ON_HOLD case when the input is missing. Attributes are fictional (no real project).
  */
 class RuleSeedTest extends IntegrationTest {
@@ -171,7 +171,22 @@ class RuleSeedTest extends IntegrationTest {
             // v3 — 승강기
             "ELEVATOR_INSTALL_INSPECTION|{'has_elevator':true}|APPLICABLE",
             "ELEVATOR_INSTALL_INSPECTION|{'has_elevator':false}|NOT_APPLICABLE",
-            "ELEVATOR_INSTALL_INSPECTION|{}|ON_HOLD"})
+            "ELEVATOR_INSTALL_INSPECTION|{}|ON_HOLD",
+            // v4 — 다이옥신 측정: 25 kg/h = 0.6 t/d, 200 kg/h = 4.8 t/d, 2 t/h = 48 t/d
+            "DIOXIN_MEASURE_6M|{'capacity_tpd':48}|APPLICABLE",
+            "DIOXIN_MEASURE_6M|{'capacity_tpd':47.9}|NOT_APPLICABLE",
+            "DIOXIN_MEASURE_6M|{}|ON_HOLD",
+            "DIOXIN_MEASURE_12M|{'capacity_tpd':47.9}|APPLICABLE",
+            "DIOXIN_MEASURE_12M|{'capacity_tpd':4.8}|APPLICABLE",
+            "DIOXIN_MEASURE_12M|{'capacity_tpd':48}|NOT_APPLICABLE",
+            "DIOXIN_MEASURE_12M|{'capacity_tpd':4.7}|NOT_APPLICABLE",
+            "DIOXIN_MEASURE_12M|{}|ON_HOLD",
+            "DIOXIN_MEASURE_24M|{'capacity_tpd':4.7}|APPLICABLE",
+            "DIOXIN_MEASURE_24M|{'capacity_tpd':0.6}|APPLICABLE",
+            "DIOXIN_MEASURE_24M|{'capacity_tpd':4.8}|NOT_APPLICABLE",
+            "DIOXIN_MEASURE_24M|{'capacity_tpd':0.5}|NOT_APPLICABLE",
+            "DIOXIN_MEASURE_24M|{}|ON_HOLD",
+            "DIOXIN_MEASURE_6M|{'project_kind':'EXPANSION','capacity_tpd':380,'existing_capacity_tpd':300}|APPLICABLE"})
     void seededRule(String ruleKey, String attrs, String expected) {
         DerivationRule r = rules.findByStatusOrderByRuleKey("ACTIVE").stream()
                 .filter(x -> x.getRuleKey().equals(ruleKey)).findFirst().orElseThrow();
@@ -192,8 +207,8 @@ class RuleSeedTest extends IntegrationTest {
     @Test
     void rulesetKeepsOneActiveVersionPerKeyAndEveryRuleCitesALaw() {
         var active = rules.findByStatusOrderByRuleKey("ACTIVE");
-        assertThat(rules.rulesetVersion()).isEqualTo(3);
-        assertThat(active).hasSize(48); // 14 (v1) + 20 (v2) + 14 (v3)
+        assertThat(rules.rulesetVersion()).isEqualTo(4);
+        assertThat(active).hasSize(51); // 14 (v1) + 20 (v2) + 14 (v3) + 3 (v4)
         assertThat(active).extracting(DerivationRule::getRuleKey).doesNotHaveDuplicates();
         assertThat(active).allSatisfy(r -> assertThat(r.getLawRefs().size()).isPositive());
     }
