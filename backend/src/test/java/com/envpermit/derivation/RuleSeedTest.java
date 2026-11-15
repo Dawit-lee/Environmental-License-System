@@ -186,7 +186,7 @@ class RuleSeedTest extends IntegrationTest {
             "DIOXIN_MEASURE_24M|{'capacity_tpd':4.8}|NOT_APPLICABLE",
             "DIOXIN_MEASURE_24M|{'capacity_tpd':0.5}|NOT_APPLICABLE",
             "DIOXIN_MEASURE_24M|{}|ON_HOLD",
-            "DIOXIN_MEASURE_6M|{'project_kind':'EXPANSION','capacity_tpd':380,'existing_capacity_tpd':300}|APPLICABLE"})
+            "DIOXIN_MEASURE_6M|{'project_kind':'EXPANSION','capacity_tpd':150,'existing_capacity_tpd':100}|APPLICABLE"})
     void seededRule(String ruleKey, String attrs, String expected) {
         DerivationRule r = rules.findByStatusOrderByRuleKey("ACTIVE").stream()
                 .filter(x -> x.getRuleKey().equals(ruleKey)).findFirst().orElseThrow();
