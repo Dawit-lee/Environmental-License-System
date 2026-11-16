@@ -29,28 +29,12 @@ const FACILITY_LABEL: Record<FacilityType, string> = {
   WASTEWATER: '폐수처리',
 };
 
-const FACILITY_BADGE: Record<FacilityType, string> = {
-  INCINERATION: 'bg-red-100 text-red-700',
-  LANDFILL: 'bg-gray-200 text-gray-700',
-  BIOGAS: 'bg-emerald-100 text-emerald-700',
-  SEWAGE: 'bg-sky-100 text-sky-700',
-  WASTEWATER: 'bg-violet-100 text-violet-700',
-};
-
 const CATEGORY_LABEL: Record<PermitCategory, string> = {
   LOCATION: '입지',
   FACILITY: '시설',
   CONSTRUCTION: '건축',
   ELECTRICAL: '전기',
   ENVIRONMENT: '환경평가',
-};
-
-const CATEGORY_BADGE: Record<PermitCategory, string> = {
-  LOCATION: 'bg-amber-100 text-amber-800',
-  FACILITY: 'bg-sky-100 text-sky-800',
-  CONSTRUCTION: 'bg-violet-100 text-violet-800',
-  ELECTRICAL: 'bg-emerald-100 text-emerald-800',
-  ENVIRONMENT: 'bg-rose-100 text-rose-800',
 };
 
 const STATUS_LABEL: Record<PermitStatus, string> = {
@@ -62,11 +46,11 @@ const STATUS_LABEL: Record<PermitStatus, string> = {
 };
 
 const STATUS_BADGE: Record<PermitStatus, string> = {
-  NOT_APPLIED: 'bg-gray-200 text-gray-600',
-  IN_PROGRESS: 'bg-[#1F4E79]/10 text-[#1F4E79]',
-  COMPLETED: 'bg-[#0F6E56]/10 text-[#0F6E56]',
-  NEAR_EXPIRY: 'bg-[#B45309]/10 text-[#B45309]',
-  EXPIRED: 'bg-[#991B1B]/10 text-[#991B1B]',
+  NOT_APPLIED: 'text-gray-600',
+  IN_PROGRESS: 'text-[#1F4E79]',
+  COMPLETED: 'text-[#0F6E56]',
+  NEAR_EXPIRY: 'text-[#B45309]',
+  EXPIRED: 'text-[#991B1B]',
 };
 
 function dDayClasses(dDay: number | null): string {
@@ -139,9 +123,7 @@ export default function ProjectDetailPage() {
   const stats = useMemo(() => {
     const total = permits.length;
     const completed = permits.filter((p) => p.status === 'COMPLETED').length;
-    const nearExpiry = permits.filter(
-      (p) => p.status === 'NEAR_EXPIRY' || (p.dDay !== null && p.dDay <= 30 && p.status !== 'COMPLETED'),
-    ).length;
+    const nearExpiry = permits.filter((p) => p.status === 'NEAR_EXPIRY').length; // same rule as the 상태 분포
     const notApplied = permits.filter((p) => p.status === 'NOT_APPLIED').length;
     return { total, completed, nearExpiry, notApplied };
   }, [permits]);
@@ -191,9 +173,7 @@ export default function ProjectDetailPage() {
         <section className="mt-4 rounded-xl border border-[#E5E3DC] bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <span
-                className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${FACILITY_BADGE[project.facilityType]}`}
-              >
+              <span className="text-sm text-gray-500">
                 {FACILITY_LABEL[project.facilityType]}
               </span>
               <h1 className="mt-2 text-2xl font-bold text-gray-900">{project.name}</h1>
@@ -323,7 +303,7 @@ export default function ProjectDetailPage() {
                 <tr key={p.id} className="transition hover:bg-[#F8F7F2]">
                   <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${CATEGORY_BADGE[p.category]}`}>
+                    <span className="whitespace-nowrap text-gray-700">
                       {CATEGORY_LABEL[p.category]}
                     </span>
                   </td>
@@ -342,7 +322,7 @@ export default function ProjectDetailPage() {
                   <td className="px-4 py-3 text-gray-600">{p.expiryDate ?? '—'}</td>
                   <td className={`px-4 py-3 ${dDayClasses(p.dDay)}`}>{dDayLabel(p.dDay)}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE[p.status]}`}>
+                    <span className={`whitespace-nowrap ${STATUS_BADGE[p.status]}`}>
                       {STATUS_LABEL[p.status]}
                     </span>
                   </td>

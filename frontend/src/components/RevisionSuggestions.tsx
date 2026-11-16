@@ -7,15 +7,16 @@ import { api, ApiError } from '../api/client';
 import {
   completeSiteImplementation, listSiteImplementations, updateSiteImplementation, type SiteImplementation,
 } from '../api/revisions';
+import { usePrompt } from './PromptDialog';
 
 // ④ version-diff: compare view of a project's revision suggestions (summary bar, v1 | v2 word diff, approve).
 
 const TYPE: Record<ChangeType, { label: string; sign: string; cls: string }> = {
-  ADDED: { label: '추가', sign: '+', cls: 'bg-emerald-100 text-[#0F6E56]' },
-  REMOVED: { label: '삭제', sign: '−', cls: 'bg-red-100 text-[#991B1B]' },
-  CHANGED: { label: '변경', sign: '~', cls: 'bg-amber-100 text-[#B45309]' },
-  MINOR: { label: '경미', sign: '', cls: 'bg-gray-100 text-gray-600' },
-  UNCHANGED: { label: '변경 없음', sign: '', cls: 'bg-gray-100 text-gray-500' },
+  ADDED: { label: '추가', sign: '+', cls: 'text-[#0F6E56]' },
+  REMOVED: { label: '삭제', sign: '−', cls: 'text-[#991B1B]' },
+  CHANGED: { label: '변경', sign: '~', cls: 'text-[#B45309]' },
+  MINOR: { label: '경미', sign: '', cls: 'text-gray-600' },
+  UNCHANGED: { label: '변경 없음', sign: '', cls: 'text-gray-500' },
 };
 const ORDER: ChangeType[] = ['CHANGED', 'REMOVED', 'ADDED', 'MINOR', 'UNCHANGED'];
 const FLAG: Record<string, string> = {
@@ -133,7 +134,7 @@ function SiteList({ projectId, rows, run }: { projectId: number; rows: SiteImple
       <ul className="mt-2 divide-y divide-[#E5E3DC]">
         {rows.map((r) => (
           <li key={r.suggestionId} className="flex flex-wrap items-center gap-2 py-2">
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${TYPE[r.changeType].cls}`}>{TYPE[r.changeType].label}</span>
+            <span className={`whitespace-nowrap text-xs font-medium ${TYPE[r.changeType].cls}`}>{TYPE[r.changeType].label}</span>
             <span className="font-mono text-xs text-gray-500">{r.citationKey}</span>
             <span className="min-w-0 flex-1 truncate text-gray-800">{r.summary}</span>
             <select aria-label="담당자" value={r.assigneeId ?? ''}
@@ -168,13 +169,13 @@ function Row({ s, active, onClick }: { s: RevisionSuggestion; active: boolean; o
       <button type="button" onClick={onClick}
         className={`w-full px-4 py-2.5 text-left text-sm ${active ? 'bg-[#EEF3F8]' : 'hover:bg-[#F8F7F2]'} ${open(s) ? '' : 'opacity-70'}`}>
         <div className="flex flex-wrap items-center gap-2">
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${t.cls}`}>{t.sign}{t.label}</span>
+          <span className={`whitespace-nowrap text-xs font-medium ${t.cls}`}>{t.sign}{t.label}</span>
           <span className="font-mono text-xs text-gray-500">{key}</span>
           <span className="min-w-0 flex-1 truncate text-gray-800">{row?.summary}</span>
-          {!open(s) && <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-800">v1 근거</span>}
+          {!open(s) && <span className="whitespace-nowrap text-xs text-violet-800">v1 근거</span>}
           {p.prev_obligation_closed && <span className="text-xs text-gray-500">종료된 의무</span>}
           {p.match.flags.map((f) => (
-            <span key={f} className="rounded-full bg-sky-100 px-2 py-0.5 text-xs text-sky-800">{FLAG[f] ?? f}</span>
+            <span key={f} className="whitespace-nowrap text-xs text-sky-800">{FLAG[f] ?? f}</span>
           ))}
         </div>
       </button>
@@ -193,14 +194,15 @@ function Detail({ s, all, run, onReplaced }: {
   const [absent, setAbsent] = useState(false);
   const [stale, setStale] = useState(false);
   const [partner, setPartner] = useState<number | ''>('');
+  const [ask, promptUi] = usePrompt();
   const type = p.change_type;
   const partners = all.filter((o) => o.runId === s.runId && o.payload.change_type === (type === 'ADDED' ? 'REMOVED' : 'ADDED'));
   const blocked = (needsDate(s) && !due) || (type === 'REMOVED' && !absent);
 
   const accept = () => run(() => acceptRevision(s, needsDate(s) ? due : null, absent), '승인했습니다.')
     .catch((e) => { if (e instanceof ApiError && e.status === 409 && e.message === STALE) setStale(true); });
-  const reject = () => {
-    const reason = window.prompt('거절 사유');
+  const reject = async () => {
+    const reason = (await ask('거절 사유'))?.trim();
     if (reason) run(() => rejectSuggestion(s, reason), '거절했습니다. 의무사항은 v1 근거로 남습니다.').catch(() => {});
   };
   const unpair = () => run(() => unpairRevision(s), '분리했습니다: 추가 1건 + 삭제 1건').then(() => onReplaced(null), () => {});
@@ -215,6 +217,7 @@ function Detail({ s, all, run, onReplaced }: {
 
   return (
     <div className="min-w-0 space-y-4 px-4 py-4 text-sm">
+      {promptUi}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Side title="v1 (이전)" row={p.prev} other={next} side="old" />
         <Side title="v2 (새 버전)" row={next} other={p.prev} side="new" />

@@ -37,6 +37,12 @@ class EmissionLimitApiTest extends IntegrationTest {
     long stack;
     String limits;
 
+    String otherCompanyUser() throws Exception {
+        long b = companies.save(new Company("B엔지니어링")).getId();
+        users.save(new User("choi@b.com", encoder.encode("pw"), "최비", User.Role.USER, b));
+        return login("choi@b.com");
+    }
+
     @BeforeEach
     void seed() throws Exception {
         truncateAll();
@@ -176,6 +182,11 @@ class EmissionLimitApiTest extends IntegrationTest {
 
         call(kim, get("/api/emission-points/999/limits")).andExpect(status().isNotFound());
         call(kim, post("/api/limits/999/reviewed")).andExpect(status().isNotFound());
+        // another company's limit id answers like a missing one
+        String choi = otherCompanyUser();
+        call(choi, post("/api/limits/" + limitId + "/reviewed")).andExpect(status().isNotFound());
+        call(choi, json(post("/api/limits/" + limitId + "/close"), "{\"effectiveTo\":\"2026-03-31\"}")).andExpect(status().isNotFound());
+        call(choi, delete("/api/limits/" + limitId)).andExpect(status().isNotFound());
         call(kim, get(limits)).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].effectiveTo").doesNotExist());
     }
 

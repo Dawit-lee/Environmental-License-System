@@ -67,7 +67,7 @@ export default function PermitVersions({ permit }: { permit: PermitItem }) {
                 <span className="font-mono text-xs text-gray-500">{o.citationKey}</span>
                 <span className={`min-w-0 flex-1 truncate ${o.status === 'CLOSED' ? 'text-gray-400 line-through' : 'text-gray-800'}`}>{o.summary}</span>
                 {versionOf(o.sourceDocumentId) && (
-                  <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-800">{versionOf(o.sourceDocumentId)} 근거</span>
+                  <span className="whitespace-nowrap text-xs text-violet-800">{versionOf(o.sourceDocumentId)} 근거</span>
                 )}
               </button>
               {openId === o.id && (

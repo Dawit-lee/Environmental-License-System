@@ -16,8 +16,8 @@ import {
 // ---------------------------------------------------------------------------
 
 const LEVEL = {
-  DIRECT: { label: '직접 영향', cls: 'bg-red-100 text-[#991B1B]' },
-  REFERENCE: { label: '참고', cls: 'bg-gray-100 text-gray-600' },
+  DIRECT: { label: '직접 영향', cls: 'text-[#991B1B]' },
+  REFERENCE: { label: '참고', cls: 'text-gray-600' },
 };
 
 const WHOLE_LAW = ['폐지', '타법개정', '일괄개정', '전부개정'];
@@ -169,7 +169,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
                     </td>
                     <td className="px-3 py-2.5 font-mono text-xs">{i.enforcedOn ?? '-'}</td>
                     <td className="px-3 py-2.5">
-                      <Badge label={i.status === 'REVIEWED' ? '확인함' : '미확인'} cls={i.status === 'REVIEWED' ? 'bg-emerald-100 text-[#0F6E56]' : 'bg-amber-100 text-[#B45309]'} />
+                      <Badge label={i.status === 'REVIEWED' ? '확인함' : '미확인'} cls={i.status === 'REVIEWED' ? 'text-[#0F6E56]' : 'text-[#B45309]'} />
                     </td>
                   </tr>
                 ))}
@@ -182,7 +182,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-base font-semibold text-gray-800">{sel.lawName}</h2>
               <div className="flex gap-1.5">
-                {sel.replacementNeeded && <Badge label="대체 법령 확인 필요" cls="bg-amber-100 text-[#B45309]" />}
+                {sel.replacementNeeded && <Badge label="대체 법령 확인 필요" cls="text-[#B45309]" />}
                 <Badge {...LEVEL[sel.level]} />
               </div>
             </div>
@@ -200,7 +200,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
                 <div key={a.articleNo} className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-mono">{a.articleNo}</span><span>{a.changeReason}</span>
                   {a.enforcedOn && <span className="text-xs text-gray-500">시행 {a.enforcedOn}</span>}
-                  {a.mine && <Badge label="내가 지정한 조문" cls="bg-sky-100 text-sky-800" />}
+                  {a.mine && <Badge label="내가 지정한 조문" cls="text-sky-800" />}
                 </div>
               ))}
             </div>
@@ -256,5 +256,5 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
 }
 
 function Badge({ label, cls }: { label: string; cls: string }) {
-  return <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
+  return <span className={`whitespace-nowrap ${cls}`}>{label}</span>;
 }

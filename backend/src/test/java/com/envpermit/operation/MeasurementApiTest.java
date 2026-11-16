@@ -40,6 +40,12 @@ class MeasurementApiTest extends IntegrationTest {
     long coLimit;
     String measurements;
 
+    String otherCompanyUser() throws Exception {
+        long b = companies.save(new Company("B엔지니어링")).getId();
+        users.save(new User("choi@b.com", encoder.encode("pw"), "최비", User.Role.USER, b));
+        return login("choi@b.com");
+    }
+
     @BeforeEach
     void seed() throws Exception {
         truncateAll();
@@ -187,6 +193,7 @@ class MeasurementApiTest extends IntegrationTest {
 
         call(kim, get("/api/emission-points/999/measurements")).andExpect(status().isNotFound());
         call(kim, json(delete("/api/measurements/999"), "{\"reason\":\"x\"}")).andExpect(status().isNotFound());
+        call(otherCompanyUser(), json(delete("/api/measurements/" + m), "{\"reason\":\"x\"}")).andExpect(status().isNotFound());
         call(kim, get(measurements)).andExpect(jsonPath("$.length()").value(1));
     }
 

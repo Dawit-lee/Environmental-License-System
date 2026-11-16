@@ -17,15 +17,6 @@ const FACILITY_LABEL: Record<FacilityType, string> = {
   WASTEWATER: '폐수처리',
 };
 
-// Badge colors by facility type per design system.
-const FACILITY_BADGE: Record<FacilityType, string> = {
-  INCINERATION: 'bg-red-100 text-red-700',
-  LANDFILL: 'bg-gray-200 text-gray-700',
-  BIOGAS: 'bg-emerald-100 text-emerald-700',
-  SEWAGE: 'bg-sky-100 text-sky-700',
-  WASTEWATER: 'bg-violet-100 text-violet-700',
-};
-
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
@@ -33,9 +24,9 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 };
 
 const STATUS_BADGE: Record<ProjectStatus, string> = {
-  IN_PROGRESS: 'bg-[#1F4E79]/10 text-[#1F4E79]',
-  COMPLETED: 'bg-[#0F6E56]/10 text-[#0F6E56]',
-  ON_HOLD: 'bg-gray-200 text-gray-600',
+  IN_PROGRESS: 'text-[#1F4E79]',
+  COMPLETED: 'text-[#0F6E56]',
+  ON_HOLD: 'text-gray-600',
 };
 
 type SortKey = 'name' | 'facility' | 'team' | 'pm' | 'em' | 'status' | 'progress' | 'nearExpiry' | 'location';
@@ -246,7 +237,7 @@ export default function ProjectListPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${FACILITY_BADGE[p.facilityType]}`}>
+                        <span className="whitespace-nowrap text-gray-700">
                           {FACILITY_LABEL[p.facilityType]}
                         </span>
                       </td>
@@ -254,7 +245,7 @@ export default function ProjectListPage() {
                       <Cell text={p.pmName ?? ''} max="max-w-[100px]" />
                       <Cell text={p.emName ?? ''} max="max-w-[100px]" />
                       <td className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE[p.status]}`}>
+                        <span className={`whitespace-nowrap ${STATUS_BADGE[p.status]}`}>
                           {STATUS_LABEL[p.status]}
                         </span>
                       </td>

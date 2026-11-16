@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createDiscipline, getDisciplines, updateDiscipline, type Discipline } from '../api/schedule';
+import { usePrompt } from './PromptDialog';
 
 // ---------------------------------------------------------------------------
 // DisciplineSettings — 조직 관리 › 분야 (company master): add, rename, reorder, deactivate. No delete: an inactive
@@ -9,6 +10,7 @@ import { createDiscipline, getDisciplines, updateDiscipline, type Discipline } f
 const btn = 'rounded-lg border border-[#E5E3DC] px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-[#F8F7F2] disabled:opacity-30';
 
 export default function DisciplineSettings() {
+  const [ask, promptUi] = usePrompt();
   const [list, setList] = useState<Discipline[]>([]);
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,7 @@ export default function DisciplineSettings() {
 
   return (
     <section className="mt-6">
+      {promptUi}
       <p className="text-sm text-gray-500">프로젝트 일정의 분야 목록입니다. 비활성 분야는 새 항목에서만 숨고, 기존 항목에는 그대로 보입니다.</p>
       {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
       <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
@@ -58,8 +61,8 @@ export default function DisciplineSettings() {
                 <td className={`max-w-xs truncate px-4 py-2 ${d.active ? 'font-medium text-gray-800' : 'text-gray-400'}`} title={d.name}>{d.name}</td>
                 <td className="px-4 py-2 text-gray-500">{d.active ? '사용' : '비활성'}</td>
                 <td className="px-4 py-2 text-right">
-                  <button type="button" className={btn} onClick={() => {
-                    const next = window.prompt('새 이름', d.name)?.trim();
+                  <button type="button" className={btn} onClick={async () => {
+                    const next = (await ask('새 이름', d.name))?.trim();
                     if (next && next !== d.name) run(() => updateDiscipline(d.id, { name: next }));
                   }}>이름 변경</button>{' '}
                   <button type="button" className={btn} onClick={() => run(() => updateDiscipline(d.id, { active: !d.active }))}>

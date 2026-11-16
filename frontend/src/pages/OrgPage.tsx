@@ -5,6 +5,7 @@ import {
 } from '../api/org';
 import DisciplineSettings from '../components/DisciplineSettings';
 import TemplateSettings from '../components/TemplateSettings';
+import { usePrompt } from '../components/PromptDialog';
 
 // ---------------------------------------------------------------------------
 // OrgPage — company master only: departments > teams, which team each user is in, and the 분야 list.
@@ -15,6 +16,7 @@ const btn = 'rounded-lg border border-[#E5E3DC] px-2.5 py-1 text-xs font-medium 
 const input = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-sm outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
 
 export default function OrgPage() {
+  const [ask, promptUi] = usePrompt();
   const [depts, setDepts] = useState<Department[]>([]);
   const [people, setPeople] = useState<CompanyUser[]>([]);
   const [newDept, setNewDept] = useState('');
@@ -40,8 +42,8 @@ export default function OrgPage() {
     }
     await load();
   };
-  const rename = (current: string, save: (name: string) => Promise<unknown>) => {
-    const name = window.prompt('새 이름', current)?.trim();
+  const rename = async (current: string, save: (name: string) => Promise<unknown>) => {
+    const name = (await ask('새 이름', current))?.trim();
     if (name && name !== current) run(() => save(name));
   };
   const labels = teamLabels(depts);
@@ -49,6 +51,7 @@ export default function OrgPage() {
   return (
     <div className="min-h-full bg-[#F8F7F2]">
       <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      {promptUi}
         <h1 className="text-2xl font-bold text-[#1F4E79]">조직 관리</h1>
         <nav className="mt-4 flex gap-1 border-b border-[#E5E3DC]">
           {([['org', '조직'], ['disciplines', '분야'], ['templates', '일정 템플릿']] as const).map(([key, label]) => (

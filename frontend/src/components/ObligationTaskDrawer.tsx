@@ -116,7 +116,8 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
     await load(task!.id); // stay on the finished cycle; the next one shows up in the list below
   });
 
-  const memberName = (id: unknown) => (id == null ? '미지정' : members.find((m) => m.userId === id)?.name ?? '멤버 아님');
+  const memberName = (id: unknown) => (id == null ? '미지정'
+    : members.find((m) => m.userId === id)?.name ?? `${detail?.people[id as number] ?? '알 수 없음'}(제외)`);
   const change = (body: { assigneeId?: number | null; dueDate?: string }) => run(async () => {
     await updateTask(task!.id, { ...body, version: task!.version });
     await load(task!.id);

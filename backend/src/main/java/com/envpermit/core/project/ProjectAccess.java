@@ -40,13 +40,24 @@ public class ProjectAccess {
 
     /** Read-only access: members, or anyone in the project's company (company-wide project list). */
     public void viewer(long projectId, Jwt jwt) {
-        if (members.existsById(new ProjectMember.Key(projectId, userId(jwt)))) {
-            return;
-        }
-        Long company = users.findById(userId(jwt)).map(User::getCompanyId).orElse(null);
-        if (company == null || projects.findById(projectId).filter(p -> company.equals(p.getCompanyId())).isEmpty()) {
+        if (!members.existsById(new ProjectMember.Key(projectId, userId(jwt))) && !inMyCompany(projectId, jwt)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
+    }
+
+    /**
+     * Routes keyed by an item's own id (/api/suggestions|limits|measurements/{id}): another company's item answers 404
+     * like a missing id, so ids can't be probed. Call before {@link #member} (same company, not a member → still 403).
+     */
+    public void hideForeign(long projectId, Jwt jwt) {
+        if (!inMyCompany(projectId, jwt)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND);
+        }
+    }
+
+    private boolean inMyCompany(long projectId, Jwt jwt) {
+        Long company = users.findById(userId(jwt)).map(User::getCompanyId).orElse(null);
+        return company != null && projects.findById(projectId).filter(p -> company.equals(p.getCompanyId())).isPresent();
     }
 
     /** 운영 module routes: a member, and the project has the module on (else 409 MODULE_DISABLED). */

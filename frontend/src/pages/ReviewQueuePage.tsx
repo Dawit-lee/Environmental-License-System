@@ -8,6 +8,7 @@ import {
 import type { PermitItem, Project } from '../types';
 import RevisionSuggestions from '../components/RevisionSuggestions';
 import ScheduleSuggestionReview from '../components/ScheduleSuggestionReview';
+import { usePrompt } from '../components/PromptDialog';
 
 // ---------------------------------------------------------------------------
 // ReviewQueuePage — ③ human review of permit conditions (obligations).
@@ -18,17 +19,17 @@ import ScheduleSuggestionReview from '../components/ScheduleSuggestionReview';
 interface Member { userId: number; canSelfApprove: boolean; canBulkApprove: boolean }
 
 const QC: Record<QuoteCheck, { label: string; cls: string }> = {
-  MISMATCH: { label: '원문 불일치', cls: 'bg-red-100 text-[#991B1B]' },
-  UNVERIFIABLE: { label: '원문 대조 필요', cls: 'bg-gray-200 text-gray-700' },
-  VERIFIED: { label: '원문 확인됨', cls: 'bg-emerald-100 text-[#0F6E56]' },
+  MISMATCH: { label: '원문 불일치', cls: 'text-[#991B1B]' },
+  UNVERIFIABLE: { label: '원문 대조 필요', cls: 'text-gray-700' },
+  VERIFIED: { label: '원문 확인됨', cls: 'text-[#0F6E56]' },
 };
-const MANUAL_BADGE = { label: '직접 추가', cls: 'bg-gray-100 text-gray-600' };
+const MANUAL_BADGE = { label: '직접 추가', cls: 'text-gray-600' };
 const ST: Record<SuggestionStatus, { label: string; cls: string }> = {
-  PENDING: { label: '검토 대기', cls: 'bg-gray-100 text-gray-600' },
-  SUBMITTED: { label: '승인 요청됨', cls: 'bg-sky-100 text-sky-800' },
-  ACCEPTED: { label: '승인', cls: 'bg-emerald-100 text-[#0F6E56]' },
-  EDITED_ACCEPTED: { label: '수정 후 승인', cls: 'bg-emerald-100 text-[#0F6E56]' },
-  REJECTED: { label: '거절', cls: 'bg-red-100 text-[#991B1B]' },
+  PENDING: { label: '검토 대기', cls: 'text-gray-600' },
+  SUBMITTED: { label: '승인 요청됨', cls: 'text-sky-800' },
+  ACCEPTED: { label: '승인', cls: 'text-[#0F6E56]' },
+  EDITED_ACCEPTED: { label: '수정 후 승인', cls: 'text-[#0F6E56]' },
+  REJECTED: { label: '거절', cls: 'text-[#991B1B]' },
 };
 const QC_ORDER: Record<QuoteCheck | 'NONE', number> = { MISMATCH: 0, UNVERIFIABLE: 1, VERIFIED: 2, NONE: 3 };
 const FREQ: Record<Frequency, string> = {
@@ -233,15 +234,15 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
               </div>
             )}
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full table-fixed text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs text-gray-500">
                   <tr>
-                    {me?.canBulkApprove && <th className="px-3 py-2.5" />}
-                    <th className="px-3 py-2.5 font-medium">조건번호</th>
+                    {me?.canBulkApprove && <th className="w-10 px-3 py-2.5" />}
+                    <th className="w-24 px-3 py-2.5 font-medium">조건번호</th>
                     <th className="px-3 py-2.5 font-medium">요약</th>
-                    <th className="px-3 py-2.5 font-medium">주기</th>
-                    <th className="px-3 py-2.5 font-medium">원문 대조</th>
-                    <th className="px-3 py-2.5 font-medium">상태</th>
+                    <th className="w-16 px-3 py-2.5 font-medium">주기</th>
+                    <th className="w-28 px-3 py-2.5 font-medium">원문 대조</th>
+                    <th className="w-24 px-3 py-2.5 font-medium">상태</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E3DC]">
@@ -269,15 +270,15 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                             />
                           </td>
                         )}
-                        <td className="px-3 py-2.5 font-mono text-xs" title={p.citation_raw ?? undefined}>
+                        <td className="truncate px-3 py-2.5 font-mono text-xs" title={p.citation_raw ?? undefined}>
                           {p.citation_key || p.citation_raw || '—'}
                           {p.citation_synthetic && <span className="ml-1 font-sans text-[#B45309]" title="문서에 번호가 없어 시스템이 만든 키">*</span>}
                           {dupKeys.has(`${s.runId}:${p.citation_key}`) && <span className="ml-1 font-sans text-[#991B1B]" title="같은 문서 안에서 조건번호가 겹칩니다">중복</span>}
                         </td>
-                        <td className="px-3 py-2.5 text-gray-800">{p.summary}</td>
-                        <td className="px-3 py-2.5 text-gray-600">{FREQ[p.frequency]}</td>
-                        <td className="px-3 py-2.5"><Badge {...(p.quote_check ? QC[p.quote_check] : MANUAL_BADGE)} /></td>
-                        <td className="px-3 py-2.5"><Badge {...ST[s.status]} /></td>
+                        <td className="truncate px-3 py-2.5 text-gray-800" title={p.summary}>{p.summary}</td>
+                        <td className="truncate px-3 py-2.5 text-gray-600">{FREQ[p.frequency]}</td>
+                        <td className="truncate px-3 py-2.5 text-xs"><Badge {...(p.quote_check ? QC[p.quote_check] : MANUAL_BADGE)} /></td>
+                        <td className="truncate px-3 py-2.5 text-xs"><Badge {...ST[s.status]} /></td>
                       </tr>
                     );
                   })}
@@ -342,15 +343,12 @@ function Detail({ s, lead, permitName, onEdit, run }: {
 }) {
   const p = effective(s);
   const [firstDue, setFirstDue] = useState('');
+  const [ask, promptUi] = usePrompt();
   const [events, setEvents] = useState<SuggestionEvent[]>([]);
   useEffect(() => {
     suggestionEvents(s.id).then(setEvents, () => setEvents([]));
   }, [s.id, s.version]);
 
-  const ask = (q: string) => {
-    const r = window.prompt(q)?.trim();
-    return r || null;
-  };
   const decidable = s.status === 'PENDING' || s.status === 'SUBMITTED';
   // D7: a scan can only be approved after someone opened its page (the server refuses otherwise)
   const unviewedScan = p.quote_check === 'UNVERIFIABLE'
@@ -358,6 +356,7 @@ function Detail({ s, lead, permitName, onEdit, run }: {
 
   return (
     <>
+      {promptUi}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-base font-semibold text-gray-800">
           {p.citation_raw && <><span className="font-mono">{p.citation_raw}</span> · </>}{p.summary}
@@ -413,19 +412,19 @@ function Detail({ s, lead, permitName, onEdit, run }: {
                 {s.editedPayload ? '수정 후 승인' : '승인'}
               </button>
               <button type="button" className={`${btnGhost} text-[#991B1B]`}
-                onClick={() => { const r = ask('거절 사유'); if (r) run(() => rejectSuggestion(s, r), '거절했습니다.'); }}>거절</button>
+                onClick={async () => { const r = (await ask('거절 사유'))?.trim(); if (r) run(() => rejectSuggestion(s, r), '거절했습니다.'); }}>거절</button>
             </>
           )}
           {lead && s.status === 'SUBMITTED' && (
             <button type="button" className={btnGhost}
-              onClick={() => { const r = ask('반려 사유 (요청자에게 돌려보냅니다)'); if (r) run(() => returnSuggestion(s, r), '반려했습니다.'); }}>반려</button>
+              onClick={async () => { const r = (await ask('반려 사유 (요청자에게 돌려보냅니다)'))?.trim(); if (r) run(() => returnSuggestion(s, r), '반려했습니다.'); }}>반려</button>
           )}
           {!lead && s.status === 'PENDING' && (
             <>
               <button type="button" className={btnPrimary}
                 onClick={() => run(() => submitSuggestion(s, 'ACCEPT'), '승인 요청을 보냈습니다.')}>승인 요청</button>
               <button type="button" className={btnGhost}
-                onClick={() => { const r = ask('거절 요청 사유'); if (r) run(() => submitSuggestion(s, 'REJECT', r), '거절 요청을 보냈습니다.'); }}>거절 요청</button>
+                onClick={async () => { const r = (await ask('거절 요청 사유'))?.trim(); if (r) run(() => submitSuggestion(s, 'REJECT', r), '거절 요청을 보냈습니다.'); }}>거절 요청</button>
             </>
           )}
           {s.status === 'PENDING' && <button type="button" className={btnGhost} onClick={onEdit}>수정</button>}
@@ -536,7 +535,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 function Badge({ label, cls }: { label: string; cls: string }) {
-  return <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
+  return <span className={`whitespace-nowrap ${cls}`}>{label}</span>;
 }
 
 function Info({ label, value }: { label: string; value: string }) {

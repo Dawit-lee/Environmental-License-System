@@ -7,6 +7,7 @@ import {
   rejectJoinRequest,
   type JoinRequest,
 } from '../api/signup';
+import { usePrompt } from '../components/PromptDialog';
 
 // ---------------------------------------------------------------------------
 // JoinRequestsPage — company admin: invite link/code (copy, regenerate) and pending join requests.
@@ -15,6 +16,7 @@ import {
 const btn = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-sm font-medium transition hover:bg-[#F8F7F2] disabled:opacity-60';
 
 export default function JoinRequestsPage() {
+  const [ask, promptUi] = usePrompt();
   const [code, setCode] = useState<string | null>(null);
   const [items, setItems] = useState<JoinRequest[] | null>(null);
   const [copied, setCopied] = useState('');
@@ -44,7 +46,7 @@ export default function JoinRequestsPage() {
   const decide = async (r: JoinRequest, approve: boolean) => {
     let reason = '';
     if (!approve) {
-      const input = prompt(`${r.name}(${r.email}) 님의 신청을 거절합니다. 사유(선택):`);
+      const input = await ask(`${r.name}(${r.email}) 님의 신청을 거절합니다. 사유(선택)`);
       if (input === null) return;
       reason = input;
     }
@@ -62,6 +64,7 @@ export default function JoinRequestsPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
       <h1 className="text-xl font-bold text-gray-900">가입 요청</h1>
+      {promptUi}
       {error && <p role="alert" className="text-sm text-[#991B1B]">{error}</p>}
 
       <section className="rounded-xl border border-[#E5E3DC] bg-white p-5">
