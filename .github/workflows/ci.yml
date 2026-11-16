@@ -21,6 +21,12 @@ jobs:
           cache: gradle
       # GOLDEN_DIR is unset here, so GoldenAccuracyTest skips (confidential cases live only on the dev Mac)
       - run: ./gradlew test --no-daemon
+      - name: Test totals
+        if: always()
+        run: |
+          grep -oh '<testsuite [^>]*' build/test-results/test/*.xml \
+            | awk '{match($0,/ tests="[0-9]+"/);t+=substr($0,RSTART+8,RLENGTH-9);match($0,/ skipped="[0-9]+"/);s+=substr($0,RSTART+10,RLENGTH-11);match($0,/ failures="[0-9]+"/);f+=substr($0,RSTART+11,RLENGTH-12);match($0,/ errors="[0-9]+"/);f+=substr($0,RSTART+9,RLENGTH-10)} END{printf "Backend tests: %d run, %d skipped, %d failed\n",t,s,f}' \
+            | tee -a "$GITHUB_STEP_SUMMARY"
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
