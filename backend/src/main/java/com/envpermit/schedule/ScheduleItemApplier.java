@@ -91,7 +91,7 @@ class ScheduleItemApplier implements SuggestionApplier {
         if (target == null) {
             id = schedule.create(pid, ctx.actorId(), new ItemRequest(suggestions.disciplineId(pid, r.discipline()),
                     null, r.type().name(), r.title(), start, r.date(), r.anchor(), r.offsetDays(), r.offsetMonths(),
-                    ms ? null : r.durationDays(), null, null, null, null, null, null, null));
+                    ms ? null : r.durationDays(), null, null, null, null, null, null, null, null));
         } else {
             ItemRequest current;
             try {

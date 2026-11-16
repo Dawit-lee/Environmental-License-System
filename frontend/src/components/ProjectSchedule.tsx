@@ -1,7 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { api } from '../api/client';
 import {
-  ANCHOR_LABEL, ANCHORS, completeItem, confirmBaseline, createItem, deleteItem, getDisciplines, getSchedule,
+  ANCHOR_LABEL, ANCHORS, completeItem, reopenItem, confirmBaseline, createItem, deleteItem, getDisciplines, getSchedule,
   needsReason, offsetLabel, STATUS_LABEL, toInput, updateItem,
   type Anchor, type Discipline, type ItemInput, type Schedule, type ScheduleItem,
 } from '../api/schedule';
@@ -296,6 +296,13 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
             <select className={field} value={form.kind} onChange={(e) => set({ kind: e.target.value as ItemInput['kind'] })}>
               <option value="TASK">작업(기간)</option><option value="MILESTONE">마일스톤(하루)</option>
             </select></label>
+          {form.kind === 'MILESTONE' && (
+            <label className={row}><span className="text-sm text-gray-500">제출·보고</span>
+              <span className="flex items-center gap-1.5 text-sm text-gray-700">
+                <input type="checkbox" checked={!!form.submission} onChange={(e) => set({ submission: e.target.checked })} />
+                발주처 제출·보고 마일스톤 (Google 동기화 대상)
+              </span></label>
+          )}
           <label className={row}><span className="text-sm text-gray-500">분야</span>
             <select className={field} value={form.disciplineId ?? ''} onChange={(e) => set({ disciplineId: num(e.target.value) })}>
               <option value="">공통(미지정)</option>
@@ -389,7 +396,11 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
         {item && (
           <div className="space-y-3 border-t border-[#E5E3DC] px-6 py-4">
             {item.actualEnd ? (
-              <p className="text-sm text-gray-600">완료 · 실적 종료일 {item.actualEnd}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">완료 · 실적 종료일 {item.actualEnd}</span>
+                <button type="button" disabled={busy} className={btn}
+                  onClick={() => window.confirm(`'${item.title}'의 완료를 취소할까요?`) && run(() => reopenItem(projectId, item.id))}>완료 취소</button>
+              </div>
             ) : (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500">실적 종료일</span>

@@ -149,7 +149,8 @@ class EventController {
         setAttendees(id, req.attendees());
         if (req.addMilestone() != null ? req.addMilestone() : MILESTONE_BY_DEFAULT.contains(req.kind())) {
             schedule.create(pid, actor, ScheduleController.ItemRequest.milestone(
-                    req.disciplineId(), req.title().trim(), req.start().toLocalDate()));
+                    req.disciplineId(), req.title().trim(), req.start().toLocalDate(),
+                    MILESTONE_BY_DEFAULT.contains(req.kind())));
         }
         remind(find(pid, id));
         return id;

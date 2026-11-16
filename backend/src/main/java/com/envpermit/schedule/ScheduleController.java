@@ -75,7 +75,7 @@ class ScheduleController {
             SELECT i.id, i.discipline_id, d.name AS discipline_name, i.parent_id, i.kind, i.title, i.start_date,
                    i.end_date, i.baseline_start, i.baseline_end, i.actual_end, i.anchor, i.offset_days, i.offset_months,
                    i.duration_days, i.owner_user_id, u.name AS owner_name, i.partner_name, i.weight, i.progress,
-                   i.delay_reason, i.version
+                   i.delay_reason, i.version, i.submission
             FROM schedule_item i
             LEFT JOIN discipline d ON d.id = i.discipline_id
             LEFT JOIN users u ON u.id = i.owner_user_id
@@ -104,7 +104,8 @@ class ScheduleController {
                     LocalDate startDate, LocalDate endDate, LocalDate baselineStart, LocalDate baselineEnd,
                     LocalDate actualEnd, String anchor, Integer offsetDays, Integer offsetMonths, Integer durationDays,
                     Long ownerUserId, String ownerName, String partnerName, BigDecimal weight, int progress,
-                    String delayReason, long version, ScheduleStatus.Status status, int delayDays, Integer slipDays) {
+                    String delayReason, long version, ScheduleStatus.Status status, int delayDays, Integer slipDays,
+                    boolean submission) {
     }
 
     record Dependency(long predecessorId, long successorId) {
@@ -132,7 +133,7 @@ class ScheduleController {
                        Integer offsetDays, Integer offsetMonths, @Min(1) Integer durationDays,
                        Long ownerUserId, @Size(max = 100) String partnerName,
                        @DecimalMin("0") @DecimalMax("100") BigDecimal weight, @Min(0) @Max(100) Integer progress,
-                       List<Long> predecessorIds, Long version, @Size(max = 500) String reason) {
+                       List<Long> predecessorIds, Long version, @Size(max = 500) String reason, Boolean submission) {
 
         boolean milestone() {
             return "MILESTONE".equals(kind);
@@ -146,13 +147,14 @@ class ScheduleController {
         ItemRequest withDates(LocalDate startDate, LocalDate endDate, String anchor, Integer offsetDays,
                               Integer offsetMonths, Integer durationDays, String reason) {
             return new ItemRequest(disciplineId, parentId, kind, title, startDate, endDate, anchor, offsetDays,
-                    offsetMonths, durationDays, ownerUserId, partnerName, weight, progress, predecessorIds, null, reason);
+                    offsetMonths, durationDays, ownerUserId, partnerName, weight, progress, predecessorIds, null, reason,
+                    submission);
         }
 
         /** The milestone a 제출·보고회 event adds to the schedule (design-schedule/04). */
-        static ItemRequest milestone(Long disciplineId, String title, LocalDate date) {
+        static ItemRequest milestone(Long disciplineId, String title, LocalDate date, boolean submission) {
             return new ItemRequest(disciplineId, null, "MILESTONE", title, date, date, null, null, null, null, null, null,
-                    null, null, null, null, null);
+                    null, null, null, null, null, submission);
         }
     }
 
@@ -184,7 +186,7 @@ class ScheduleController {
         Plan plan = plan(pid, req);
         long id = insert(pid, req.disciplineId(), req.parentId(), req.kind(), req.title().trim(), plan,
                 req.ownerUserId(), blankToNull(req.partnerName()), Objects.requireNonNullElse(req.progress(), 0),
-                req.weight());
+                req.weight(), req.milestone() && Boolean.TRUE.equals(req.submission()));
         setPredecessors(pid, id, req.predecessorIds());
         event(id, actor, "CREATED", created(req.title().trim(), plan));
         remind(pid, find(pid, id));
@@ -206,6 +208,8 @@ class ScheduleController {
         validate(pid, id, req);
         Plan plan = plan(pid, req);
         String reason = blankToNull(req.reason());
+        // null = keep (older clients); a task is never a 제출·보고 milestone
+        boolean submission = req.milestone() && Objects.requireNonNullElse(req.submission(), before.submission());
         boolean slips = ScheduleDates.needsReason(before.baselineEnd(), before.endDate(), plan.end());
         if (slips && reason == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "기준 계획보다 늦어지는 변경은 연기 사유가 필요합니다.");
@@ -214,12 +218,12 @@ class ScheduleController {
                 UPDATE schedule_item SET discipline_id = ?, parent_id = ?, kind = ?, title = ?, start_date = ?,
                        end_date = ?, anchor = ?, offset_days = ?, offset_months = ?, duration_days = ?,
                        owner_user_id = ?, partner_name = ?, weight = ?, progress = ?,
-                       delay_reason = CASE WHEN ? THEN ? ELSE delay_reason END, version = version + 1
+                       delay_reason = CASE WHEN ? THEN ? ELSE delay_reason END, submission = ?, version = version + 1
                 WHERE id = ?""",
                 req.disciplineId(), req.parentId(), req.kind(), req.title().trim(), sqlDate(plan.start()),
                 sqlDate(plan.end()), plan.anchor(), plan.offsetDays(), plan.offsetMonths(), plan.durationDays(),
                 req.ownerUserId(), blankToNull(req.partnerName()), req.weight(),
-                Objects.requireNonNullElse(req.progress(), before.progress()), slips, reason, id);
+                Objects.requireNonNullElse(req.progress(), before.progress()), slips, reason, submission, id);
         setPredecessors(pid, id, req.predecessorIds());
         if (!Objects.equals(plan.start(), before.startDate()) || !Objects.equals(plan.end(), before.endDate())) {
             datesChanged(id, actor, before.startDate(), before.endDate(), plan.start(), plan.end(), reason);
@@ -229,6 +233,9 @@ class ScheduleController {
         } else if (before.anchor() == null && plan.anchor() != null) {
             event(id, actor, "ANCHORED", nullable("anchor", plan.anchor(), "offsetDays", plan.offsetDays(),
                     "offsetMonths", plan.offsetMonths())); // [기준일에 연결]
+        }
+        if (before.submission() != submission) {
+            event(id, actor, "SUBMISSION_FLAG", Map.of("submission", submission));
         }
         if (!Objects.equals(before.ownerUserId(), req.ownerUserId())) {
             event(id, actor, "OWNER_CHANGED", nullable("from", before.ownerUserId(), "to", req.ownerUserId()));
@@ -245,7 +252,7 @@ class ScheduleController {
                 Long.class, id);
         return new ItemRequest(v.disciplineId(), v.parentId(), v.kind(), v.title(), v.startDate(), v.endDate(),
                 v.anchor(), v.offsetDays(), v.offsetMonths(), v.durationDays(), v.ownerUserId(), v.partnerName(),
-                v.weight(), v.progress(), preds, null, null);
+                v.weight(), v.progress(), preds, null, null, v.submission());
     }
 
     /** Approved document row (design-schedule/07): trace the suggestion (never read by queries) and log it. */
@@ -270,7 +277,30 @@ class ScheduleController {
         }
         jdbc.update("UPDATE schedule_item SET actual_end = ?, progress = 100, version = version + 1 WHERE id = ?",
                 Date.valueOf(req.actualEnd()), id);
-        event(id, userId(jwt), "COMPLETED", Map.of("actualEnd", req.actualEnd().toString()));
+        event(id, userId(jwt), "COMPLETED", Map.of("actualEnd", req.actualEnd().toString(),
+                "progressBefore", before.progress()));
+        ItemView v = find(pid, id);
+        remind(pid, v);
+        return v;
+    }
+
+    /** 완료 취소: clears 실적 종료일, restores the progress from before completion, and its reminders come back. */
+    @DeleteMapping("/api/projects/{pid}/schedule/items/{id}/complete")
+    @Transactional
+    ItemView reopen(@AuthenticationPrincipal Jwt jwt, @PathVariable long pid, @PathVariable long id) {
+        access.member(pid, jwt);
+        ItemView before = lock(pid, id, null);
+        if (before.actualEnd() == null) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "완료되지 않은 항목입니다.");
+        }
+        // Items completed before progressBefore was logged keep 100.
+        Integer progress = jdbc.queryForList("""
+                SELECT (data->>'progressBefore')::int FROM schedule_item_event
+                WHERE item_id = ? AND type = 'COMPLETED' ORDER BY id DESC LIMIT 1""", Integer.class, id)
+                .stream().filter(Objects::nonNull).findFirst().orElse(before.progress());
+        jdbc.update("UPDATE schedule_item SET actual_end = NULL, progress = ?, version = version + 1 WHERE id = ?",
+                progress, id);
+        event(id, userId(jwt), "REOPENED", Map.of("actualEnd", before.actualEnd().toString()));
         ItemView v = find(pid, id);
         remind(pid, v);
         return v;
@@ -484,7 +514,8 @@ class ScheduleController {
         }
         Map<String, LocalDate> anchors = anchorDates(pid);
         jdbc.query("""
-                SELECT d.id AS discipline_id, ti.kind, ti.title, ti.anchor, ti.offset_days, ti.offset_months, ti.duration_days
+                SELECT d.id AS discipline_id, ti.kind, ti.title, ti.anchor, ti.offset_days, ti.offset_months, ti.duration_days,
+                       ti.submission
                 FROM schedule_template_item ti
                 LEFT JOIN discipline d ON d.code = ti.discipline_code
                      AND d.company_id = (SELECT company_id FROM project WHERE id = ?)
@@ -496,7 +527,8 @@ class ScheduleController {
             ScheduleDates.Range r = ScheduleDates.resolve(anchors.get(rs.getString("anchor")), od, om, dur,
                     "MILESTONE".equals(kind));
             Plan plan = new Plan(r == null ? null : r.start(), r == null ? null : r.end(), rs.getString("anchor"), od, om, dur);
-            long id = insert(pid, (Long) rs.getObject("discipline_id"), null, kind, rs.getString("title"), plan, null, null, 0, null);
+            long id = insert(pid, (Long) rs.getObject("discipline_id"), null, kind, rs.getString("title"), plan, null, null, 0, null,
+                    rs.getBoolean("submission"));
             Map<String, Object> data = created(rs.getString("title"), plan);
             data.put("template", name.get(0));
             event(id, userId(jwt), "CREATED", data);
@@ -535,7 +567,7 @@ class ScheduleController {
         }
         for (SchedulePaste.Row r : rows) {
             Plan plan = new Plan(r.start(), r.end(), null, null, null, null);
-            long id = insert(pid, r.disciplineId(), null, r.kind(), r.title(), plan, r.ownerUserId(), null, 0, r.weight());
+            long id = insert(pid, r.disciplineId(), null, r.kind(), r.title(), plan, r.ownerUserId(), null, 0, r.weight(), false);
             Map<String, Object> data = created(r.title(), plan);
             data.put("source", "paste");
             event(id, userId(jwt), "CREATED", data);
@@ -709,20 +741,20 @@ class ScheduleController {
                 (Integer) rs.getObject("duration_days"), (Long) rs.getObject("owner_user_id"), rs.getString("owner_name"),
                 rs.getString("partner_name"), rs.getBigDecimal("weight"), rs.getInt("progress"),
                 rs.getString("delay_reason"), rs.getLong("version"), c.status(), c.delayDays(),
-                ScheduleDates.slipDays(end, baselineEnd));
+                ScheduleDates.slipDays(end, baselineEnd), rs.getBoolean("submission"));
     }
 
     // --- writes --------------------------------------------------------------------------------------------
 
     private long insert(long pid, Long disciplineId, Long parentId, String kind, String title, Plan plan, Long owner,
-                        String partner, int progress, BigDecimal weight) {
+                        String partner, int progress, BigDecimal weight, boolean submission) {
         return jdbc.queryForObject("""
                 INSERT INTO schedule_item (project_id, discipline_id, parent_id, kind, title, start_date, end_date, anchor,
                                            offset_days, offset_months, duration_days, owner_user_id, partner_name,
-                                           progress, weight)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""", Long.class,
+                                           progress, weight, submission)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id""", Long.class,
                 pid, disciplineId, parentId, kind, title, sqlDate(plan.start()), sqlDate(plan.end()), plan.anchor(),
-                plan.offsetDays(), plan.offsetMonths(), plan.durationDays(), owner, partner, progress, weight);
+                plan.offsetDays(), plan.offsetMonths(), plan.durationDays(), owner, partner, progress, weight, submission);
     }
 
     private void datesChanged(long id, Long actor, LocalDate fromStart, LocalDate fromEnd, LocalDate toStart,

@@ -268,6 +268,28 @@ class ScheduleApiTest extends IntegrationTest {
         assertThat(offsets(leeId, "SCHEDULE_ITEM")).isEmpty();
     }
 
+    @Test
+    void undo_completion_restores_progress_reminders_and_logs_it() throws Exception {
+        long item = item("""
+                {"kind":"TASK","title":"기본설계 보고서","startDate":"2026-01-02","endDate":"2026-01-06",
+                 "ownerUserId":%d,"progress":40}""".formatted(leeId));
+        String reopen = items() + "/" + item + "/complete";
+        call(lee, delete(reopen)).andExpect(status().isConflict()); // not completed yet
+        call(lee, json(post(reopen), "{\"actualEnd\":\"2026-01-05\"}")).andExpect(jsonPath("$.progress").value(100));
+        call(cho, delete(reopen)).andExpect(status().isForbidden());
+
+        call(lee, delete(reopen)).andExpect(status().isOk())
+                .andExpect(jsonPath("$.actualEnd").doesNotExist())
+                .andExpect(jsonPath("$.progress").value(40))
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+        assertThat(jdbc.queryForList("SELECT type FROM schedule_item_event WHERE item_id = ? ORDER BY id", String.class, item))
+                .containsExactly("CREATED", "COMPLETED", "REOPENED");
+        assertThat(jdbc.queryForObject("SELECT data->>'actualEnd' FROM schedule_item_event WHERE item_id = ? AND type = 'REOPENED'",
+                String.class, item)).isEqualTo("2026-01-05");
+        job.createDueNotifications();
+        assertThat(offsets(leeId, "SCHEDULE_ITEM")).containsExactly(1); // reminded again
+    }
+
     // --- helpers --------------------------------------------------------------------------------------------
 
     private List<Integer> offsets(long userId, String kind) {

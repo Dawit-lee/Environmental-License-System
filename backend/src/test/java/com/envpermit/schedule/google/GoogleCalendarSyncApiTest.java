@@ -156,12 +156,24 @@ class GoogleCalendarSyncApiTest extends IntegrationTest {
         sync.runOnce();
         assertThat(google.events).isEmpty();
 
+        // an unflagged, unowned milestone (e.g. an internal review) is not a 제출·보고 milestone: never sent
+        long internal = id(call(lee, json(post(events().replace("/events", "/schedule/items")), """
+                {"kind":"MILESTONE","title":"내부 검토","endDate":"2026-02-03"}""")).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.submission").value(false)));
+
         call(lee, json(put("/api/me/google-calendar"), "{\"projectMilestones\":true,\"tasks\":false}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.projectMilestones").value(true));
         sync.runOnce();
         assertThat(google.events.values()).singleElement()
                 .satisfies(e -> assertThat(e.allDay()).isTrue())
                 .satisfies(e -> assertThat(e.summary()).isEqualTo("[가온시 하수처리장] 기본설계 제출"));
+
+        // flagging it later sends it too
+        call(lee, json(patch(events().replace("/events", "/schedule/items/" + internal)), """
+                {"kind":"MILESTONE","title":"내부 검토","endDate":"2026-02-03","submission":true}"""))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.submission").value(true));
+        sync.runOnce();
+        assertThat(google.events).hasSize(2);
 
         call(lee, json(put("/api/me/google-calendar"), "{\"projectMilestones\":false,\"tasks\":false}"))
                 .andExpect(status().isOk());

@@ -63,7 +63,7 @@ export default function GoogleCalendarSync() {
             <label className="flex items-center gap-1.5">
               <input type="checkbox" checked={status.projectMilestones}
                 onChange={(e) => run(() => setGoogleTargets(e.target.checked, status.tasks))} />
-              내 프로젝트의 마일스톤 전체
+              내 프로젝트의 제출·보고 마일스톤
             </label>
             <label className="flex items-center gap-1.5">
               <input type="checkbox" checked={status.tasks}

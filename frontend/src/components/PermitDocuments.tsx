@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import type { PermitDocument, PermitItem } from '../types';
+import type { DocType, PermitDocument, PermitItem } from '../types';
+import { DOC_TYPE } from './ProjectDocuments';
 import { Link } from 'react-router';
 import { api, apiBlob, isMaster, type ApiError } from '../api/client';
 import { getAiProvider, getCompany, getRun, listRuns, setAiExtraction, startExtraction, startRevision, type AiRun } from '../api/extraction';
@@ -29,6 +30,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
   const TRANSFER_NOTICE = notice(service);
   const [runs, setRuns] = useState<Record<number, AiRun>>({}); // latest run per document id
   const [found, setFound] = useState<Record<number, number>>({}); // run id → suggestions extracted
+  const [docType, setDocType] = useState<DocType | ''>(''); // optional; 일정 추출 runs from the 문서 tab only
   const [supersedes, setSupersedes] = useState(''); // ④ "이전 버전 대체": id of the document the upload replaces
   const [effectiveDate, setEffectiveDate] = useState('');
   const latest = docs.filter((d) => !docs.some((x) => x.supersedesDocumentId === d.id)); // one per version line
@@ -112,6 +114,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
     if (file.size > MAX_BYTES) return setError('파일은 10MB 이하만 올릴 수 있습니다.');
     const form = new FormData();
     form.append('file', file);
+    if (docType) form.append('docType', docType);
     if (supersedes) form.append('supersedesDocumentId', supersedes);
     if (supersedes && effectiveDate) form.append('effectiveDate', effectiveDate);
     setBusy(true);
@@ -217,6 +220,16 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
           if (file) upload(file);
         }}
       />
+      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+        <label className="flex items-center gap-1.5">
+          문서 종류
+          <select aria-label="문서 종류" value={docType} onChange={(e) => setDocType(e.target.value as DocType | '')}
+            className="rounded-lg border border-[#E5E3DC] bg-white px-2 py-1 text-xs">
+            <option value="">지정 안 함</option>
+            {Object.entries(DOC_TYPE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </label>
+      </div>
       {latest.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
           <label className="flex items-center gap-1.5">
