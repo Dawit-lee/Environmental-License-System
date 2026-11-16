@@ -162,17 +162,38 @@ class OperationsModuleApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.operations").value(false))
                 .andExpect(jsonPath("$.projects[0].operations").value(false))
                 .andExpect(jsonPath("$.total.exceeded").value(0))
-                .andExpect(jsonPath("$.total.tasks.due").value(2)) // the obligation's cycle and the corrective task
-                .andExpect(jsonPath("$.total.tasks.overdue").value(2));
+                .andExpect(jsonPath("$.total.tasks.due").value(1)) // the obligation's cycle; the corrective task is out
+                .andExpect(jsonPath("$.total.tasks.overdue").value(1));
         call(kim, get("/api/projects/" + projectId + "/compliance/summary"))
                 .andExpect(jsonPath("$.operations").value(false))
                 .andExpect(jsonPath("$.total.exceeded").value(0))
-                .andExpect(jsonPath("$.total.tasks.due").value(2));
+                .andExpect(jsonPath("$.total.tasks.due").value(1));
 
         modules(kim, true).andExpect(status().isOk());
         call(kim, get("/api/compliance/summary"))
                 .andExpect(jsonPath("$.operations").value(true))
-                .andExpect(jsonPath("$.total.exceeded").value(1));
+                .andExpect(jsonPath("$.total.exceeded").value(1))
+                .andExpect(jsonPath("$.total.tasks.due").value(2)); // the corrective task counts again
+    }
+
+    @Test
+    void open_corrective_tasks_are_hidden_while_off_and_come_back_when_on() throws Exception {
+        modules(kim, true).andExpect(status().isOk());
+        measure(stack(), "31").andExpect(status().isCreated()); // corrective task due 2026-01-12
+        jdbc.update("UPDATE obligation_task SET assignee_id = ? WHERE kind = 'CORRECTIVE'", kimId);
+        jdbc.update("UPDATE deadline_event SET assignee_id = ? WHERE kind = 'CORRECTIVE_TASK'", kimId);
+        String deadlines = "/api/deadlines?from=2026-01-01&to=2026-01-31";
+        String corrective = "[?(@.kind == 'CORRECTIVE')]";
+
+        modules(kim, false).andExpect(status().isOk());
+        call(kim, get("/api/projects/" + projectId + "/tasks")).andExpect(jsonPath("$" + corrective).isEmpty()); // 의무사항
+        call(kim, get("/api/tasks/mine")).andExpect(jsonPath("$" + corrective).isEmpty()); // 내 할 일
+        call(kim, get(deadlines)).andExpect(jsonPath("$[?(@.kind == 'CORRECTIVE_TASK')]").isEmpty());
+
+        modules(kim, true).andExpect(status().isOk());
+        call(kim, get("/api/projects/" + projectId + "/tasks")).andExpect(jsonPath("$" + corrective + ".status").value("OPEN"));
+        call(kim, get("/api/tasks/mine")).andExpect(jsonPath("$" + corrective + ".status").value("OPEN"));
+        call(kim, get(deadlines)).andExpect(jsonPath("$[?(@.kind == 'CORRECTIVE_TASK')]").isNotEmpty());
     }
 
     // --- helpers ----------------------------------------------------------------------------------------------

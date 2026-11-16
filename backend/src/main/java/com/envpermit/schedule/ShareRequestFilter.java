@@ -13,15 +13,19 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 /**
  * The token routes ({@code /share/**}, {@code /api/me/calendar.ics}): never cached or indexed, no referrer
- * (the token is in the URL), and at most 60 requests per IP per minute (fixed window) → 429.
+ * (the token is in the URL), and a fixed one-minute window rate limit → 429: at most 60 requests per IP + token (calendar
+ * services fetch many users' feeds from one IP), and at most 10 failed lookups (404: unknown, expired, revoked) per IP,
+ * so guessing tokens stays slow.
  */
 @Component
 class ShareRequestFilter extends OncePerRequestFilter {
 
     static final int LIMIT_PER_MINUTE = 60;
+    static final int FAILED_LIMIT_PER_MINUTE = 10;
 
     private final Clock clock;
     private final Map<String, Integer> counts = new ConcurrentHashMap<>();
+    private final Map<String, Integer> failures = new ConcurrentHashMap<>();
     private long minute = Long.MIN_VALUE;
 
     ShareRequestFilter(Clock clock) {
@@ -44,21 +48,28 @@ class ShareRequestFilter extends OncePerRequestFilter {
             long now = clock.millis() / 60_000;
             if (now != minute) {
                 counts.clear();
+                failures.clear();
                 minute = now;
             }
         }
-        // shortcut: keyed by remote IP only. Calendar services (Google, Outlook) fetch many feeds from shared IPs and a
-        // reverse proxy makes every caller one IP: key by IP + token hash once feeds go to real calendar services,
-        // and trust X-Forwarded-For from the proxy once one is deployed
-        if (counts.merge(req.getRemoteAddr(), 1, Integer::sum) > LIMIT_PER_MINUTE) {
+        // shortcut: remote address only; behind a reverse proxy every caller is one IP. Trust X-Forwarded-For from the
+        // proxy once one is deployed
+        String ip = req.getRemoteAddr();
+        String key = ip + " " + req.getRequestURI() + "?" + req.getQueryString(); // the token is in the path or query
+        if (failures.getOrDefault(ip, 0) >= FAILED_LIMIT_PER_MINUTE
+                || counts.merge(key, 1, Integer::sum) > LIMIT_PER_MINUTE) {
             res.setStatus(429);
             return;
         }
         chain.doFilter(req, res);
+        if (res.getStatus() == 404) {
+            failures.merge(ip, 1, Integer::sum);
+        }
     }
 
     /** Tests only: every test starts at the same fixed minute. */
     void reset() {
         counts.clear();
+        failures.clear();
     }
 }
