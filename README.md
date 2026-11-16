@@ -1,6 +1,7 @@
 # 🌿 환경기초시설 인허가 관리 시스템
 
 ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
+[![CI](https://github.com/Dawit-lee/Environmental-License-System/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/Dawit-lee/Environmental-License-System/actions/workflows/ci.yml)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F?logo=springboot&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
