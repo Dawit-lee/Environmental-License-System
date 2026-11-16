@@ -130,7 +130,7 @@ PDF 업로드 → `ai_run(RUNNING)` → 제공자에 PDF + JSON 스키마 → �
 ```mermaid
 flowchart LR
   ATTR[프로젝트 속성] --> ENG[규칙 엔진<br/>참/거짓/모름]
-  RULES[(derivation_rule<br/>ACTIVE 48개, 버전 관리)] --> ENG
+  RULES[(derivation_rule<br/>ACTIVE 51개, 버전 관리)] --> ENG
   ENG -->|해당 / 판정 보류| RV[검토·승인 §4]
   RV --> PI[(인허가 항목 + 법령 연결)]
   ENG -.->|모름| ASK[추가 정보 필요<br/>필요한 입력별로 묶음]
