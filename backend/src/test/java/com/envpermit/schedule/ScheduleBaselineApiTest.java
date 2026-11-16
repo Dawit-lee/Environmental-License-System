@@ -2,7 +2,9 @@ package com.envpermit.schedule;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -264,6 +266,48 @@ class ScheduleBaselineApiTest extends IntegrationTest {
                 .andExpect(status().isBadRequest());
         call(master, json(patch(path), "{\"title\":\"합사 개설\",\"anchor\":\"SUBMISSION\",\"offsetDays\":-160}"))
                 .andExpect(jsonPath("$.offsetDays").value(-160));
+    }
+
+    @Test
+    void master_adds_and_deletes_template_items_and_the_submission_flag_is_copied() throws Exception {
+        List<Integer> ids = JsonPath.read(call(lee, get("/api/schedule-templates"))
+                // the seeded 제출·보고 milestones are flagged, the rest not
+                .andExpect(jsonPath("$[0].items[?(@.title == '입찰 설계도서 제출')].submission").value(contains(true)))
+                .andExpect(jsonPath("$[0].items[?(@.title == '합사 개설')].submission").value(contains(false)))
+                .andExpect(jsonPath("$[1].items[?(@.submission == true)]", hasSize(4)))
+                .andReturn().getResponse().getContentAsString(), "$[*].id");
+        String items = "/api/schedule-templates/" + ids.get(1) + "/items";
+        String review = """
+                {"kind":"MILESTONE","disciplineCode":"PERMIT","title":"인허가 협의 보고","anchor":"CONTRACT","offsetMonths":2,
+                 "submission":true}""";
+        call(lee, json(post(items), review)).andExpect(status().isForbidden());
+
+        jdbc.update("UPDATE users SET role = 'ADMIN' WHERE id = ?", kimId);
+        String master = login("kim@a.com");
+        call(master, json(post(items), review.replace("PERMIT", "NOPE"))).andExpect(status().isUnprocessableEntity());
+        call(master, json(post(items), """
+                {"kind":"TASK","title":"기간 없음","anchor":"CONTRACT","offsetDays":0}""")).andExpect(status().isBadRequest());
+        long added = id(call(master, json(post(items), review)).andExpect(status().isCreated())
+                .andExpect(jsonPath("$.submission").value(true)).andExpect(jsonPath("$.disciplineCode").value("PERMIT")));
+        // a task is never flagged
+        call(master, json(post(items), """
+                {"kind":"TASK","title":"인허가 도서 작성","anchor":"CONTRACT","offsetDays":20,"durationDays":30,"submission":true}"""))
+                .andExpect(jsonPath("$.submission").value(false));
+        // PATCH without the flag keeps it
+        call(master, json(patch(items + "/" + added), """
+                {"title":"인허가 협의 보고회","anchor":"CONTRACT","offsetMonths":2}""")).andExpect(jsonPath("$.submission").value(true));
+        List<Number> midterm = JsonPath.read(call(lee, get("/api/schedule-templates"))
+                .andExpect(jsonPath("$[1].items[-1].title").value("인허가 도서 작성")) // added at the end
+                .andReturn().getResponse().getContentAsString(), "$[1].items[?(@.title == '중간보고')].id");
+        call(lee, delete(items + "/" + midterm.get(0))).andExpect(status().isForbidden());
+        call(master, delete(items + "/" + midterm.get(0))).andExpect(status().isNoContent());
+        call(master, delete("/api/schedule-templates/" + ids.get(0) + "/items/" + added)).andExpect(status().isNotFound());
+
+        call(lee, json(post(schedule() + "/apply-template"), "{\"templateId\":" + ids.get(1) + "}"))
+                .andExpect(jsonPath("$.items.length()").value(6))
+                .andExpect(jsonPath("$.items[?(@.title == '중간보고')]").isEmpty())
+                .andExpect(jsonPath("$.items[?(@.title == '인허가 협의 보고회')].submission").value(contains(true)))
+                .andExpect(jsonPath("$.items[?(@.title == '최종보고서 초안')].submission").value(contains(false)));
     }
 
     @Test

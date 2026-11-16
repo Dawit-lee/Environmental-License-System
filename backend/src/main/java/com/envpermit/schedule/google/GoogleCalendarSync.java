@@ -123,7 +123,7 @@ public class GoogleCalendarSync {
                 r.userId(), r.sourceId()).stream().findFirst().orElse(null);
     }
 
-    /** Milestones I own (or all of my projects' with the toggle), TASK bars I own only with the toggle. */
+    /** Milestones I own (or my projects' 제출·보고 milestones with the toggle), TASK bars I own only with the toggle. */
     private GoogleEvent item(Row r) {
         return jdbc.query("""
                 SELECT p.name, i.title, d.name, i.start_date, i.end_date
@@ -131,7 +131,7 @@ public class GoogleCalendarSync {
                 JOIN project_member m ON m.project_id = i.project_id AND m.user_id = ?
                 LEFT JOIN discipline d ON d.id = i.discipline_id
                 WHERE i.id = ? AND i.deleted_at IS NULL
-                  AND ((i.kind = 'MILESTONE' AND (i.owner_user_id = m.user_id OR ?))
+                  AND ((i.kind = 'MILESTONE' AND (i.owner_user_id = m.user_id OR (i.submission AND ?)))
                     OR (i.kind = 'TASK' AND i.owner_user_id = m.user_id AND ?))""",
                 (rs, n) -> new GoogleEvent("[" + rs.getString(1) + "] " + rs.getString(2),
                         description(rs.getString(3) == null ? null : "분야: " + rs.getString(3)), null,

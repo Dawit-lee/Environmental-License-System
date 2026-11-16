@@ -35,6 +35,7 @@ export interface ScheduleItem {
   status: ItemStatus;
   delayDays: number; // past the current plan
   slipDays: number | null; // 기준 대비 연기 (end − baseline end); null before the first baseline
+  submission: boolean; // 제출·보고 milestone (Google sync option)
 }
 
 export interface Dependency { predecessorId: number; successorId: number }
@@ -58,7 +59,7 @@ export interface DelayRow {
 }
 export interface TemplateItem {
   id: number; disciplineCode: string | null; kind: ItemKind; title: string; anchor: Anchor;
-  offsetDays: number | null; offsetMonths: number | null; durationDays: number | null;
+  offsetDays: number | null; offsetMonths: number | null; durationDays: number | null; submission: boolean;
 }
 export interface Template { id: number; code: string | null; name: string; items: TemplateItem[] }
 export interface PasteRow {
@@ -90,6 +91,7 @@ export interface ItemInput {
   predecessorIds: number[];
   version?: number;
   reason?: string | null;
+  submission?: boolean; // milestones only; omitted = keep
 }
 
 export const STATUS_LABEL: Record<ItemStatus, string> = {
@@ -128,6 +130,8 @@ export const updateItem = (projectId: number, id: number, input: ItemInput) =>
   api<ScheduleItem>(`${base(projectId)}/items/${id}`, send('PATCH', input));
 export const completeItem = (projectId: number, id: number, actualEnd: string) =>
   api<ScheduleItem>(`${base(projectId)}/items/${id}/complete`, send('POST', { actualEnd }));
+export const reopenItem = (projectId: number, id: number) =>
+  api<ScheduleItem>(`${base(projectId)}/items/${id}/complete`, send('DELETE'));
 export const deleteItem = (projectId: number, id: number) => api<void>(`${base(projectId)}/items/${id}`, send('DELETE'));
 
 export const setBase = (projectId: number, value: ScheduleBase) =>
@@ -138,9 +142,14 @@ export const confirmBaseline = (projectId: number, reason: string | null) =>
   api<Schedule>(`${base(projectId)}/baseline`, send('POST', { reason }));
 export const getDelays = (projectId: number) => api<DelayRow[]>(`${base(projectId)}/delays`);
 export const getTemplates = () => api<Template[]>('/api/schedule-templates');
-export const updateTemplateItem = (templateId: number, id: number,
-  input: Pick<TemplateItem, 'title' | 'anchor' | 'offsetDays' | 'offsetMonths' | 'durationDays'>) =>
+type TemplateItemInput = Pick<TemplateItem, 'title' | 'anchor' | 'offsetDays' | 'offsetMonths' | 'durationDays' | 'submission'>;
+export const createTemplateItem = (templateId: number,
+  input: TemplateItemInput & Pick<TemplateItem, 'kind' | 'disciplineCode'>) =>
+  api<TemplateItem>(`/api/schedule-templates/${templateId}/items`, send('POST', input));
+export const updateTemplateItem = (templateId: number, id: number, input: TemplateItemInput) =>
   api<TemplateItem>(`/api/schedule-templates/${templateId}/items/${id}`, send('PATCH', input));
+export const deleteTemplateItem = (templateId: number, id: number) =>
+  api<void>(`/api/schedule-templates/${templateId}/items/${id}`, send('DELETE'));
 export const applyTemplate = (projectId: number, templateId: number) =>
   api<Schedule>(`${base(projectId)}/apply-template`, send('POST', { templateId }));
 export const pasteItems = (projectId: number, text: string, confirm: boolean) =>
@@ -164,4 +173,5 @@ export const toInput = (item: ScheduleItem, deps: Dependency[]): ItemInput => ({
   progress: item.progress,
   predecessorIds: deps.filter((d) => d.successorId === item.id).map((d) => d.predecessorId),
   version: item.version,
+  submission: item.submission,
 });

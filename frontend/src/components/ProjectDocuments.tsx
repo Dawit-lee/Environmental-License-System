@@ -14,7 +14,7 @@ import type { DocType, PermitDocument, PermitItem } from '../types';
 // its 종류; [일정 추출] on such a PDF sends it to AI and its dates wait in the AI 검토 tab until approved.
 // ---------------------------------------------------------------------------
 
-const DOC_TYPE: Record<DocType, string> = {
+export const DOC_TYPE: Record<DocType, string> = {
   BID_NOTICE: '입찰공고문', SITE_BRIEFING_DOC: '현장설명서', TASK_SPEC: '과업내용서', MINUTES: '회의록',
   OFFICIAL_LETTER: '공문', WEEKLY_REPORT: '주간공정보고',
 };
