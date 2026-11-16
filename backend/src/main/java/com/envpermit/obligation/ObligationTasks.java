@@ -41,6 +41,10 @@ public class ObligationTasks {
     static final String OTHER_PERMIT = "같은 인허가 항목의 문서만 증빙으로 연결할 수 있습니다.";
     static final String NOT_MEMBER = "담당자는 이 프로젝트의 멤버여야 합니다.";
 
+    /** Corrective tasks belong to the 운영 module: hidden from lists while the project has it off (design-schedule §8.1). */
+    public static final String MODULE_ON = " AND (t.kind <> 'CORRECTIVE' OR EXISTS (SELECT 1 FROM project mp "
+            + "WHERE mp.id = t.project_id AND mp.operations_enabled)) ";
+
     private static final String SELECT = """
             SELECT t.id, t.project_id, t.kind, t.obligation_id,
                    COALESCE(o.permit_item_id, ep.permit_item_id) AS permit_item_id,
@@ -327,7 +331,7 @@ public class ObligationTasks {
     /** Every task of the project, oldest first; obligationId narrows it to one obligation's cycles (no corrective tasks). */
     public List<TaskView> list(long projectId, Long obligationId) {
         return jdbc.query(SELECT + "WHERE t.project_id = ? AND (?::bigint IS NULL OR (t.obligation_id = ? AND t.kind = 'OBLIGATION')) "
-                        + "ORDER BY t.id",
+                        + MODULE_ON + "ORDER BY t.id",
                 this::view, projectId, obligationId, obligationId);
     }
 
@@ -344,7 +348,7 @@ public class ObligationTasks {
                             JOIN project p ON p.id = m.project_id
                             WHERE m.project_id = t.project_id AND m.user_id = ?
                               AND (m.is_admin OR p.pm_user_id = m.user_id OR p.em_user_id = m.user_id))))
-                ORDER BY t.due_date, t.id""", this::view, userId, LocalDate.now(clock), userId);
+                """ + MODULE_ON + "ORDER BY t.due_date, t.id", this::view, userId, LocalDate.now(clock), userId);
     }
 
     public TaskDetail detail(long taskId) {

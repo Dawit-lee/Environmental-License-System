@@ -90,6 +90,12 @@ class PermitStatusReportApiTest extends IntegrationTest {
                     "가온시 건축과 검토 중(12/21)", "1월 중순", "'=소방 동의 선행 필요");
             assertThat(sheet.getMergedRegions().stream().map(m -> m.formatAsString()))
                     .contains("A5:A6", "A7:A8");
+            // explicit heights from the wrapped line count: name + authority = 2 lines, the long issue = 7
+            for (int r = 4; r <= 7; r++) {
+                assertThat(sheet.getRow(r).getCTRow().getCustomHeight()).isTrue();
+            }
+            assertThat(sheet.getRow(4).getHeightInPoints()).isEqualTo(2 * PermitStatusReport.LINE_POINTS + 3);
+            assertThat(sheet.getRow(6).getHeightInPoints()).isEqualTo(7 * PermitStatusReport.LINE_POINTS + 3);
 
             PrintSetup print = sheet.getPrintSetup();
             assertThat(print.getPaperSize()).isEqualTo(PrintSetup.A4_PAPERSIZE);

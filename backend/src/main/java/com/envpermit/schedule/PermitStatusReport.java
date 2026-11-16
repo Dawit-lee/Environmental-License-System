@@ -56,6 +56,7 @@ class PermitStatusReport {
     private static final Map<Status, String> LABEL = Map.of(Status.NOT_APPLIED, "미신청", Status.IN_PROGRESS, "진행중",
             Status.COMPLETED, "취득완료", Status.NEAR_EXPIRY, "만료임박", Status.EXPIRED, "만료");
     private static final double MARGIN = 15 / 25.4; // 15 mm in inches
+    static final float LINE_POINTS = 13.5f; // one 10 pt line
 
     private final PermitItemRepository permits;
     private final ProjectRepository projects;
@@ -141,6 +142,10 @@ class PermitStatusReport {
                     text(row, 2, l.progress(), cell);
                     text(row, 3, l.expected(), center);
                     text(row, 4, l.issue(), cell);
+                    // Excel does not always re-measure wrapped rows on open: set the height from the wrapped line count
+                    int lines = Math.max(Math.max(lines(c1.getStringCellValue(), WIDTHS[1]), lines(l.progress(), WIDTHS[2])),
+                            Math.max(lines(l.expected(), WIDTHS[3]), lines(l.issue(), WIDTHS[4])));
+                    row.setHeightInPoints(lines * LINE_POINTS + 3);
                 }
                 if (r - first > 1) {
                     sheet.addMergedRegion(new CellRangeAddress(first, r - 1, 0, 0));
@@ -187,6 +192,16 @@ class PermitStatusReport {
         }
         String t = s.strip();
         return safe(t.codePointCount(0, t.length()) > max ? t.substring(0, t.offsetByCodePoints(0, max)) + "…" : t);
+    }
+
+    /** Wrapped lines of {@code s} in a column {@code width} characters wide; Hangul/CJK count as two. */
+    static int lines(String s, int width) {
+        int n = 0;
+        for (String part : s.split("\n", -1)) {
+            int w = part.codePoints().map(c -> c >= 0x1100 ? 2 : 1).sum();
+            n += Math.max(1, (w + width - 2) / (width - 1)); // a cell's padding eats about one character
+        }
+        return n;
     }
 
     private static boolean blank(String s) {

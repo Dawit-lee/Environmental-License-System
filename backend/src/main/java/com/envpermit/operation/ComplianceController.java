@@ -4,6 +4,7 @@ import static com.envpermit.core.project.ProjectAccess.userId;
 
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
+import com.envpermit.obligation.ObligationTasks;
 import com.envpermit.operation.ComplianceRate.Counts;
 import com.envpermit.operation.ComplianceRate.Task;
 import java.sql.Timestamp;
@@ -195,7 +196,7 @@ class ComplianceController {
                 FROM obligation_task t LEFT JOIN permit_obligation o ON o.id = t.obligation_id
                 LEFT JOIN measurement m ON m.id = t.measurement_id
                 LEFT JOIN emission_point e ON e.id = m.emission_point_id
-                WHERE t.project_id = ANY(?)""", (rs, i) -> {
+                WHERE t.project_id = ANY(?)""" + ObligationTasks.MODULE_ON, (rs, i) -> {
             Timestamp done = rs.getTimestamp(6);
             return new TaskRow(rs.getLong(1), (Long) rs.getObject(2), new Task(rs.getString(3), rs.getString(4),
                     rs.getDate(5).toLocalDate(), done == null ? null : done.toInstant().atZone(clock.getZone()).toLocalDate()));

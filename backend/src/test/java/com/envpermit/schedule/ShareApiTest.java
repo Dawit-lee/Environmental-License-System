@@ -235,12 +235,31 @@ class ShareApiTest extends IntegrationTest {
     }
 
     @Test
-    void more_than_60_requests_a_minute_from_one_ip_get_429() throws Exception {
+    void more_than_60_requests_a_minute_for_one_ip_and_token_get_429() throws Exception {
         String token = create("{}");
+        String other = create("{}");
         for (int i = 0; i < ShareRequestFilter.LIMIT_PER_MINUTE; i++) {
             mvc.perform(get("/share/" + token)).andExpect(status().isOk());
         }
         mvc.perform(get("/share/" + token)).andExpect(status().isTooManyRequests());
+        mvc.perform(get("/share/" + other)).andExpect(status().isOk()); // per token: a calendar service's shared IP
+        mvc.perform(get("/share/" + token).with(r -> {
+            r.setRemoteAddr("10.0.0.9");
+            return r;
+        })).andExpect(status().isOk()); // per IP
+        clock.advance(Duration.ofMinutes(1));
+        mvc.perform(get("/share/" + token)).andExpect(status().isOk()); // next window
+    }
+
+    @Test
+    void failed_lookups_are_limited_per_ip() throws Exception {
+        String token = create("{}");
+        for (int i = 0; i < ShareRequestFilter.FAILED_LIMIT_PER_MINUTE; i++) {
+            mvc.perform(get("/share/" + ShareController.newToken())).andExpect(status().isNotFound());
+        }
+        mvc.perform(get("/share/" + ShareController.newToken())).andExpect(status().isTooManyRequests());
+        mvc.perform(get("/api/me/calendar.ics").param("token", "guess")).andExpect(status().isTooManyRequests());
+        mvc.perform(get("/share/" + token)).andExpect(status().isTooManyRequests()); // the guessing IP is blocked
         mvc.perform(get("/share/" + token).with(r -> {
             r.setRemoteAddr("10.0.0.9");
             return r;
