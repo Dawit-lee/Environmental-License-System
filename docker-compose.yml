@@ -44,6 +44,8 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      # Cap the JVM so this stack can share Docker Desktop memory with other projects (default heap = 25% of the VM).
+      JAVA_TOOL_OPTIONS: ${API_JAVA_OPTS:--Xms128m -Xmx512m -XX:+UseSerialGC}
       DEV_SEED_PASSWORD: ${DEV_SEED_PASSWORD:-dev1234!} # dev seed logins; default is for solo local only (README)
       # Local dev DB: parallel branches merge migrations out of version order (e.g. V210 after V220).
       SPRING_FLYWAY_OUT_OF_ORDER: "true"
