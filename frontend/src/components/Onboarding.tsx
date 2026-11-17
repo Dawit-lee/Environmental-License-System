@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { DUE_SOON_DAYS } from '../terms';
 import { Link } from 'react-router';
 import { api, sessionUserId } from '../api/client';
 import { getSchedule } from '../api/schedule';
@@ -19,7 +20,11 @@ export const HELP = {
   template: { term: '템플릿', text: '자주 쓰는 공정을 한 번에 넣습니다. 기준일을 넣으면 날짜가 계산됩니다.' },
   paste: { term: '붙여넣기', text: '엑셀에서 복사한 표로 항목을 만듭니다. 열 순서는 분야, 작업, 시작, 종료, 담당, 보할입니다.' },
   share: { term: '공유', text: '협력사에 읽기 전용 링크나 달력 구독(ICS)을 보냅니다. 기한이 지나면 링크가 닫힙니다.' },
-  delays: { term: '지연 현황', text: '기준선보다 늦어진 항목과 연기 사유를 모아 봅니다.' },
+  delays: { term: '지연 현황', text: '기준 확정 뒤 기준선보다 늦어진 항목과 연기 사유를 모아 봅니다.' },
+  dueSoon: { term: '기한 임박', text: `완료 전이고 기한까지 ${DUE_SOON_DAYS}일 이내인 항목입니다. 대시보드는 내 프로젝트 전체를, 내 할 일은 내 몫만 셉니다.` },
+  overdue: { term: '기한 경과', text: '완료 전인데 기한(계획 종료일)이 지난 항목입니다. 기준 확정 여부와 상관없습니다.' },
+  slip: { term: '일정 지연', text: '기준 확정 뒤 기준선 종료일보다 늦어진 항목입니다. 기준을 확정하기 전에는 세지 않습니다.' },
+  permitStatus: { term: '인허가 상태', text: `날짜로 정합니다. 신청일이 지나면 진행중, 취득일이 지나면 취득완료, 그 뒤 만료일까지 ${DUE_SOON_DAYS}일 이내면 만료임박, 지나면 만료입니다. 날짜가 없을 때만 직접 고른 상태를 씁니다.` },
   deadlines: { term: '인허가 기한', text: '인허가 만료일과 의무 기한을 달력으로 봅니다.' },
   print: { term: '인쇄본', text: '회의 자료용 공정표입니다. 인쇄하거나 PDF로 저장합니다.' },
   extract: { term: '일정 추출', text: 'AI가 공고문·과업내용서에서 날짜를 찾아 일정 후보로 제안합니다. 확인한 것만 일정에 들어갑니다.' },

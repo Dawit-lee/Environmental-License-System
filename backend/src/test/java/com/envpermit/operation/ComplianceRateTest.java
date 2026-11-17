@@ -29,7 +29,7 @@ class ComplianceRateTest {
                 row("done on the due date is on time", List.of(done("2026-03-31", "2026-03-31")), 1, 1, 0, 100.0, 0, 0, 0),
                 row("done a day late: in the denominator only", List.of(done("2026-03-31", "2026-04-01")), 1, 0, 1, 0.0, 0, 0, 0),
                 row("overdue and still open", List.of(open("2026-06-14")), 1, 0, 0, 0.0, 1, 0, 0),
-                row("due today and open: counted as due, not yet overdue", List.of(open("2026-06-15")), 1, 0, 0, 0.0, 0, 0, 0),
+                row("due today and open: counted as due and 기한 임박, not yet overdue", List.of(open("2026-06-15")), 1, 0, 0, 0.0, 0, 0, 1),
                 row("cancelled is left out of both sides",
                         List.of(done("2026-03-31", "2026-03-31"), t("OBLIGATION", "CANCELLED", "2026-03-31", null)), 1, 1, 0, 100.0, 0, 0, 0),
                 row("corrective tasks count like obligation tasks", List.of(

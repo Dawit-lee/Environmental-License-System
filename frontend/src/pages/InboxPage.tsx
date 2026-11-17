@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { DUE_SOON_DAYS } from '../terms';
 import { useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import { TODO_LABEL, loadTodos, type Todo, type TodoKind } from '../api/todos';
@@ -25,7 +26,7 @@ export default function InboxPage() {
     <div className="min-h-full bg-[#F8F7F2]">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold text-[#1F4E79]">내 할 일</h1>
-        <p className="mt-1 text-sm text-gray-500">내가 멤버인 프로젝트에서 기다리는 일입니다. 기한 임박 항목은 30일 이내만 보여 줍니다. 내용을 누르면 해당 프로젝트 탭으로 갑니다.</p>
+        <p className="mt-1 text-sm text-gray-500">내가 멤버인 프로젝트에서 기다리는 일입니다. 기한 임박은 완료 전이고 {DUE_SOON_DAYS}일 이내인 내 몫의 기한입니다(대시보드는 프로젝트 전체를 셉니다). 내용을 누르면 해당 프로젝트 탭으로 갑니다.</p>
 
         <div className="mt-5 flex flex-wrap gap-2">
           {(['ALL', ...KINDS] as const).map((k) => (

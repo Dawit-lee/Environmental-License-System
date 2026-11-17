@@ -14,6 +14,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -71,6 +72,7 @@ public class ProjectController {
                           @Size(max = 20) String capacityUnit,
                           LocalDate startDate,
                           LocalDate expectedEndDate,
+                          LocalDate constructionStartDate,
                           Project.Status status,
                           Long teamId,
                           Long pmUserId,
@@ -79,7 +81,7 @@ public class ProjectController {
 
     record ProjectView(long id, String name, Project.FacilityType facilityType, String location,
                        BigDecimal capacity, String capacityUnit, LocalDate startDate, LocalDate expectedEndDate,
-                       Project.Status status, long permitCount, long acquiredCount, long nearExpiryCount,
+                       LocalDate constructionStartDate, Project.Status status, long permitCount, long acquiredCount, long nearExpiryCount,
                        Long teamId, String teamName, String departmentName,
                        Long pmUserId, String pmName, Long emUserId, String emName, boolean member,
                        JsonNode attributes, boolean operationsEnabled) {
@@ -119,6 +121,7 @@ public class ProjectController {
         Project p = new Project(companyId);
         p.apply(req);
         projects.save(p);
+        setConstructionStart(p.getId(), req.constructionStartDate());
         members.save(ProjectMember.creator(p.getId(), userId(jwt)));
         return ResponseEntity.status(HttpStatus.CREATED).body(views(List.of(p), userId(jwt)).get(0));
     }
@@ -143,10 +146,13 @@ public class ProjectController {
         checkOrg(p.getCompanyId(), req);
         LocalDate oldStart = p.getStartDate();
         LocalDate oldEnd = p.getExpectedEndDate();
+        LocalDate oldConstruction = constructionStarts(List.of(id)).get(id);
         p.apply(req);
-        if (!Objects.equals(oldStart, p.getStartDate()) || !Objects.equals(oldEnd, p.getExpectedEndDate())) {
+        setConstructionStart(id, req.constructionStartDate());
+        if (!Objects.equals(oldStart, p.getStartDate()) || !Objects.equals(oldEnd, p.getExpectedEndDate())
+                || !Objects.equals(oldConstruction, req.constructionStartDate())) {
             events.publishEvent(new ProjectDatesChanged(id, userId(jwt), oldStart, p.getStartDate(), oldEnd,
-                    p.getExpectedEndDate())); // relative schedule items follow 착수일·완료일
+                    p.getExpectedEndDate(), oldConstruction, req.constructionStartDate())); // relative items follow
         }
         return views(List.of(p), userId(jwt)).get(0);
     }
@@ -255,6 +261,7 @@ public class ProjectController {
             return List.of();
         }
         List<Long> ids = list.stream().map(Project::getId).toList();
+        Map<Long, LocalDate> construction = constructionStarts(ids);
         Map<Long, PermitCounts> counts = permits.countByProject(ids).stream()
                 .collect(Collectors.toMap(PermitCounts::projectId, Function.identity()));
         Set<Long> mine = projects.findByMember(userId).stream().map(Project::getId).collect(Collectors.toSet());
@@ -266,11 +273,30 @@ public class ProjectController {
             PermitCounts c = counts.getOrDefault(p.getId(), PermitCounts.none(p.getId()));
             Org.Team t = p.getTeamId() == null ? null : teams.get(p.getTeamId());
             return new ProjectView(p.getId(), p.getName(), p.getFacilityType(), p.getLocation(), p.getCapacity(),
-                    p.getCapacityUnit(), p.getStartDate(), p.getExpectedEndDate(), p.getStatus(),
+                    p.getCapacityUnit(), p.getStartDate(), p.getExpectedEndDate(), construction.get(p.getId()), p.getStatus(),
                     c.total(), c.completed(), c.nearExpiry(),
                     p.getTeamId(), t == null ? null : t.name(), t == null ? null : t.departmentName(),
                     p.getPmUserId(), names.get(p.getPmUserId()), p.getEmUserId(), names.get(p.getEmUserId()),
                     mine.contains(p.getId()), p.getAttributes(), p.isOperationsEnabled());
         }).toList();
+    }
+
+    /** 착공예정일 is the schedule's CONSTRUCTION_START base date (project_schedule_anchor); 착수일 is project.start_date. */
+    private Map<Long, LocalDate> constructionStarts(List<Long> ids) {
+        Map<Long, LocalDate> m = new HashMap<>();
+        jdbc.query("SELECT project_id, date FROM project_schedule_anchor WHERE anchor = 'CONSTRUCTION_START' "
+                        + "AND project_id = ANY(?)", rs -> { m.put(rs.getLong(1), rs.getObject(2, LocalDate.class)); },
+                (Object) ids.toArray(Long[]::new));
+        return m;
+    }
+
+    private void setConstructionStart(long id, LocalDate date) {
+        if (date == null) {
+            jdbc.update("DELETE FROM project_schedule_anchor WHERE project_id = ? AND anchor = 'CONSTRUCTION_START'", id);
+        } else {
+            jdbc.update("""
+                    INSERT INTO project_schedule_anchor (project_id, anchor, date) VALUES (?, 'CONSTRUCTION_START', ?)
+                    ON CONFLICT (project_id, anchor) DO UPDATE SET date = excluded.date""", id, java.sql.Date.valueOf(date));
+        }
     }
 }

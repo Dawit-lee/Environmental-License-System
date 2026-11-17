@@ -56,7 +56,7 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
     }
   };
   const current = (a: Anchor) => schedule.anchors.find((x) => x.anchor === a);
-  const projectDate = (a: Anchor) => a === 'KICKOFF' || a === 'COMPLETION';
+  const projectDate = (a: Anchor) => a === 'KICKOFF' || a === 'COMPLETION'; // stored on the project row
 
   return (
     <Modal title="기준일" onClose={onClose}>
@@ -141,7 +141,7 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
 }
 
 /** 지연 현황: one line per item, most days first; copies as tab-separated text for the weekly report. */
-export function DelayTable({ projectId }: { projectId: number }) {
+export function DelayTable({ projectId, baselined }: { projectId: number; baselined: boolean }) {
   const [rows, setRows] = useState<DelayRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -166,11 +166,12 @@ export function DelayTable({ projectId }: { projectId: number }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">기준 계획(없으면 현재 계획)보다 늦은 항목 {rows.length}건 · 지연 일수 순</p>
+        <p className="text-sm text-gray-500">기준 계획보다 늦은 항목 {rows.length}건 · 지연 일수 순</p>
         <button type="button" className={btn} disabled={!rows.length} onClick={copy}>{copied ? '복사됨' : '주간보고용 복사'}</button>
       </div>
       {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#E5E3DC] bg-white px-6 py-12 text-center text-sm text-gray-500">지연된 항목이 없습니다.</p>
+        <p className="rounded-xl border border-dashed border-[#E5E3DC] bg-white px-6 py-12 text-center text-sm text-gray-500">
+          {baselined ? '지연된 항목이 없습니다.' : '기준을 확정하면 기준보다 늦어진 항목이 여기에 나옵니다. 계획 종료일이 지난 항목은 간트의 "기한 경과"로 봅니다.'}</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white">
           <table className="w-full whitespace-nowrap text-left text-sm">

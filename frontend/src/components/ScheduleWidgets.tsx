@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { addDays, format, startOfWeek } from 'date-fns';
 import { EVENT_KIND_LABEL, eventWhen, getCalendar, getProjectEvents, type ProjectEvent } from '../api/events';
 import { getSchedule, type ScheduleItem } from '../api/schedule';
+import { Help } from './Onboarding';
 
 // ---------------------------------------------------------------------------
 // Schedule widgets (설계 §6.5): dashboard "이번 주 이벤트" and "지연 항목(분야별)", overview "일정" card.
@@ -69,9 +70,9 @@ export function DelayedByDiscipline({ projectIds }: { projectIds: number[] }) {
   }, [projectIds.join(',')]);
   return (
     <section className={card}>
-      <h2 className="text-lg font-semibold text-gray-900">지연 항목 (분야별)</h2>
+      <h2 className="text-lg font-semibold text-gray-900">기한 경과 일정 (분야별)<Help k="overdue" align="right" /></h2>
       <ul className="mt-3 divide-y divide-[#E5E3DC] text-sm">
-        {counts?.length === 0 && <li className="py-3 text-gray-400">지연된 일정 항목이 없습니다.</li>}
+        {counts?.length === 0 && <li className="py-3 text-gray-400">기한이 지난 일정 항목이 없습니다.</li>}
         {counts?.map(([name, n]) => (
           <li key={name} className="flex justify-between py-2.5">
             <span className="truncate text-gray-700">{name}</span>
@@ -101,7 +102,7 @@ export function ScheduleSummary({ projectId }: { projectId: number }) {
     <section className={card}>
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold text-gray-900">일정</h2>
-        <Link to={base} className={`text-sm ${delayed ? 'text-[#991B1B]' : 'text-gray-500'} hover:underline`}>지연 {delayed}건</Link>
+        <Link to={base} className={`text-sm ${delayed ? 'text-[#991B1B]' : 'text-gray-500'} hover:underline`}>기한 경과 {delayed}건</Link>
       </div>
       <p className="mt-3 text-xs text-gray-500">다음 마일스톤</p>
       <ul className="mt-1 space-y-1 text-sm">

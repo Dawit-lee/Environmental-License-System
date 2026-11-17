@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { DUE_SOON_DAYS } from '../terms';
 import { useNavigate } from 'react-router';
 import { api } from '../api/client';
 
@@ -51,20 +52,20 @@ function MetricCards({ m, company, operations }: { m: Metrics; company: boolean;
       <div className={`mt-4 grid grid-cols-2 gap-4 ${operations ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
         <Metric label="기한 내 이행률" value={pct(t.percent)} tone={t.percent === null ? 'text-gray-400' : 'text-[#1F4E79]'}
           sub={t.percent === null ? '기간 안에 기한이 지난 업무 없음' : `기한 내 완료 ${t.onTime}건 / 기한 도래 ${t.due}건`} />
-        <Metric label="지연 중" value={t.overdue} tone={alarm(t.overdue)} sub="열린 업무 중 기한 경과" />
+        <Metric label="기한 경과" value={t.overdue} tone={alarm(t.overdue)} sub="열린 업무 중 기한이 지난 것" />
         {operations && <Metric label="미조치 초과" value={t.openCorrective} tone={alarm(t.openCorrective)} sub="열린 조치 업무" />}
-        <Metric label="30일 내 기한" value={t.dueSoon} sub="열린 업무 중 내일 ~ 30일 뒤" />
+        <Metric label="기한 임박" value={t.dueSoon} sub={`열린 업무 중 오늘 ~ ${DUE_SOON_DAYS}일 뒤`} />
       </div>
       <p className="mt-3 text-sm text-gray-600">
         지연 완료 {t.late}건 · {operations && `측정 초과 ${m.exceeded}건 · 측정 근접 ${m.near}건 · `}허가 만료 임박 {m.nearExpiry}건 · 현장 반영 대기 {m.siteOpen}건
       </p>
       <p className="mt-1 text-xs text-gray-500">
         산식: 이행률 = 기간 안에 기한이 지난 업무(의무 + 조치, 취소 제외) 중 기한 안에 완료한 건수 ÷ 기한이 지난 업무 건수.
-        지연 완료와 지연 중은 분자에서 빠집니다. 기한이 지난 업무가 없으면 100%가 아니라 "해당 없음"입니다.
+        지연 완료와 기한 경과는 분자에서 빠집니다. 기한이 지난 업무가 없으면 100%가 아니라 "해당 없음"입니다.
         {company && ' 회사 전체는 프로젝트 이행률의 평균이 아니라 건수를 합산해 계산합니다.'}
         {operations
-          ? ' 지연 중·미조치 초과·30일 내 기한·만료 임박·현장 반영은 기간과 무관한 오늘 기준이고, 측정 초과·근접은 기간 안의 측정일 기준입니다.'
-          : ' 지연 중·30일 내 기한·만료 임박·현장 반영은 기간과 무관한 오늘 기준입니다.'}
+          ? ' 기한 경과·미조치 초과·기한 임박·만료 임박·현장 반영은 기간과 무관한 오늘 기준이고, 측정 초과·근접은 기간 안의 측정일 기준입니다.'
+          : ' 기한 경과·기한 임박·만료 임박·현장 반영은 기간과 무관한 오늘 기준입니다.'}
       </p>
     </>
   );
@@ -158,7 +159,7 @@ export function CompanyCompliance({ stageOf }: { stageOf: (projectId: number) =>
                   <th className={th}>팀</th>
                   <th className={th}>단계</th>
                   <th className={`${th} text-right`}>이행률</th>
-                  <th className={`${th} text-right`}>지연</th>
+                  <th className={`${th} text-right`}>기한 경과</th>
                   {data.operations && <th className={`${th} text-right`} title="미조치 초과: 열린 조치 업무">초과</th>}
                   <th className={`${th} text-right`}>만료 임박</th>
                   <th className={`${th} text-right`}>현장 반영</th>

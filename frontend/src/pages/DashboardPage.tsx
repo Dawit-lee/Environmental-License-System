@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import type { PermitItem, Project } from '../types';
 import { api } from '../api/client';
@@ -10,7 +10,8 @@ import {
 } from '../components/dashboard';
 import { CompanyCompliance } from '../components/Compliance';
 import { DelayedByDiscipline, WeekEvents } from '../components/ScheduleWidgets';
-import { GettingStarted } from '../components/Onboarding';
+import { GettingStarted, Help } from '../components/Onboarding';
+import { DUE_SOON_DAYS, isDueSoon } from '../terms';
 
 // ---------------------------------------------------------------------------
 // DashboardPage — portfolio-wide overview: summary cards, near-expiry table,
@@ -44,7 +45,7 @@ export default function DashboardPage() {
 
   // Deadlines due within 90 days (API returns them sorted by date); the table shows the first 30.
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
-  const nearExpiry = deadlines.filter((d) => d.dDay <= 30);
+  const nearExpiry = deadlines.filter((d) => isDueSoon(d.dDay));
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     const today = new Date();
@@ -70,7 +71,7 @@ export default function DashboardPage() {
         <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
           <SummaryCard label="내 프로젝트" value={projects.length} tone="text-[#1F4E79]" />
           <SummaryCard label="내 프로젝트 인허가" value={total} tone="text-gray-800" />
-          <SummaryCard label="기한 임박 (D-30 이내)" value={nearExpiry.length} tone="text-[#B45309]" />
+          <SummaryCard label={<>기한 임박<Help k="dueSoon" /></>} value={nearExpiry.length} tone="text-[#B45309]" />
           <SummaryCard label="미신청" value={permits.filter((p) => p.status === 'NOT_APPLIED').length} tone="text-[#991B1B]" />
         </div>
 
@@ -88,7 +89,7 @@ export default function DashboardPage() {
 
         {/* Near-expiry table — full width so each row stays on one line */}
         <section className="mt-6 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-gray-900">기한 임박 (D-30 이내)</h2>
+            <h2 className="text-lg font-semibold text-gray-900">기한 임박 (D-{DUE_SOON_DAYS} 이내)<Help k="dueSoon" /></h2>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[480px] whitespace-nowrap text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
@@ -104,7 +105,7 @@ export default function DashboardPage() {
                     <tr><td colSpan={4} className="px-3 py-6 text-center text-[#991B1B]">{error}</td></tr>
                   )}
                   {!error && nearExpiry.length === 0 && (
-                    <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">30일 안에 다가오는 기한이 없습니다.</td></tr>
+                    <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">{DUE_SOON_DAYS}일 안에 다가오는 기한이 없습니다.</td></tr>
                   )}
                   {nearExpiry.map((row) => (
                     <tr key={row.id} className="transition hover:bg-[#F8F7F2]">
@@ -165,7 +166,7 @@ export default function DashboardPage() {
 
 // --- Local presentational helpers ------------------------------------------
 
-function SummaryCard({ label, value, tone }: { label: string; value: number; tone: string }) {
+function SummaryCard({ label, value, tone }: { label: ReactNode; value: number; tone: string }) {
   return (
     <div className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm transition hover:shadow-md">
       <div className={`text-3xl font-bold ${tone}`}>{value}</div>

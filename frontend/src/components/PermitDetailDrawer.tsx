@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import PermitDocuments from './PermitDocuments';
 import PermitLawLinks from './PermitLawLinks';
 import PermitVersions from './PermitVersions';
+import { Help } from './Onboarding';
 
 // ---------------------------------------------------------------------------
 // PermitDetailDrawer — slide-in panel (480px) showing a single permit's
@@ -42,6 +43,7 @@ function dDayLabel(dDay: number | null): string {
 }
 
 function historyText(h: PermitHistory): string {
+  if (!h.changedBy) return `날짜에 따라 상태가 ${h.fromStatus ? `${STATUS_LABEL[h.fromStatus]} → ` : ''}${STATUS_LABEL[h.toStatus]}(으)로 바뀌었습니다.`;
   return h.fromStatus
     ? `${h.changedBy}님이 상태를 ${STATUS_LABEL[h.fromStatus]} → ${STATUS_LABEL[h.toStatus]}(으)로 변경했습니다.`
     : `${h.changedBy}님이 ${STATUS_LABEL[h.toStatus]} 상태로 등록했습니다.`;
@@ -54,7 +56,7 @@ export default function PermitDetailDrawer({
 }: {
   permit: PermitItem | null;
   onClose: () => void;
-  onSaved?: (p: PermitItem) => void; // members only: edits the 보고 문구
+  onSaved?: (p: PermitItem) => void; // members only: edits 일정·상태 and the 보고 문구
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<PermitHistory[]>([]);
@@ -154,13 +156,18 @@ export default function PermitDetailDrawer({
 
               {/* 일정 */}
               <Section title="일정">
-                <div className="flex items-center justify-between">
-                  <Milestone label="신청일" value={permit.applicationDate} />
-                  <Arrow />
-                  <Milestone label="취득일" value={permit.acquisitionDate} />
-                  <Arrow />
-                  <Milestone label="만료일" value={permit.expiryDate} />
-                </div>
+                {onSaved ? (
+                  <PermitDates key={`${permit.id}-${permit.status}-${permit.applicationDate}-${permit.acquisitionDate}-${permit.expiryDate}`}
+                    permit={permit} onSaved={onSaved} />
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <Milestone label="신청일" value={permit.applicationDate} />
+                    <Arrow />
+                    <Milestone label="취득일" value={permit.acquisitionDate} />
+                    <Arrow />
+                    <Milestone label="만료일" value={permit.expiryDate} />
+                  </div>
+                )}
                 <div className="mt-4 flex items-center gap-2">
                   <span
                     className={`inline-flex items-center rounded-lg px-3 py-1.5 text-base font-bold ${dDayClasses(permit.dDay)}`}
@@ -170,6 +177,7 @@ export default function PermitDetailDrawer({
                   <span className="text-sm text-gray-500">
                     상태: {STATUS_LABEL[permit.status]}
                   </span>
+                  <Help k="permitStatus" />
                 </div>
               </Section>
 
@@ -230,6 +238,76 @@ export default function PermitDetailDrawer({
           </>
         )}
       </aside>
+    </div>
+  );
+}
+
+// --- 일정·상태 (2026-11-17 review H1·H3) -------------------------------------
+
+const DATE_FIELDS = [
+  { key: 'applicationDate', label: '신청일' },
+  { key: 'acquisitionDate', label: '취득일' },
+  { key: 'expiryDate', label: '만료일' },
+] as const;
+
+/** Dates and the status. The server derives the status from the dates; the pick only counts where they can't decide. */
+function PermitDates({ permit, onSaved }: { permit: PermitItem; onSaved: (p: PermitItem) => void }) {
+  const [draft, setDraft] = useState({
+    applicationDate: permit.applicationDate ?? '',
+    acquisitionDate: permit.acquisitionDate ?? '',
+    expiryDate: permit.expiryDate ?? '',
+    // 만료임박·만료 are computed; as a pick they mean "취득함"
+    status: (permit.status === 'NEAR_EXPIRY' || permit.status === 'EXPIRED' ? 'COMPLETED' : permit.status) as PermitStatus,
+  });
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const dirty = DATE_FIELDS.some((f) => draft[f.key] !== (permit[f.key] ?? ''))
+    || draft.status !== (permit.status === 'NEAR_EXPIRY' || permit.status === 'EXPIRED' ? 'COMPLETED' : permit.status);
+
+  async function save() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const body = { ...permit, status: draft.status, ...Object.fromEntries(DATE_FIELDS.map((f) => [f.key, draft[f.key] || null])) };
+      const saved = await api<PermitItem>(`/api/projects/${permit.projectId}/permits/${permit.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      onSaved(saved);
+      if (saved.status !== draft.status) setMessage(`날짜에 따라 ${STATUS_LABEL[saved.status]}(으)로 저장했습니다.`);
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {DATE_FIELDS.map((f) => (
+        <label key={f.key} className="flex items-center gap-3 text-sm">
+          <span className="w-16 shrink-0 text-gray-500">{f.label}</span>
+          <input type="date" value={draft[f.key]} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
+            className="min-w-0 flex-1 rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-gray-800 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20" />
+        </label>
+      ))}
+      <label className="flex items-center gap-3 text-sm">
+        <span className="w-16 shrink-0 text-gray-500">상태</span>
+        <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as PermitStatus })}
+          className="min-w-0 flex-1 rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-gray-800 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20">
+          <option value="NOT_APPLIED">미신청</option>
+          <option value="IN_PROGRESS">진행중</option>
+          <option value="COMPLETED">취득완료</option>
+        </select>
+      </label>
+      <p className="text-xs text-gray-500">날짜를 넣으면 상태는 날짜로 정해집니다.</p>
+      <div className="flex items-center justify-end gap-3">
+        {message && <span className="text-xs text-gray-500">{message}</span>}
+        <button type="button" onClick={save} disabled={!dirty || busy}
+          className="rounded-lg bg-[#1F4E79] px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40">
+          저장
+        </button>
+      </div>
     </div>
   );
 }
