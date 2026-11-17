@@ -12,7 +12,14 @@ function session(): Session | null {
   }
 }
 
-async function refresh(s: Session): Promise<Session | null> {
+// One refresh shared by every request that hits 401 at the same time (e.g. after an API restart).
+let pending: Promise<Session | null> | null = null;
+function refresh(s: Session): Promise<Session | null> {
+  pending ??= doRefresh(s).finally(() => (pending = null));
+  return pending;
+}
+
+async function doRefresh(s: Session): Promise<Session | null> {
   const res = await fetch('/api/auth/refresh', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -50,7 +57,9 @@ async function authFetch(path: string, init: RequestInit = {}): Promise<Response
     throw new ApiError(0, '서버에 연결할 수 없습니다.');
   });
   if (res.status === 401 && s) {
-    s = await refresh(s);
+    // a late 401 after another request already refreshed: reuse the new token instead of refreshing again
+    const latest = session();
+    s = latest && latest.accessToken !== s.accessToken ? latest : await refresh(s);
     if (s) res = await send(s.accessToken);
   }
   if (res.status === 401) {
