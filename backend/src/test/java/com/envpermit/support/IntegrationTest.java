@@ -1,5 +1,6 @@
 package com.envpermit.support;
 
+import com.envpermit.core.auth.LoginThrottle;
 import com.envpermit.core.document.DocumentStorage;
 import com.envpermit.law.LawApiClient;
 import java.time.Instant;
@@ -52,6 +53,7 @@ public abstract class IntegrationTest {
     @TestBean(name = "extractionExecutor", methodName = "com.envpermit.support.IntegrationTest#inlineExecutor")
     protected ExecutorService extractionExecutor;
     @Autowired protected FixtureLlmClient llm;
+    @Autowired LoginThrottle loginThrottle;
 
     static DocumentStorage memoryStorage() {
         return new InMemoryDocumentStorage();
@@ -65,6 +67,7 @@ public abstract class IntegrationTest {
     void resetClock() {
         clock.set(START);
         llm.reset();
+        loginThrottle.reset(); // shared context: failed logins must not carry over between tests
     }
 
     /**

@@ -46,19 +46,22 @@ const SORT_VALUE: Record<SortKey, (p: Project) => string | number> = {
   location: (p) => p.location,
 };
 
+/** Less important columns: hidden under 1280 px so the key ones fit without scrolling. */
+const WIDE = 'hidden xl:table-cell';
+
 const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'name', label: '프로젝트명' },
   { key: 'facility', label: '시설유형' },
-  { key: 'team', label: '부서/팀' },
+  { key: 'team', label: '부서/팀', className: WIDE },
   { key: 'pm', label: 'PM' },
-  { key: 'em', label: 'EM' },
+  { key: 'em', label: 'EM', className: WIDE },
   { key: 'status', label: '상태' },
   { key: 'progress', label: '취득 진행' },
   { key: 'nearExpiry', label: '만료임박', className: 'text-right' },
-  { key: 'location', label: '위치' },
+  { key: 'location', label: '위치', className: WIDE },
 ];
 
-/** scope filter value: 'MINE' (my team), 'ALL', 'd:<departmentId>' or 't:<teamId>' */
+/** scope filter value: 'ME' (projects I'm a member of), 'MINE' (my team), 'ALL', 'd:<departmentId>' or 't:<teamId>' */
 type Scope = string;
 
 export default function ProjectListPage() {
@@ -71,22 +74,25 @@ export default function ProjectListPage() {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [depts, setDepts] = useState<Department[]>([]);
   const [myTeam, setMyTeam] = useState<number | null>(null);
+  const [myIds, setMyIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api<Project[]>('/api/projects?scope=company'), getDepartments(), getCompanyUsers()]).then(
-      ([ps, ds, us]) => {
+    Promise.all([api<Project[]>('/api/projects?scope=company'), getDepartments(), getCompanyUsers(), api<Project[]>('/api/projects')]).then(
+      ([ps, ds, us, mine]) => {
         const team = us.find((u) => u.id === sessionUserId())?.teamId ?? null;
         setProjects(ps);
         setDepts(ds);
         setMyTeam(team);
-        setScope((s) => s ?? (team ? 'MINE' : 'ALL'));
+        setMyIds(new Set(mine.map((p) => p.id)));
+        setScope((s) => s ?? (mine.length ? 'ME' : 'ALL'));
       },
       (e: Error) => setError(e.message),
     );
   }, []);
 
   const inScope = useMemo(() => {
+    if (scope === 'ME') return (p: Project) => myIds.has(p.id);
     if (scope === 'MINE') return (p: Project) => p.teamId === myTeam;
     if (scope?.startsWith('t:')) return (p: Project) => p.teamId === Number(scope.slice(2));
     if (scope?.startsWith('d:')) {
@@ -94,7 +100,7 @@ export default function ProjectListPage() {
       return (p: Project) => p.teamId !== null && teams.has(p.teamId);
     }
     return () => true;
-  }, [scope, myTeam, depts]);
+  }, [scope, myTeam, myIds, depts]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -144,7 +150,8 @@ export default function ProjectListPage() {
             placeholder="프로젝트명 또는 위치 검색"
             className="min-w-[220px] flex-1 rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20"
           />
-          <select aria-label="부서/팀" value={scope ?? 'ALL'} onChange={(e) => setScope(e.target.value)} className={selectClasses}>
+          <select aria-label="부서/팀" value={scope ?? 'ME'} onChange={(e) => setScope(e.target.value)} className={selectClasses}>
+            <option value="ME">내 프로젝트</option>
             {myTeam !== null && <option value="MINE">내 팀</option>}
             <option value="ALL">부서/팀 전체</option>
             {depts.map((d) => (
@@ -198,7 +205,7 @@ export default function ProjectListPage() {
           </div>
         ) : (
           <div className="mt-6 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-            <table className="w-full min-w-[1080px] whitespace-nowrap text-left text-sm">
+            <table className="w-full min-w-[640px] whitespace-nowrap xl:min-w-[1080px] text-left text-sm">
               <thead className="bg-[#F8F7F2] text-xs text-gray-500">
                 <tr>
                   {COLUMNS.map((c) => (
@@ -226,7 +233,7 @@ export default function ProjectListPage() {
                       onClick={() => navigate(`/projects/${p.id}`)}
                       className="cursor-pointer transition hover:bg-[#F8F7F2]"
                     >
-                      <td className="max-w-[260px] px-4 py-3">
+                      <td className="max-w-[220px] px-4 py-3 xl:max-w-[260px]">
                         <Link
                           to={`/projects/${p.id}`}
                           onClick={(e) => e.stopPropagation()}
@@ -241,9 +248,9 @@ export default function ProjectListPage() {
                           {FACILITY_LABEL[p.facilityType]}
                         </span>
                       </td>
-                      <Cell text={teamOf(p)} max="max-w-[200px]" />
+                      <Cell text={teamOf(p)} max={`max-w-[200px] ${WIDE}`} />
                       <Cell text={p.pmName ?? ''} max="max-w-[100px]" />
-                      <Cell text={p.emName ?? ''} max="max-w-[100px]" />
+                      <Cell text={p.emName ?? ''} max={`max-w-[100px] ${WIDE}`} />
                       <td className="px-4 py-3">
                         <span className={`whitespace-nowrap ${STATUS_BADGE[p.status]}`}>
                           {STATUS_LABEL[p.status]}
@@ -260,7 +267,7 @@ export default function ProjectListPage() {
                       <td className={`px-4 py-3 text-right ${p.nearExpiryCount ? 'font-semibold text-[#991B1B]' : 'text-gray-400'}`}>
                         {p.nearExpiryCount || '—'}
                       </td>
-                      <Cell text={p.location} max="max-w-[240px]" muted />
+                      <Cell text={p.location} max={`max-w-[240px] ${WIDE}`} muted />
                     </tr>
                   );
                 })}

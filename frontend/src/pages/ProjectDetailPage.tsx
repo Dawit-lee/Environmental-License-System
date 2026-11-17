@@ -15,6 +15,8 @@ import ProjectDocuments from '../components/ProjectDocuments';
 import ProjectOperations from '../components/ProjectOperations';
 import ProjectModules from '../components/ProjectModules';
 import ProjectMembers from '../components/ProjectMembers';
+import ProjectDelete from '../components/ProjectDelete';
+import { EmptyState, Tip, primaryBtn } from '../components/Onboarding';
 
 // ---------------------------------------------------------------------------
 // ProjectDetailPage — the project hub: summary + lifecycle stage + routed tabs
@@ -67,6 +69,9 @@ function dDayLabel(dDay: number | null): string {
   return dDay > 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`;
 }
 
+/** Less important columns: hidden under 1280 px (the drawer shows them) so the key ones fit without scrolling. */
+const WIDE = 'hidden xl:table-cell';
+
 const CATEGORY_TAB_ORDER: PermitCategory[] = [
   'LOCATION', 'FACILITY', 'CONSTRUCTION', 'ELECTRICAL', 'ENVIRONMENT',
 ];
@@ -103,21 +108,27 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [ruleWarnings, setRuleWarnings] = useState<DerivationWarning[]>([]);
   const [reloads, setReloads] = useState(0); // 설정 saves → refresh the header
+  const [reporting, setReporting] = useState(false); // the report takes ~2 s to build
 
   useEffect(() => {
     // approved items the current rules no longer find applicable; no derivation yet → 404, nothing to show
-    latestDerivation(Number(id)).then((d) => setRuleWarnings(d?.warnings ?? []), () => setRuleWarnings([])); // 204: never derived
+    let stale = false;
+    latestDerivation(Number(id)).then((d) => { if (!stale) setRuleWarnings(d?.warnings ?? []); }, () => { if (!stale) setRuleWarnings([]); }); // 204: never derived
+    return () => { stale = true; };
   }, [id]);
 
   useEffect(() => {
+    let stale = false; // switching projects fast: ignore the previous project's late answer
     setError(null);
     Promise.all([api<Project>(`/api/projects/${id}`), api<PermitItem[]>(`/api/projects/${id}/permits`)]).then(
       ([p, list]) => {
+        if (stale) return;
         setProject(p);
         setPermits(list);
       },
-      (e: Error) => setError(e.message),
+      (e: Error) => { if (!stale) setError(e.message); },
     );
+    return () => { stale = true; };
   }, [id, reloads]);
 
   const stats = useMemo(() => {
@@ -169,7 +180,21 @@ export default function ProjectDetailPage() {
           <span className="text-gray-700">{project.name}</span>
         </nav>
 
-        {/* Summary card */}
+        {/* Summary card: full on 개요, one line on the other tabs so the schedule and tables get the height */}
+        {tab !== 'overview' ? (
+          <section className="mt-4 rounded-xl border border-[#E5E3DC] bg-white px-5 py-3 shadow-sm">
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+              <h1 className="truncate text-lg font-bold text-gray-900" title={project.name}>{project.name}</h1>
+              <span className="text-sm text-gray-500">
+                {FACILITY_LABEL[project.facilityType]} · {STAGES[lifecycleStage(project, permits)]} 단계
+              </span>
+              <span className="text-sm text-gray-500 sm:ml-auto">
+                인허가 {stats.total} · 취득완료 {stats.completed} · <span className={stats.nearExpiry ? 'text-[#B45309]' : ''}>만료임박 {stats.nearExpiry}</span> · 미신청 {stats.notApplied}
+              </span>
+            </div>
+            <Notices project={project} warnings={ruleWarnings} />
+          </section>
+        ) : (
         <section className="mt-4 rounded-xl border border-[#E5E3DC] bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -180,29 +205,22 @@ export default function ProjectDetailPage() {
               <p className="mt-1 text-sm text-gray-500">{project.location}</p>
             </div>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-              <dt className="text-gray-400">시설용량</dt>
+              <dt className="text-gray-500">시설용량</dt>
               <dd className="text-gray-700">{project.capacity ?? '—'} {project.capacityUnit}</dd>
-              <dt className="text-gray-400">착공예정일</dt>
+              <dt className="text-gray-500">착수일</dt>
               <dd className="text-gray-700">{project.startDate ?? '—'}</dd>
-              <dt className="text-gray-400">준공예정일</dt>
+              <dt className="text-gray-500">착공예정일</dt>
+              <dd className="text-gray-700">{project.constructionStartDate ?? '—'}</dd>
+              <dt className="text-gray-500">준공예정일</dt>
               <dd className="text-gray-700">{project.expectedEndDate ?? '—'}</dd>
-              <dt className="text-gray-400">부서/팀</dt>
+              <dt className="text-gray-500">부서/팀</dt>
               <dd className="text-gray-700">{project.teamName ? `${project.departmentName} / ${project.teamName}` : '—'}</dd>
-              <dt className="text-gray-400">PM / EM</dt>
+              <dt className="text-gray-500">PM / EM</dt>
               <dd className="text-gray-700">{project.pmName ?? '—'} / {project.emName ?? '—'}</dd>
             </dl>
           </div>
 
-          {!project.member && (
-            <p className="mt-4 rounded-lg bg-[#F8F7F2] px-3 py-2 text-sm text-gray-600">
-              이 프로젝트의 멤버가 아니라 인허가 목록만 볼 수 있습니다. 수정하려면 프로젝트 어드민에게 멤버 추가를 요청하세요.
-            </p>
-          )}
-          {ruleWarnings.map((w) => (
-            <p key={w.rule_key} className="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-[#B45309]">
-              {w.permit_name} — {w.message}
-            </p>
-          ))}
+          <Notices project={project} warnings={ruleWarnings} />
 
           {/* Stats row */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -214,8 +232,9 @@ export default function ProjectDetailPage() {
 
           <StageBar current={lifecycleStage(project, permits)} />
         </section>
+        )}
 
-        <nav className="mt-6 flex gap-1 overflow-x-auto border-b border-[#E5E3DC]" aria-label="프로젝트 메뉴">
+        <nav className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-[#E5E3DC]" aria-label="프로젝트 메뉴">
           {tabs.map((t) => (
             <NavLink
               key={t.key}
@@ -242,6 +261,7 @@ export default function ProjectDetailPage() {
               <NewProjectPage key={id} projectId={project.id} onSaved={() => setReloads((n) => n + 1)} />
               <ProjectModules project={project} onSaved={() => setReloads((n) => n + 1)} />
               <ProjectMembers key={`m${id}`} projectId={project.id} />
+              <ProjectDelete project={project} />
             </>
           )}
           {!tabs.some((t) => t.key === tab) && <Navigate to={`/projects/${id}/overview`} replace />}
@@ -263,13 +283,17 @@ export default function ProjectDetailPage() {
             ))}
           </div>
           <div className="flex items-center gap-2">
-          <button
+          <Tip k="report"><button
             type="button"
-            onClick={() => downloadReport(project.id).catch((e: Error) => window.alert(e.message))}
-            className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20"
+            disabled={reporting}
+            onClick={() => {
+              setReporting(true);
+              downloadReport(project.id).catch((e: Error) => window.alert(e.message)).finally(() => setReporting(false));
+            }}
+            className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20 disabled:opacity-60"
           >
-            진행 현황 보고 ⬇
-          </button>
+            {reporting ? '만드는 중…' : '진행 현황 보고 ⬇'}
+          </button></Tip>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'ALL' | PermitStatus)}
@@ -283,15 +307,25 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
+        {permits.length === 0 && (
+          <div className="mt-4">
+            <EmptyState text={project.member
+              ? '시설 종류·용량·입지로 필요한 인허가를 규칙에 따라 찾습니다. 도출 결과에서 맞는 항목을 승인하면 여기에 나옵니다.'
+              : '아직 등록된 인허가가 없습니다.'}>
+              {project.member && <Link to={`/projects/${project.id}/settings`} className={primaryBtn}>인허가 도출하기</Link>}
+            </EmptyState>
+          </div>
+        )}
+
         {/* Permit table */}
-        <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-          <table className="w-full min-w-[860px] whitespace-nowrap text-left text-sm">
+        {permits.length > 0 && <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+          <table className="w-full min-w-[600px] whitespace-nowrap xl:min-w-[860px] text-left text-sm">
             <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3 font-medium">인허가명</th>
                 <th className="px-4 py-3 font-medium">카테고리</th>
-                <th className="px-4 py-3 font-medium">관련 법규</th>
-                <th className="px-4 py-3 font-medium">승인기관</th>
+                <th className={`px-4 py-3 font-medium ${WIDE}`}>관련 법규</th>
+                <th className={`px-4 py-3 font-medium ${WIDE}`}>승인기관</th>
                 <th className="px-4 py-3 font-medium">만료일</th>
                 <th className="px-4 py-3 font-medium">D-day</th>
                 <th className="px-4 py-3 font-medium">상태</th>
@@ -307,13 +341,13 @@ export default function ProjectDetailPage() {
                       {CATEGORY_LABEL[p.category]}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={`px-4 py-3 ${WIDE}`}>
                     <a href={p.regulationUrl ?? undefined} target="_blank" rel="noreferrer"
                       className="inline-flex items-center gap-1 text-[#1F4E79] transition hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30">
                       {p.regulation}<span aria-hidden>↗</span>
                     </a>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className={`px-4 py-3 ${WIDE}`}>
                     <a href={p.authorityUrl ?? undefined} target="_blank" rel="noreferrer"
                       className="inline-flex items-center gap-1 text-gray-700 transition hover:text-[#1F4E79] hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30">
                       {p.authority}<span aria-hidden>↗</span>
@@ -339,7 +373,7 @@ export default function ProjectDetailPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </div>}
         </>)}
       </div>
 
@@ -360,6 +394,23 @@ export default function ProjectDetailPage() {
 }
 
 // --- Local presentational helpers ------------------------------------------
+
+function Notices({ project, warnings }: { project: Project; warnings: DerivationWarning[] }) {
+  return (
+    <>
+      {!project.member && (
+        <p className="mt-3 rounded-lg bg-[#F8F7F2] px-3 py-2 text-sm text-gray-600">
+          이 프로젝트의 멤버가 아니라 인허가 목록만 볼 수 있습니다. 수정하려면 프로젝트 어드민에게 멤버 추가를 요청하세요.
+        </p>
+      )}
+      {warnings.map((w) => (
+        <p key={w.rule_key} className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-[#B45309]">
+          {w.permit_name} — {w.message}
+        </p>
+      ))}
+    </>
+  );
+}
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (

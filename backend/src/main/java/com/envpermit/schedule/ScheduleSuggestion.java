@@ -1,6 +1,5 @@
 package com.envpermit.schedule;
 
-import com.envpermit.review.Kind;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -48,10 +47,6 @@ public record ScheduleSuggestion(@NotNull Type type, String kind, @Size(max = 50
 
     /** Where the quote is: physical PDF page (1-based) and the sentence as written. Required. */
     public record Evidence(@NotNull @Positive Integer page, @NotBlank String quote) {
-    }
-
-    public Kind suggestionKind() {
-        return type == Type.EVENT || type == Type.RECURRING ? Kind.PROJECT_EVENT : Kind.SCHEDULE_ITEM;
     }
 
     ScheduleSuggestion annotated(Long matchId, List<String> checks) {

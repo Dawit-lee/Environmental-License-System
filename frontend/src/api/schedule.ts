@@ -95,7 +95,7 @@ export interface ItemInput {
 }
 
 export const STATUS_LABEL: Record<ItemStatus, string> = {
-  DONE: '완료', DELAYED: '지연', IN_PROGRESS: '진행', PLANNED: '예정',
+  DONE: '완료', DELAYED: '기한 경과', IN_PROGRESS: '진행', PLANNED: '예정',
 };
 
 export const ANCHOR_LABEL: Record<Anchor, string> = {

@@ -62,8 +62,9 @@ export default function JoinRequestsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-4 sm:p-6">
-      <h1 className="text-xl font-bold text-gray-900">가입 요청</h1>
+    <div className="min-h-full bg-[#F8F7F2]">
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6">
+      <h1 className="text-2xl font-bold text-[#1F4E79]">가입 요청</h1>
       {promptUi}
       {error && <p role="alert" className="text-sm text-[#991B1B]">{error}</p>}
 
@@ -110,6 +111,7 @@ export default function JoinRequestsPage() {
           ))}
         </ul>
       </section>
+    </div>
     </div>
   );
 }

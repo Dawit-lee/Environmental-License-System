@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { addDays, format, startOfWeek } from 'date-fns';
 import { EVENT_KIND_LABEL, eventWhen, getCalendar, getProjectEvents, type ProjectEvent } from '../api/events';
 import { getSchedule, type ScheduleItem } from '../api/schedule';
+import { Help } from './Onboarding';
 
 // ---------------------------------------------------------------------------
 // Schedule widgets (설계 §6.5): dashboard "이번 주 이벤트" and "지연 항목(분야별)", overview "일정" card.
@@ -25,7 +26,7 @@ export function WeekEvents() {
         <Link to="/calendar" className="text-xs text-[#1F4E79] hover:underline">회사 달력</Link>
       </div>
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[560px] table-fixed whitespace-nowrap text-left text-sm">
+        <table className={`w-full ${events?.length ? 'min-w-[560px]' : ''} table-fixed whitespace-nowrap text-left text-sm`}>
           <thead className="bg-[#F8F7F2] text-xs text-gray-500">
             <tr>
               <th className="w-40 px-3 py-2.5 font-medium">일시</th>
@@ -53,29 +54,22 @@ export function WeekEvents() {
   );
 }
 
-/**
- * Delayed schedule items across my projects, counted per discipline.
- * shortcut: one schedule call per project (like the rest of the dashboard); add a summary endpoint if projects grow.
- */
-export function DelayedByDiscipline({ projectIds }: { projectIds: number[] }) {
-  const [counts, setCounts] = useState<[string, number][] | null>(null);
-  useEffect(() => {
-    Promise.all(projectIds.map((id) => getSchedule(id).then((s) => s.items, () => [] as ScheduleItem[]))).then((lists) => {
-      const by = new Map<string, number>();
-      lists.flat().filter((i) => i.status === 'DELAYED')
-        .forEach((i) => by.set(i.disciplineName ?? '공통', (by.get(i.disciplineName ?? '공통') ?? 0) + 1));
-      setCounts([...by.entries()].sort((a, b) => b[1] - a[1]));
-    });
-  }, [projectIds.join(',')]);
+export interface DelayedCount {
+  discipline: string;
+  count: number;
+}
+
+/** Delayed schedule items across my projects, counted per discipline (from GET /api/dashboard; null while loading). */
+export function DelayedByDiscipline({ counts }: { counts: DelayedCount[] | null }) {
   return (
     <section className={card}>
-      <h2 className="text-lg font-semibold text-gray-900">지연 항목 (분야별)</h2>
+      <h2 className="text-lg font-semibold text-gray-900">기한 경과 일정 (분야별)<Help k="overdue" align="right" /></h2>
       <ul className="mt-3 divide-y divide-[#E5E3DC] text-sm">
-        {counts?.length === 0 && <li className="py-3 text-gray-400">지연된 일정 항목이 없습니다.</li>}
-        {counts?.map(([name, n]) => (
-          <li key={name} className="flex justify-between py-2.5">
-            <span className="truncate text-gray-700">{name}</span>
-            <span className="text-[#991B1B]">{n}건</span>
+        {counts?.length === 0 && <li className="py-3 text-gray-400">기한이 지난 일정 항목이 없습니다.</li>}
+        {counts?.map(({ discipline, count }) => (
+          <li key={discipline} className="flex justify-between py-2.5">
+            <span className="truncate text-gray-700">{discipline}</span>
+            <span className="text-[#991B1B]">{count}건</span>
           </li>
         ))}
       </ul>
@@ -93,15 +87,15 @@ export function ScheduleSummary({ projectId }: { projectId: number }) {
     const now = format(new Date(), "yyyy-MM-dd'T'HH:mm");
     getProjectEvents(projectId).then((l) => setNext(l.find((e) => e.endsAt.slice(0, 16) >= now) ?? null), () => {});
   }, [projectId]);
-  const milestones = items.filter((i) => i.kind === 'MILESTONE' && !i.actualEnd && i.endDate >= today)
-    .sort((a, b) => a.endDate.localeCompare(b.endDate)).slice(0, 3);
+  const milestones = items.filter((i) => i.kind === 'MILESTONE' && !i.actualEnd && i.endDate != null && i.endDate >= today)
+    .sort((a, b) => a.endDate!.localeCompare(b.endDate!)).slice(0, 3);
   const delayed = items.filter((i) => i.status === 'DELAYED').length;
   const base = `/projects/${projectId}/schedule`;
   return (
     <section className={card}>
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold text-gray-900">일정</h2>
-        <Link to={base} className={`text-sm ${delayed ? 'text-[#991B1B]' : 'text-gray-500'} hover:underline`}>지연 {delayed}건</Link>
+        <Link to={base} className={`text-sm ${delayed ? 'text-[#991B1B]' : 'text-gray-500'} hover:underline`}>기한 경과 {delayed}건</Link>
       </div>
       <p className="mt-3 text-xs text-gray-500">다음 마일스톤</p>
       <ul className="mt-1 space-y-1 text-sm">

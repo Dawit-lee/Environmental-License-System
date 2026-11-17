@@ -395,6 +395,9 @@ class ScheduleController {
     void onProjectDatesChanged(ProjectDatesChanged e) {
         if (!Objects.equals(e.oldStart(), e.newStart())) shift(e.projectId(), "KICKOFF", e.oldStart(), e.newStart(), true, e.actorId());
         if (!Objects.equals(e.oldEnd(), e.newEnd())) shift(e.projectId(), "COMPLETION", e.oldEnd(), e.newEnd(), true, e.actorId());
+        if (!Objects.equals(e.oldConstruction(), e.newConstruction())) {
+            shift(e.projectId(), "CONSTRUCTION_START", e.oldConstruction(), e.newConstruction(), true, e.actorId());
+        }
     }
 
     /** A cleared base date moves nothing: the items keep their last dates. */

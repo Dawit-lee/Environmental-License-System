@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { api, apiBlob } from '../api/client';
 import { getAiProvider, getCompany, getRun, startScheduleExtraction, type AiRun } from '../api/extraction';
 import ComplianceReportDraft from './ComplianceReportDraft';
+import { EmptyState, HELP } from './Onboarding';
 import type { DocType, PermitDocument, PermitItem } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -179,7 +180,7 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
                       : run?.status === 'SUCCEEDED' ? <Link to={`/projects/${projectId}/review`} className="text-[#1F4E79] hover:underline">AI 검토에서 확인</Link>
                       : extractable ? (
                         <button type="button" disabled={!aiOn} onClick={() => extract(d)}
-                          title={aiOn ? undefined : '회사 설정에서 AI 추출이 꺼져 있습니다'}
+                          title={aiOn ? HELP.extract.text : '회사 설정에서 AI 추출이 꺼져 있습니다'}
                           className="rounded-md border border-[#E5E3DC] px-2 py-1 font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40">
                           일정 추출
                         </button>
@@ -190,7 +191,9 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
             })}
           </tbody>
         </table>
-        {docs.length === 0 && <p className="py-10 text-center text-sm text-gray-400">문서가 없습니다. 공고문·과업내용서는 위에서, 허가증은 인허가 상세에서 올리세요.</p>}
+        {docs.length === 0 && (
+          <EmptyState bare text="위 [문서 올리기]로 공고문·과업내용서를 올리면 [일정 추출]로 날짜 후보를 받아 일정에 넣습니다. 허가증은 인허가 상세에서 올립니다." />
+        )}
       </div>
     </div>
   );

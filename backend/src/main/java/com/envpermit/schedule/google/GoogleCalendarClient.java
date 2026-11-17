@@ -1,9 +1,15 @@
 package com.envpermit.schedule.google;
 
+import com.envpermit.core.HttpTimeouts;
 import com.fasterxml.jackson.databind.JsonNode;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -12,19 +18,34 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
-/** Google Calendar REST v3 + OAuth token endpoints with Spring RestClient, no Google SDK. Never called in tests. */
+/** Google Calendar REST v3 + OAuth token endpoints with Spring RestClient, no Google SDK. Integration tests replace it; GoogleCalendarClientTest runs it against a local HTTP server. */
 @Component
 class GoogleCalendarClient implements CalendarPublisher {
 
-    private static final String TOKEN = "https://oauth2.googleapis.com/token";
-    private static final String CAL = "https://www.googleapis.com/calendar/v3/calendars";
     private static final String ZONE = "Asia/Seoul";
+    private static final Duration EARLY = Duration.ofMinutes(5); // renew a bit before Google's expiry
 
-    private final RestClient http = RestClient.create();
+    private record Access(String token, Instant expiresAt) {
+    }
+
+    private final RestClient http = HttpTimeouts.restClient();
     private final GoogleSettings settings;
+    private final Clock clock;
+    private final String oauthBase;
+    private final String calUrl;
+    private final Map<String, Access> accessTokens = new ConcurrentHashMap<>(); // by refresh token (M6)
 
-    GoogleCalendarClient(GoogleSettings settings) {
+    @Autowired
+    GoogleCalendarClient(GoogleSettings settings, Clock clock) {
+        this(settings, clock, "https://oauth2.googleapis.com", "https://www.googleapis.com");
+    }
+
+    /** Base URLs are parameters only so tests can point at a local server. */
+    GoogleCalendarClient(GoogleSettings settings, Clock clock, String oauthBase, String apiBase) {
         this.settings = settings;
+        this.clock = clock;
+        this.oauthBase = oauthBase;
+        this.calUrl = apiBase + "/calendar/v3/calendars";
     }
 
     @Override
@@ -39,20 +60,20 @@ class GoogleCalendarClient implements CalendarPublisher {
 
     @Override
     public String createCalendar(String refreshToken, String name) {
-        return http.post().uri(CAL).headers(h -> h.setBearerAuth(access(refreshToken)))
+        return http.post().uri(calUrl).headers(h -> h.setBearerAuth(access(refreshToken)))
                 .contentType(MediaType.APPLICATION_JSON).body(Map.of("summary", name, "timeZone", ZONE))
                 .retrieve().body(JsonNode.class).get("id").asText();
     }
 
     @Override
     public Ref insert(String refreshToken, String calendarId, GoogleEvent e) {
-        return ref(http.post().uri(CAL + "/{c}/events", calendarId).headers(h -> h.setBearerAuth(access(refreshToken)))
+        return ref(http.post().uri(calUrl + "/{c}/events", calendarId).headers(h -> h.setBearerAuth(access(refreshToken)))
                 .contentType(MediaType.APPLICATION_JSON).body(body(e)).retrieve().body(JsonNode.class));
     }
 
     @Override
     public Ref patch(String refreshToken, String calendarId, String eventId, GoogleEvent e) {
-        return ref(http.patch().uri(CAL + "/{c}/events/{e}", calendarId, eventId)
+        return ref(http.patch().uri(calUrl + "/{c}/events/{e}", calendarId, eventId)
                 .headers(h -> h.setBearerAuth(access(refreshToken)))
                 .contentType(MediaType.APPLICATION_JSON).body(body(e)).retrieve().body(JsonNode.class));
     }
@@ -60,7 +81,7 @@ class GoogleCalendarClient implements CalendarPublisher {
     @Override
     public void delete(String refreshToken, String calendarId, String eventId) {
         try {
-            http.delete().uri(CAL + "/{c}/events/{e}", calendarId, eventId)
+            http.delete().uri(calUrl + "/{c}/events/{e}", calendarId, eventId)
                     .headers(h -> h.setBearerAuth(access(refreshToken))).retrieve().toBodilessEntity();
         } catch (HttpClientErrorException ex) {
             if (ex.getStatusCode() != HttpStatus.NOT_FOUND && ex.getStatusCode() != HttpStatus.GONE) throw ex;
@@ -69,7 +90,7 @@ class GoogleCalendarClient implements CalendarPublisher {
 
     @Override
     public void deleteCalendar(String refreshToken, String calendarId) {
-        http.delete().uri(CAL + "/{c}", calendarId).headers(h -> h.setBearerAuth(access(refreshToken)))
+        http.delete().uri(calUrl + "/{c}", calendarId).headers(h -> h.setBearerAuth(access(refreshToken)))
                 .retrieve().toBodilessEntity();
     }
 
@@ -77,14 +98,23 @@ class GoogleCalendarClient implements CalendarPublisher {
     public void revoke(String refreshToken) {
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("token", refreshToken);
-        http.post().uri("https://oauth2.googleapis.com/revoke").contentType(MediaType.APPLICATION_FORM_URLENCODED)
+        accessTokens.remove(refreshToken);
+        http.post().uri(oauthBase + "/revoke").contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(form).retrieve().toBodilessEntity();
     }
 
-    // shortcut: a fresh access token per call (no cache); fine at one job per minute, cache it if volume grows
+    /** Cached per refresh token until shortly before it expires, so a sync run does not hit the token endpoint per event. */
     private String access(String refreshToken) {
-        return token(Map.of("grant_type", "refresh_token", "refresh_token", refreshToken))
-                .get("access_token").asText();
+        Instant now = clock.instant();
+        Access cached = accessTokens.get(refreshToken);
+        if (cached != null && now.isBefore(cached.expiresAt())) {
+            return cached.token();
+        }
+        JsonNode r = token(Map.of("grant_type", "refresh_token", "refresh_token", refreshToken));
+        Access fresh = new Access(r.get("access_token").asText(),
+                now.plusSeconds(r.path("expires_in").asLong(3600)).minus(EARLY));
+        accessTokens.put(refreshToken, fresh);
+        return fresh.token();
     }
 
     private JsonNode token(Map<String, String> params) {
@@ -92,7 +122,7 @@ class GoogleCalendarClient implements CalendarPublisher {
         params.forEach(form::add);
         form.add("client_id", settings.clientId);
         form.add("client_secret", settings.clientSecret);
-        return http.post().uri(TOKEN).contentType(MediaType.APPLICATION_FORM_URLENCODED).body(form)
+        return http.post().uri(oauthBase + "/token").contentType(MediaType.APPLICATION_FORM_URLENCODED).body(form)
                 .retrieve().body(JsonNode.class);
     }
 

@@ -257,6 +257,10 @@ class ScheduleApiTest extends IntegrationTest {
                 WHERE n.user_id = ? AND e.kind = 'SCHEDULE_ITEM'""", String.class, kimId))
                 .isEqualTo("선행 지연 · 가온시 하수처리장 턴키 · P&ID 1차 (2026-03-31)");
         assertThat(offsets(kimId, "PERMIT_EXPIRY")).containsExactly(7, 30, 60, 90);
+        assertThat(jdbc.queryForList("""
+                SELECT DISTINCT n.link FROM notification n JOIN deadline_event e ON e.id = n.deadline_event_id
+                WHERE e.kind = 'SCHEDULE_ITEM'""", String.class))
+                .containsExactly("/projects/" + projectId + "/schedule?item=" + pred);
     }
 
     @Test

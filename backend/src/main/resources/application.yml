@@ -14,10 +14,17 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: validate
+  task:
+    scheduling:
+      pool:
+        size: 3 # Google sync (every minute), law batch and notifications must not wait on each other
 
 server:
   error:
-    include-message: always # the UI shows our ResponseStatusException reasons (all user-facing Korean)
+    include-message: never # core.ApiErrors returns our own reasons; Boot's /error must not echo exception text
+  # Behind the Cloudflare tunnel: Tomcat takes the client IP from X-Forwarded-For, but only when the direct peer is a
+  # local/private proxy (Tomcat's default internal-proxies), so a caller on the internet cannot spoof it.
+  forward-headers-strategy: native
 
 app:
   base-url: ${APP_BASE_URL:http://localhost:5182} # web app address used in mail links
@@ -60,6 +67,8 @@ app:
       base-url: https://api.openai.com
     preparer: ${EXTRACTION_PREPARER:CLAUDE_PDF_DIRECT} # swappable input step (design §3.2)
     stale-after: 30m # RUNNING older than this at startup → FAILED("중단됨")
+    daily-limit: ${EXTRACTION_DAILY_LIMIT:50} # AI runs per company per day (KST); over it → 429 (M4)
+    queue-capacity: ${EXTRACTION_QUEUE_CAPACITY:20} # runs waiting behind the 2 workers; full → 429 (M4)
   # ④ version diff matching (design §3.4). shortcut: guesses until the gold-set sweep (design §6.3) sets them
   revision:
     match:

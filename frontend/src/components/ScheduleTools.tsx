@@ -3,6 +3,7 @@ import {
   ANCHOR_LABEL, ANCHORS, applyTemplate, getDelays, getTemplates, pasteItems, setAnchor, setBase,
   type Anchor, type AnchorChange, type DelayRow, type PasteResult, type Schedule, type Template,
 } from '../api/schedule';
+import { useEscape } from './useEscape';
 
 // ---------------------------------------------------------------------------
 // ScheduleTools — the 일정 tab's design-schedule/03 pieces: base dates (with the move preview), 지연 현황,
@@ -16,6 +17,7 @@ const head = 'px-3 py-2 font-medium';
 const md = (d: string | null) => (d ? d.slice(2).replaceAll('-', '.') : '미정');
 
 export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  useEscape(onClose);
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10">
       <div role="dialog" aria-modal="true" aria-label={title}
@@ -56,7 +58,7 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
     }
   };
   const current = (a: Anchor) => schedule.anchors.find((x) => x.anchor === a);
-  const projectDate = (a: Anchor) => a === 'KICKOFF' || a === 'COMPLETION';
+  const projectDate = (a: Anchor) => a === 'KICKOFF' || a === 'COMPLETION'; // stored on the project row
 
   return (
     <Modal title="기준일" onClose={onClose}>
@@ -141,7 +143,7 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
 }
 
 /** 지연 현황: one line per item, most days first; copies as tab-separated text for the weekly report. */
-export function DelayTable({ projectId }: { projectId: number }) {
+export function DelayTable({ projectId, baselined }: { projectId: number; baselined: boolean }) {
   const [rows, setRows] = useState<DelayRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -166,11 +168,12 @@ export function DelayTable({ projectId }: { projectId: number }) {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">기준 계획(없으면 현재 계획)보다 늦은 항목 {rows.length}건 · 지연 일수 순</p>
+        <p className="text-sm text-gray-500">기준 계획보다 늦은 항목 {rows.length}건 · 지연 일수 순</p>
         <button type="button" className={btn} disabled={!rows.length} onClick={copy}>{copied ? '복사됨' : '주간보고용 복사'}</button>
       </div>
       {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#E5E3DC] bg-white px-6 py-12 text-center text-sm text-gray-500">지연된 항목이 없습니다.</p>
+        <p className="rounded-xl border border-dashed border-[#E5E3DC] bg-white px-6 py-12 text-center text-sm text-gray-500">
+          {baselined ? '지연된 항목이 없습니다.' : '기준을 확정하면 기준보다 늦어진 항목이 여기에 나옵니다. 계획 종료일이 지난 항목은 간트의 "기한 경과"로 봅니다.'}</p>
       ) : (
         <div className="overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white">
           <table className="w-full whitespace-nowrap text-left text-sm">
@@ -256,7 +259,9 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
     setBusy(true);
     setError(null);
     try {
-      const r = await pasteItems(projectId, text, confirm);
+      // confirm sends only the lines without errors (line = 1-based line of the pasted text, as the server counts)
+      const ok = new Set(result?.rows.filter((r) => !r.error).map((r) => r.line));
+      const r = await pasteItems(projectId, confirm ? text.split(/\r?\n/).filter((_, i) => ok.has(i + 1)).join('\n') : text, confirm);
       if (confirm) return onChanged();
       setResult(r);
     } catch (e) {
@@ -268,7 +273,7 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
 
   return (
     <Modal title="엑셀 붙여넣기" onClose={onClose} wide>
-      <p className="text-sm text-gray-500">엑셀에서 <b>분야 | 작업 | 시작 | 종료 | 담당 | 보할</b> 열을 복사해 붙여 넣으세요. 시작이 비었거나 종료와 같으면 마일스톤입니다.</p>
+      <p className="text-sm text-gray-500">엑셀에서 <b>분야 | 작업 | 시작 | 종료 | 담당 | 보할</b> 열을 복사해 붙여 넣으세요. 종료일은 꼭 넣고, 시작이 비었거나 종료와 같으면 마일스톤입니다.</p>
       <textarea aria-label="붙여 넣을 표" rows={6} value={text} onChange={(e) => { setText(e.target.value); setResult(null); }}
         className="w-full rounded-lg border border-[#E5E3DC] px-3 py-2 font-mono text-xs outline-none focus:border-[#1F4E79]"
         placeholder={'공정·기계\tP&ID 1차\t2027-03-02\t2027-04-13\t이가온\t15'} />
@@ -292,18 +297,25 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
                   <td className="px-3 py-2">{r.end ?? ''}</td>
                   <td className={cell}>{r.owner}</td>
                   <td className="px-3 py-2">{r.weight ?? ''}</td>
-                  <td className={`${cell} ${r.error ? 'text-[#991B1B]' : 'text-gray-500'}`} title={r.error ?? ''}>{r.error ?? '정상'}</td>
+                  <td className={`px-3 py-2 ${r.error ? 'text-[#991B1B]' : 'text-gray-500'}`}>{r.error ? '오류 (아래)' : '정상'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+      {!!result?.errors && (
+        <ul className="space-y-0.5 text-xs text-[#991B1B]">
+          {result.rows.filter((r) => r.error).map((r) => <li key={r.line}>{r.line}행: {r.error}</li>)}
+        </ul>
+      )}
       <div className="flex items-center justify-end gap-2">
         {result && <span className="mr-auto text-sm text-gray-500">{result.rows.length}행 · 오류 {result.errors}행</span>}
         <button type="button" className={btn} disabled={busy || !text.trim()} onClick={() => run(false)}>미리보기</button>
-        <button type="button" className={primary} disabled={busy || !result || result.errors > 0 || !result.rows.length}
-          onClick={() => run(true)}>{result ? `${result.rows.length}건 추가` : '추가'}</button>
+        <button type="button" className={primary} disabled={busy || !result || result.rows.length === result.errors}
+          onClick={() => run(true)}>
+          {!result ? '추가' : result.errors ? `정상 ${result.rows.length - result.errors}건만 추가` : `${result.rows.length}건 추가`}
+        </button>
       </div>
     </Modal>
   );

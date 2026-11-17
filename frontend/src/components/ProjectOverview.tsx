@@ -6,6 +6,8 @@ import { ActivityList, DeadlineTimeline, PendingRow, StatusDonut, recentActivity
 import { ProjectCompliance } from './Compliance';
 import TodoTable from './TodoTable';
 import { ScheduleSummary } from './ScheduleWidgets';
+import { Help } from './Onboarding';
+import { DUE_SOON_DAYS } from '../terms';
 
 // ---------------------------------------------------------------------------
 // ProjectOverview — 프로젝트 › 개요: the dashboard scoped to one project.
@@ -54,7 +56,7 @@ export default function ProjectOverview({ project, permits }: { project: Project
       </div>
 
       <section>
-        <h2 className="mb-3 text-lg font-semibold text-gray-900">할 일 (기한 임박은 30일 이내)</h2>
+        <h2 className="mb-3 text-lg font-semibold text-gray-900">할 일 (기한 임박은 {DUE_SOON_DAYS}일 이내)<Help k="dueSoon" /></h2>
         <TodoTable todos={todos} showProject={false} />
       </section>
 

@@ -89,10 +89,7 @@ class DisciplineController {
     }
 
     private long master(Jwt jwt) {
-        if (!"ADMIN".equals(jwt.getClaimAsString("role"))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회사 마스터만 변경할 수 있습니다.");
-        }
-        return org.companyOf(jwt);
+        return org.masterCompanyOf(jwt);
     }
 
     private static <T> T unique(java.util.function.Supplier<T> write) {

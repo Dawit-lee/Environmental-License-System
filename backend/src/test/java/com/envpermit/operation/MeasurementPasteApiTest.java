@@ -124,7 +124,7 @@ class MeasurementPasteApiTest extends IntegrationTest {
         paste("/paste", "").andExpect(status().isUnprocessableEntity());
         String tooMany = "2026-01-02\tCO\t1\n".repeat(501);
         paste("/preview", tooMany).andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(containsString("500")));
+                .andExpect(jsonPath("$.message", containsString("500")));
         paste("/paste", tooMany).andExpect(status().isUnprocessableEntity());
         call(kim, json(post(measurements + "/preview"), "{}")).andExpect(status().isBadRequest());
 

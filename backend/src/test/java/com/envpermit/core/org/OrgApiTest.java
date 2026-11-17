@@ -128,6 +128,40 @@ class OrgApiTest extends IntegrationTest {
                 .andExpect(status().isCreated()));
     }
 
+    @Test
+    void master_disables_a_user_whose_tokens_stop_working_at_once() throws Exception { // M2
+        call(lee, get("/api/me")).andExpect(status().isOk());
+        call(lee, json(put("/api/company/users/" + masterId + "/disabled"), "{\"disabled\":true}"))
+                .andExpect(status().isForbidden());
+        call(park, json(put("/api/company/users/" + leeId + "/disabled"), "{\"disabled\":true}"))
+                .andExpect(status().isNotFound());
+        call(master, json(put("/api/company/users/" + masterId + "/disabled"), "{\"disabled\":true}"))
+                .andExpect(status().isBadRequest());
+
+        call(master, json(put("/api/company/users/" + leeId + "/disabled"), "{\"disabled\":true}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.disabled").value(true));
+        call(lee, get("/api/me")).andExpect(status().isUnauthorized());
+        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"lee@a.com\",\"password\":\"pw\"}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("비활성화된 계정입니다. 회사 관리자에게 문의해 주세요."));
+
+        call(master, json(put("/api/company/users/" + leeId + "/disabled"), "{\"disabled\":false}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.disabled").value(false));
+        call(lee, get("/api/me")).andExpect(status().isUnauthorized()); // the old token stays dead
+        call(login("lee@a.com"), get("/api/me")).andExpect(status().isOk());
+    }
+
+    @Test
+    void master_rights_follow_the_db_role_not_the_token_claim() throws Exception { // M12
+        call(master, get("/api/company/invite-code")).andExpect(status().isOk());
+        jdbc.update("UPDATE users SET role = 'USER' WHERE id = ?", masterId); // demoted; the token still says ADMIN
+        call(master, get("/api/company/invite-code")).andExpect(status().isForbidden());
+        call(master, json(post("/api/departments"), "{\"name\":\"x\"}")).andExpect(status().isForbidden());
+        jdbc.update("UPDATE users SET role = 'ADMIN' WHERE id = ?", leeId); // promoted; the token still says USER
+        call(lee, json(post("/api/departments"), "{\"name\":\"x\"}")).andExpect(status().isCreated());
+    }
+
     private ResultActions call(String token, MockHttpServletRequestBuilder req) throws Exception {
         return mvc.perform(req.header("Authorization", "Bearer " + token));
     }

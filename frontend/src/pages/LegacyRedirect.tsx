@@ -9,7 +9,7 @@ export default function LegacyRedirect() {
 
   useEffect(() => {
     const inbox = () => navigate('/inbox?kind=LAW', { replace: true });
-    if (!impactId) return inbox();
+    if (!impactId) { inbox(); return; }
     getLawImpact(impactId).then((d) => navigate(`/projects/${d.impact.projectId}/laws?id=${impactId}`, { replace: true }), inbox);
   }, [navigate, impactId]);
 

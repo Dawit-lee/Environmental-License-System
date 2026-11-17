@@ -206,6 +206,10 @@ class ScheduleBaselineApiTest extends IntegrationTest {
         long b = item("{\"kind\":\"TASK\",\"title\":\"배치도\",\"startDate\":\"2026-01-01\",\"endDate\":\"2026-01-10\"}");
         item("{\"kind\":\"TASK\",\"title\":\"계측 설계\",\"startDate\":\"2026-02-01\",\"endDate\":\"2026-02-20\",\"predecessorIds\":[" + a + "]}");
         long late = item("{\"kind\":\"TASK\",\"title\":\"측량\",\"startDate\":\"2025-12-01\",\"endDate\":\"2026-01-02\"}");
+        // before 기준 확정: past its plan is 기한 경과 (status), never 일정 지연
+        call(lee, get(schedule() + "/delays")).andExpect(jsonPath("$.length()").value(0));
+        call(lee, get(schedule())).andExpect(jsonPath("$.delayCount").value(0))
+                .andExpect(jsonPath("$.items[?(@.title == '측량')].status").value("DELAYED"));
         call(lee, post(schedule() + "/baseline")).andExpect(status().isOk());
         call(lee, json(patch(items() + "/" + a), task("P&ID 1차", "2026-02-09", "공정 변경"))).andExpect(status().isOk());
         call(lee, json(patch(items() + "/" + b), task("배치도", "2026-01-15", "건축 협의"))).andExpect(status().isOk());

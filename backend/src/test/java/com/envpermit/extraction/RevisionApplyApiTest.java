@@ -101,7 +101,7 @@ class RevisionApplyApiTest extends IntegrationTest {
         Map<String, Object> taskBefore = jdbc.queryForMap("SELECT id, due_date FROM obligation_task WHERE obligation_id = ? "
                 + "AND status = 'OPEN'", v1Ids.get("3-2"));
         accept(kim, changed, null).andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason("다음 기한일 필요"));
+                .andExpect(jsonPath("$.message").value("다음 기한일 필요"));
 
         long live = applied(accept(kim, changed, "\"firstDueDate\":\"2026-02-15\"").andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("ACCEPTED")));
@@ -133,7 +133,7 @@ class RevisionApplyApiTest extends IntegrationTest {
         JsonNode removed = byType.get("REMOVED");
         long id = v1Ids.get("P2-1");
         accept(kim, removed, null).andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason("v2 원문 확인 체크 필요"));
+                .andExpect(jsonPath("$.message").value("v2 원문 확인 체크 필요"));
 
         accept(kim, removed, "\"confirmAbsent\":true").andExpect(status().isOk());
 
@@ -225,7 +225,7 @@ class RevisionApplyApiTest extends IntegrationTest {
         JsonNode changed = byType.get("CHANGED");
 
         accept(kim, changed, "\"firstDueDate\":\"2026-02-15\"").andExpect(status().isConflict())
-                .andExpect(status().reason(STALE));
+                .andExpect(jsonPath("$.message").value(STALE));
         assertThat(jdbc.queryForObject("SELECT count(*) FROM permit_obligation_revision_log", Long.class)).isZero();
 
         long sid = changed.get("id").asLong();

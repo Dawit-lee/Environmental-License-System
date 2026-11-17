@@ -142,9 +142,9 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
             아직 감지된 법령 개정 영향이 없습니다. 인허가 항목에 근거 법령을 연결하면 개정 시 알려 드립니다.
           </p>
         ) : (
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
           <section className="min-w-0 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-            <table className="w-full min-w-[560px] whitespace-nowrap text-left text-sm">
+            <table className="w-full min-w-[480px] whitespace-nowrap text-left text-sm">
               <thead className="bg-[#F8F7F2] text-xs text-gray-500">
                 <tr>
                   <th className="px-3 py-2.5 font-medium">구분</th>
@@ -159,9 +159,10 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
                   <tr key={i.id} onClick={() => setParams({ id: String(i.id) })}
                     className={`cursor-pointer transition ${i.id === selectedId ? 'bg-[#1F4E79]/5' : 'hover:bg-[#F8F7F2]'}`}>
                     <td className="px-3 py-2.5"><Badge {...LEVEL[i.level]} /></td>
-                    <td className="px-3 py-2.5">
-                      <span className="font-medium text-gray-800">{i.lawName}</span>
-                      <span className="ml-2 text-xs text-gray-500">{i.revisionType} · 공포 {i.promulgatedOn ?? '-'}</span>
+                    {/* 개정 구분·공포일 are in the detail panel; the list keeps 시행일 in view */}
+                    <td className="max-w-[240px] px-3 py-2.5">
+                      <button type="button" className="block max-w-full truncate text-left font-medium text-gray-800"
+                        title={`${i.lawName} · ${i.revisionType} · 공포 ${i.promulgatedOn ?? '-'}`}>{i.lawName}</button>
                     </td>
                     <td className="px-3 py-2.5 text-gray-700">
                       {i.permitName}

@@ -1,11 +1,13 @@
 package com.envpermit.schedule.google;
 
+import com.envpermit.core.JobLock;
+import java.time.Duration;
+
 import com.envpermit.notification.Notifier;
 import com.envpermit.schedule.google.CalendarPublisher.GoogleEvent;
 import com.envpermit.schedule.google.CalendarPublisher.Ref;
 import java.sql.Timestamp;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Every minute: drains {@code calendar_sync_outbox} (written by the V345 triggers) through {@link CalendarPublisher}.
@@ -36,8 +39,11 @@ public class GoogleCalendarSync {
     private final Notifier notifier;
     private final Clock clock;
 
+    private final JobLock lock;
+
     GoogleCalendarSync(JdbcTemplate jdbc, GoogleSettings settings, CalendarPublisher google, Notifier notifier,
-                       Clock clock) {
+                       Clock clock, JobLock lock) {
+        this.lock = lock;
         this.jdbc = jdbc;
         this.settings = settings;
         this.google = google;
@@ -52,7 +58,7 @@ public class GoogleCalendarSync {
 
     @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
     public void run() {
-        if (settings.enabled()) runOnce();
+        if (settings.enabled()) lock.run("google-calendar-sync", Duration.ofMinutes(10), Duration.ZERO, this::runOnce);
     }
 
     /** One pass over the due rows. Public for tests (scheduling is off there). */
@@ -145,9 +151,11 @@ public class GoogleCalendarSync {
     }
 
     private void failed(Row r, RuntimeException e, Instant now) {
-        String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        log.warn("Google sync failed (user {}, {} {})", r.userId(), r.kind(), r.sourceId(), e);
+        // users see a status or our own message, never Google's raw response body (M10)
+        String message = e instanceof RestClientResponseException h ? "Google " + h.getStatusCode().value()
+                : e instanceof IllegalStateException && e.getMessage() != null ? e.getMessage() : "Google 연결 오류";
         message = message.length() > 400 ? message.substring(0, 400) : message;
-        log.warn("Google sync failed (user {}, {} {}): {}", r.userId(), r.kind(), r.sourceId(), message);
         Instant since = r.failingSince() == null ? now : r.failingSince();
         if (Duration.between(since, now).compareTo(GIVE_UP_AFTER) >= 0) {
             jdbc.update("DELETE FROM calendar_sync_outbox WHERE id = ?", r.id());

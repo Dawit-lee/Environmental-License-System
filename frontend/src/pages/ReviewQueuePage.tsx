@@ -9,6 +9,7 @@ import type { PermitItem, Project } from '../types';
 import RevisionSuggestions from '../components/RevisionSuggestions';
 import ScheduleSuggestionReview from '../components/ScheduleSuggestionReview';
 import { usePrompt } from '../components/PromptDialog';
+import { Help } from '../components/Onboarding';
 
 // ---------------------------------------------------------------------------
 // ReviewQueuePage — ③ human review of permit conditions (obligations).
@@ -52,6 +53,7 @@ const categoryLabel = (c: string) => (CATEGORY[c] ? `${CATEGORY[c][0]} › ${CAT
 const EVENT: Record<SuggestionEvent['type'], string> = {
   CREATED: '등록', EDITED: '수정', PAGE_VIEWED: '원문 열람', SUBMITTED: '승인 요청', RETURNED: '반려',
   ACCEPTED: '승인', REJECTED: '거절', REOPENED: '재검토',
+  UNPAIRED: '나눔', PAIRED: '합침', REDIFFED: '변경분 다시 계산',
 };
 
 const EMPTY: ObligationPayload = {
@@ -157,7 +159,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             {!fixedId && <p className="text-xs font-semibold tracking-wide text-gray-500">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>}
-            <h1 className="mt-1 text-2xl font-bold text-[#1F4E79]">의무사항 검토</h1>
+            <h1 className="mt-1 flex items-center text-2xl font-bold text-[#1F4E79]">AI 검토<Help k="review" /></h1>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               검토 중인 조건은 승인 전까지 인허가 대장과 기한 알림에 들어가지 않습니다. 원문과 다른 항목이 맨 위에 옵니다.
             </p>
@@ -283,7 +285,9 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                     );
                   })}
                   {!rows.length && (
-                    <tr><td colSpan={6} className="px-3 py-8 text-center text-sm text-gray-400">검토할 조건이 없습니다. '+ 직접 추가'로 등록하세요.</td></tr>
+                    <tr><td colSpan={6} className="whitespace-normal px-3 py-8 text-center text-sm text-gray-500">
+                      검토할 조건이 없습니다.<br />인허가 상세에서 허가증을 올리면 AI가 조건을 뽑아 여기에 올립니다.<br />직접 넣으려면 [+ 직접 추가]를 누르세요.
+                    </td></tr>
                   )}
                 </tbody>
               </table>
@@ -448,11 +452,12 @@ function PageViewer({ id, pageNo, onViewed }: { id: number; pageNo: number; onVi
   const [error, setError] = useState('');
   useEffect(() => {
     let objectUrl: string | null = null;
+    let stale = false; // a late answer for the previous page must not replace this one
     setUrl(null);
     setError('');
-    pageImage(id, pageNo).then((b) => { objectUrl = URL.createObjectURL(b); setUrl(objectUrl); },
-      (e: Error) => setError(e.message));
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    pageImage(id, pageNo).then((b) => { if (stale) return; objectUrl = URL.createObjectURL(b); setUrl(objectUrl); },
+      (e: Error) => { if (!stale) setError(e.message); });
+    return () => { stale = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [id, pageNo]);
   return (
     <div>

@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.springframework.context.ApplicationEventPublisher;
@@ -72,7 +73,7 @@ public class PermitController {
                          @Size(max = 300) String issueNote) {
     }
 
-    record PermitView(long id, long projectId, String name, PermitItem.Category category, String regulation,
+    public record PermitView(long id, long projectId, String name, PermitItem.Category category, String regulation,
                       String regulationUrl, String authority, String authorityUrl, String reason,
                       String approvalDate, LocalDate applicationDate, LocalDate acquisitionDate,
                       LocalDate expiryDate, PermitItem.Status status, String nextAction, String nextActionUrl,
@@ -101,7 +102,7 @@ public class PermitController {
                                       @Valid @RequestBody PermitRequest req) {
         access.member(projectId, jwt);
         PermitItem p = new PermitItem(projectId);
-        p.apply(req);
+        p.apply(req, LocalDate.now(clock));
         permits.save(p);
         history.save(new PermitStatusHistory(p.getId(), null, p.getStatus(), userId(jwt), clock.instant()));
         events.publishEvent(new PermitChanged(p, false));
@@ -115,7 +116,7 @@ public class PermitController {
         access.member(projectId, jwt);
         PermitItem p = find(projectId, id);
         PermitItem.Status before = p.getStatus();
-        p.apply(req);
+        p.apply(req, LocalDate.now(clock));
         if (before != p.getStatus()) {
             history.save(new PermitStatusHistory(id, before, p.getStatus(), userId(jwt), clock.instant()));
         }
@@ -140,15 +141,20 @@ public class PermitController {
         access.viewer(projectId, jwt);
         find(projectId, id);
         List<PermitStatusHistory> rows = history.findByPermitItemIdOrderByChangedAtDescIdDesc(id);
-        Map<Long, String> names = users.findAllById(rows.stream().map(PermitStatusHistory::getChangedBy).toList())
+        Map<Long, String> names = users.findAllById(rows.stream().map(PermitStatusHistory::getChangedBy).filter(Objects::nonNull).toList())
                 .stream().collect(Collectors.toMap(User::getId, User::getName));
         return rows.stream().map(h -> new HistoryView(h.getId(), h.getFromStatus(), h.getToStatus(),
-                names.get(h.getChangedBy()), h.getChangedAt())).toList();
+                h.getChangedBy() == null ? null : names.get(h.getChangedBy()), h.getChangedAt())).toList();
     }
 
     private PermitItem find(long projectId, long id) {
         return permits.findByIdAndProjectId(id, projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    /** Permits of several projects in one query, for the dashboard summary. Callers check access. */
+    public List<PermitView> viewsOf(java.util.Collection<Long> projectIds) {
+        return projectIds.isEmpty() ? List.of() : permits.findByProjectIdInOrderById(projectIds).stream().map(this::view).toList();
     }
 
     private PermitView view(PermitItem p) {

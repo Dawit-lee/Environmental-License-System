@@ -113,7 +113,7 @@ class PermitStatusReportApiTest extends IntegrationTest {
             permit("완료 항목 " + i, "COMPLETED", null, "\"acquisitionDate\":\"2025-01-%02d\"".formatted(i));
         }
         permit("건축허가", "IN_PROGRESS", null, "");
-        permit("경관심의", "NEAR_EXPIRY", null, "");
+        permit("경관심의", "COMPLETED", null, "\"expiryDate\":\"2026-01-20\""); // 만료 D-15 → 만료임박
         permit("소방시설 착공신고", "NOT_APPLIED", null, "\"progressNote\":\"접수 준비 중\"");
 
         try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(

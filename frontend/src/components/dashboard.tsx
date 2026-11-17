@@ -29,7 +29,7 @@ export function lifecycleStage(project: Project, permits: PermitItem[], today = 
   const done = (cats: PermitCategory[]) =>
     permits.filter((p) => cats.includes(p.category)).every((p) => p.status === 'COMPLETED');
   if (!done(['LOCATION', 'ENVIRONMENT'])) return 0;
-  if (!project.startDate || today < project.startDate) return 1;
+  if (!project.constructionStartDate || today < project.constructionStartDate) return 1;
   if (!project.expectedEndDate || today < project.expectedEndDate) return 2;
   if (!permits.every((p) => p.status === 'COMPLETED')) return 3;
   return 4;

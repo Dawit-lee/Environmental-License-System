@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { Gantt, Willow, type IApi, type ITask, type ILink } from '@svar-ui/react-gantt';
 import '@svar-ui/react-gantt/all.css';
 import './ScheduleGantt.css';
-import { addDays, differenceInCalendarDays, format, getDaysInMonth, parseISO, subDays } from 'date-fns';
+import { addDays, differenceInCalendarDays, format, getDaysInMonth, isWeekend, parseISO, subDays } from 'date-fns';
 import type { Dependency, Discipline, ScheduleItem } from '../api/schedule';
 import type { ProjectEvent } from '../api/events';
 
@@ -16,7 +16,7 @@ import type { ProjectEvent } from '../api/events';
 // drag snaps back to the server's dates.
 // ---------------------------------------------------------------------------
 
-export type Scale = 'week' | 'month';
+export type Scale = 'day' | 'week' | 'month';
 
 /** Group rows and the 이벤트 row have string ids, items keep their numeric id. */
 const GROUP = 'd:';
@@ -122,7 +122,7 @@ const COLUMNS = [
   { id: 'text', header: '항목', flexgrow: 1 },
   { id: 'owner', header: '담당', width: 72 },
   { id: 'endText', header: '종료', width: 72, align: 'center' as const },
-  { id: 'delayDays', header: '지연', width: 56, align: 'right' as const, cell: DelayCell },
+  { id: 'delayDays', header: '경과', width: 56, align: 'right' as const, cell: DelayCell },
 ];
 
 /**
@@ -131,16 +131,23 @@ const COLUMNS = [
  * as classes → CSS variables (see ScheduleGantt.css).
  */
 export function todayClass(today: Date, cellStart: Date, unit: string): string {
-  const days = unit === 'week' ? 7 : unit === 'month' ? getDaysInMonth(cellStart) : 0;
+  const days = unit === 'day' ? 1 : unit === 'week' ? 7 : unit === 'month' ? getDaysInMonth(cellStart) : 0;
   const d = differenceInCalendarDays(today, cellStart);
   return days && d >= 0 && d < days ? `schedule-today schedule-day-${d} schedule-len-${days}` : '';
 }
 const TODAY_CSS = [
   ...Array.from({ length: 31 }, (_, i) => `.schedule-day-${i}{--today-day:${i}}`),
-  ...[7, 28, 29, 30, 31].map((n) => `.schedule-len-${n}{--today-len:${n}}`),
+  ...[1, 7, 28, 29, 30, 31].map((n) => `.schedule-len-${n}{--today-len:${n}}`),
 ].join('');
 
 const SCALES: Record<Scale, { cellWidth: number; scales: { unit: string; step: number; format: (d: Date) => string }[] }> = {
+  day: {
+    cellWidth: 40, // per day: room for "D-123" in the D-day row; a drag moves whole days (lengthUnit)
+    scales: [
+      { unit: 'month', step: 1, format: (d) => format(d, 'yyyy년 M월') },
+      { unit: 'day', step: 1, format: (d) => format(d, 'd') },
+    ],
+  },
   week: {
     cellWidth: 70, // per week
     scales: [
@@ -195,7 +202,7 @@ export default function ScheduleGantt({ items, dependencies, disciplines, events
   };
 
   return (
-    <div className="schedule-gantt h-[600px] overflow-hidden rounded-xl border border-[#E5E3DC] bg-white">
+    <div className="schedule-gantt overflow-hidden rounded-xl border border-[#E5E3DC] bg-white">
       <style>{TODAY_CSS}</style>
       <Willow fonts={false}>
         <Gantt
@@ -212,7 +219,7 @@ export default function ScheduleGantt({ items, dependencies, disciplines, events
           scaleHeight={30}
           gridWidth={420}
           // only the smallest row: the upper header cells are rounded to whole lower cells
-          highlightTime={(d, unit) => (unit === scale ? todayClass(todayDate, d, unit) : '')}
+          highlightTime={(d, unit) => (unit === scale ? `${todayClass(todayDate, d, unit)}${unit === 'day' && isWeekend(d) ? ' schedule-weekend' : ''}` : '')}
         />
       </Willow>
     </div>

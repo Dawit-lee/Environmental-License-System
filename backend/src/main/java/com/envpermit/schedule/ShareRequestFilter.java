@@ -1,5 +1,6 @@
 package com.envpermit.schedule;
 
+import com.envpermit.core.ApiErrors;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,6 +9,7 @@ import java.io.IOException;
 import java.time.Clock;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -52,13 +54,11 @@ class ShareRequestFilter extends OncePerRequestFilter {
                 minute = now;
             }
         }
-        // shortcut: remote address only; behind a reverse proxy every caller is one IP. Trust X-Forwarded-For from the
-        // proxy once one is deployed
-        String ip = req.getRemoteAddr();
+        String ip = req.getRemoteAddr(); // the real client behind the tunnel (server.forward-headers-strategy)
         String key = ip + " " + req.getRequestURI() + "?" + req.getQueryString(); // the token is in the path or query
         if (failures.getOrDefault(ip, 0) >= FAILED_LIMIT_PER_MINUTE
                 || counts.merge(key, 1, Integer::sum) > LIMIT_PER_MINUTE) {
-            res.setStatus(429);
+            ApiErrors.write(res, HttpStatus.TOO_MANY_REQUESTS, "요청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.");
             return;
         }
         chain.doFilter(req, res);

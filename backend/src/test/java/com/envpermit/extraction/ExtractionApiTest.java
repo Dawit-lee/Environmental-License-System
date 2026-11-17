@@ -116,7 +116,7 @@ class ExtractionApiTest extends IntegrationTest {
         call(kim, get("/api/company")).andExpect(jsonPath("$.aiExtractionEnabled").value(false));
 
         extract(kim).andExpect(status().isForbidden())
-                .andExpect(status().reason("회사 설정에서 AI 추출이 꺼져 있습니다. 회사 마스터가 켤 수 있습니다."));
+                .andExpect(jsonPath("$.message").value("회사 설정에서 AI 추출이 꺼져 있습니다. 회사 마스터가 켤 수 있습니다."));
         assertThat(llm.calls).isEmpty();
         assertThat(runs.count()).isZero();
     }
@@ -135,6 +135,25 @@ class ExtractionApiTest extends IntegrationTest {
     }
 
     // --- extraction ---------------------------------------------------------------------------------------
+
+    @Test
+    void the_company_daily_limit_answers_429_until_the_next_kst_day(
+            @org.springframework.beans.factory.annotation.Value("${app.extraction.daily-limit}") int limit) throws Exception { // M4
+        enable();
+        llm.answer("obligations-ok.json");
+        for (int i = 0; i < limit; i++) { // failed runs count (the API was paid for); manual-entry runs don't
+            jdbc.update("INSERT INTO ai_run (company_id, project_id, kind, preparer, status, started_at) "
+                    + "VALUES (?, ?, 'OBLIGATION', ?, 'FAILED', ?)", companyId, projectId,
+                    i == 0 ? "MANUAL" : "CLAUDE_PDF_DIRECT", java.sql.Timestamp.from(START));
+        }
+        extract(kim).andExpect(status().isAccepted()); // limit - 1 counted so far
+
+        extract(kim, true).andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.message").value("오늘 회사의 AI 추출 한도(%d건)를 다 썼습니다. 내일 다시 시도해 주세요.".formatted(limit)));
+
+        clock.advance(Duration.ofHours(15)); // 2026-01-06 00:00 KST
+        extract(login("kim@a.com"), true).andExpect(status().isAccepted());
+    }
 
     @Test
     void text_pdf_becomes_pending_suggestions_with_keys_and_quote_checks_mismatch_first() throws Exception {
@@ -291,7 +310,7 @@ class ExtractionApiTest extends IntegrationTest {
 
         call(kim, get("/api/ai-runs/" + runId))
                 .andExpect(jsonPath("$.status").value("FAILED"))
-                .andExpect(jsonPath("$.errorMessage").value("AI 서비스 호출에 실패했습니다: timeout"));
+                .andExpect(jsonPath("$.errorMessage").value("AI 서비스 호출에 실패했습니다."));
     }
 
     @Test
@@ -302,7 +321,7 @@ class ExtractionApiTest extends IntegrationTest {
         long sameBytes = upload("협의의견서(사본).pdf", PERMIT_PDF);
 
         call(kim, post(path(sameBytes))).andExpect(status().isConflict())
-                .andExpect(status().reason(startsWith("이미 추출한 문서입니다.")));
+                .andExpect(jsonPath("$.message", startsWith("이미 추출한 문서입니다.")));
         call(kim, json(post(path(sameBytes)), "{\"confirmDuplicate\":true}")).andExpect(status().isAccepted());
         call(kim, get("/api/projects/" + projectId + "/suggestions")).andExpect(jsonPath("$.length()").value(6));
     }
@@ -356,14 +375,14 @@ class ExtractionApiTest extends IntegrationTest {
         long onP1 = idOf(list, "3-2");
 
         call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":0}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(NOT_VIEWED_P1));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(NOT_VIEWED_P1));
         // EDITED approval is gated the same way
         ObjectNode edited = (ObjectNode) payloadOf(list, "3-2");
         edited.put("summary", "공사 중 소음·진동 분기 측정");
         call(kim, json(patch("/api/suggestions/" + onP1), "{\"editedPayload\":" + edited + ",\"version\":0}"))
                 .andExpect(status().isOk());
         call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":1}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(NOT_VIEWED_P1));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(NOT_VIEWED_P1));
         // another page does not count
         call(kim, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":2}")).andExpect(status().isNoContent());
         call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":1}")).andExpect(status().isUnprocessableEntity());
@@ -449,6 +468,10 @@ class ExtractionApiTest extends IntegrationTest {
 
     private ResultActions extract(String token) throws Exception {
         return call(token, post(path(docId)));
+    }
+
+    private ResultActions extract(String token, boolean confirmDuplicate) throws Exception {
+        return call(token, json(post(path(docId)), "{\"confirmDuplicate\":" + confirmDuplicate + "}"));
     }
 
     private long upload(String name, byte[] bytes) throws Exception {

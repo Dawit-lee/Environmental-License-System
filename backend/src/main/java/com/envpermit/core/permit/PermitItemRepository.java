@@ -10,6 +10,8 @@ public interface PermitItemRepository extends JpaRepository<PermitItem, Long> {
 
     List<PermitItem> findByProjectIdOrderById(long projectId);
 
+    List<PermitItem> findByProjectIdInOrderById(java.util.Collection<Long> projectIds);
+
     Optional<PermitItem> findByIdAndProjectId(long id, long projectId);
 
     record PermitCounts(long projectId, long total, long completed, long nearExpiry) {

@@ -55,14 +55,14 @@ final class ScheduleDates {
     }
 
     /**
-     * 지연 현황 days: how far the (expected) finish is behind the original end — the baseline end, or the current end
-     * before any baseline. The expected finish is the actual end once done, today while overdue, else the current end.
+     * 일정 지연 (지연 현황) days: how far the (expected) finish is behind the baseline end. 0 before 기준 확정 —
+     * an item past its plan without a baseline is 기한 경과 (status DELAYED), not 일정 지연 (H6, 2026-11-17 review).
+     * The expected finish is the actual end once done, today while overdue, else the current end.
      */
     static int delayDays(LocalDate end, LocalDate baselineEnd, LocalDate actualEnd, LocalDate today) {
-        if (end == null) return 0;
+        if (end == null || baselineEnd == null) return 0;
         LocalDate finish = actualEnd != null ? actualEnd : end.isBefore(today) ? today : end;
-        LocalDate original = baselineEnd != null ? baselineEnd : end;
-        return (int) Math.max(0, ChronoUnit.DAYS.between(original, finish));
+        return (int) Math.max(0, ChronoUnit.DAYS.between(baselineEnd, finish));
     }
 
     /** 예정 = Σ 보할 × elapsed share of the plan by today; 진행 = Σ 보할 × progress. Null when no item has a weight. */

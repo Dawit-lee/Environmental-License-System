@@ -5,6 +5,7 @@ import { getLawImpacts } from './lawImpacts';
 import { getDeadlines, ymd } from './notifications';
 import { listSiteImplementations } from './revisions';
 import { listMyTasks } from './tasks';
+import { DUE_SOON_DAYS } from '../terms';
 
 export type TodoKind = 'REVIEW' | 'LAW' | 'SITE' | 'TASK' | 'DEADLINE' | 'EVENT';
 
@@ -36,7 +37,7 @@ interface OpenSuggestion {
  * (must be projects I am a member of), soonest due first, undated last.
  * shortcut: two calls per project; add a server-side inbox endpoint if project counts grow large.
  */
-export async function loadTodos(projects: { id: number; name: string }[], days = 30): Promise<Todo[]> {
+export async function loadTodos(projects: { id: number; name: string }[], days = DUE_SOON_DAYS): Promise<Todo[]> {
   const names = new Map(projects.map((p) => [p.id, p.name]));
   const today = new Date();
   const until = new Date(today);

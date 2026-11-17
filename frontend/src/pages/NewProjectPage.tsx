@@ -15,7 +15,7 @@ import {
   type PermitSuggestion,
   type RuleCategory,
 } from '../api/derivation';
-import { acceptSuggestion, editSuggestion, rejectSuggestion } from '../api/review';
+import { acceptSuggestion, bulkAccept, editSuggestion, rejectSuggestion } from '../api/review';
 import { ANCHOR_LABEL, setAnchor } from '../api/schedule';
 import type { FacilityType, Project, ProjectStatus } from '../types';
 import { usePrompt } from '../components/PromptDialog';
@@ -101,7 +101,8 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
   const [capacity, setCapacity] = useState('');
   const [startDate, setStartDate] = useState('');
   const [expectedEndDate, setExpectedEndDate] = useState('');
-  const [savedDates, setSavedDates] = useState({ start: '', end: '' }); // to preview the schedule move on save
+  const [constructionStartDate, setConstructionStartDate] = useState(''); // 착공예정일, not 착수일 (H2)
+  const [savedDates, setSavedDates] = useState({ start: '', end: '', construction: '' }); // to preview the schedule move on save
   const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
   const [saved, setSaved] = useState(false);
   const [depts, setDepts] = useState<Department[]>([]);
@@ -140,7 +141,8 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setCapacity(p.capacity == null ? '' : String(p.capacity));
       setStartDate(p.startDate ?? '');
       setExpectedEndDate(p.expectedEndDate ?? '');
-      setSavedDates({ start: p.startDate ?? '', end: p.expectedEndDate ?? '' });
+      setConstructionStartDate(p.constructionStartDate ?? '');
+      setSavedDates({ start: p.startDate ?? '', end: p.expectedEndDate ?? '', construction: p.constructionStartDate ?? '' });
       setStatus(p.status);
       setTeamId(p.teamId);
       setPmUserId(p.pmUserId);
@@ -153,6 +155,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
   const [extra, setExtra] = useState<Attributes>({});
   const [result, setResult] = useState<DerivationResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState(''); // what the slow save → derive → list is doing now
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<'ALL' | RuleCategory>('ALL');
   const [showNotApplicable, setShowNotApplicable] = useState(false);
@@ -198,7 +201,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     project_kind: projectKind,
     ...(projectKind === 'EXPANSION' ? { existing_capacity_tpd: Number(existingCapacity) } : {}),
     ...(wasteTypes.length ? { waste_types: wasteTypes } : {}),
-    ...(startDate ? { construction_start: startDate } : {}),
+    ...(constructionStartDate ? { construction_start: constructionStartDate } : {}),
   });
 
   const reload = async (pid: number) => {
@@ -214,8 +217,10 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
 
   // the server applies the re-run policy: unchanged suggestions stay, changed ones are replaced
   const run = async (pid: number, attrs: Attributes) => {
+    setPhase('규칙으로 판정 중…');
     await saveAttributes(pid, attrs);
     setResult(await derive(pid));
+    setPhase('검토 목록 불러오는 중…');
     await reload(pid);
   };
 
@@ -242,14 +247,26 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     act(async () => acceptSuggestion(await editSuggestion(s, { ...p, determination: 'APPLICABLE', hold_info: null, reason: why }), null));
   };
 
+  // 해당 rows still open, minus name clashes with existing items (those need a person to look)
+  const openApplicable = Object.values(byRule).filter((s) => !['ACCEPTED', 'EDITED_ACCEPTED', 'REJECTED'].includes(s.status)
+    && (s.editedPayload ?? s.payload).determination !== 'ON_HOLD' && !permitNames.has(s.payload.permit_name));
+  const approveAll = () => {
+    if (!window.confirm(`해당 ${openApplicable.length}건을 모두 승인할까요? 승인하면 인허가 항목이 됩니다.`)) return;
+    act(async () => {
+      const failed = (await bulkAccept(openApplicable.map((s) => s.id))).filter((r) => !r.ok);
+      if (failed.length) throw new Error(`${failed.length}건은 승인하지 못했습니다: ${failed[0].reason}`);
+    });
+  };
+
   const reject = async (s: PermitSuggestion) => {
     const why = (await ask('거절 사유'))?.trim();
     if (why) act(() => rejectSuggestion(s, why));
   };
 
-  /** 착수일·완료일 move the schedule's relative items (설계 §2.3): show how many before saving. */
+  /** 착수일·완료일·착공예정일 move the schedule's relative items (설계 §2.3): show how many before saving. */
   const confirmScheduleMove = async (pid: number) => {
-    const changes = ([['KICKOFF', savedDates.start, startDate], ['COMPLETION', savedDates.end, expectedEndDate]] as const)
+    const changes = ([['KICKOFF', savedDates.start, startDate], ['COMPLETION', savedDates.end, expectedEndDate],
+      ['CONSTRUCTION_START', savedDates.construction, constructionStartDate]] as const)
       .filter(([, from, to]) => to && to !== from);
     const previews = await Promise.all(changes.map(([a, , to]) => setAnchor(pid, a, to, true)));
     const moved = previews.filter((p) => p.count > 0);
@@ -259,6 +276,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
 
   const handleNext = async (derivation = true) => {
     setBusy(true);
+    setPhase('저장 중…');
     setError(null);
     setSaved(false);
     try {
@@ -270,6 +288,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
         capacityUnit: '톤/일',
         startDate: startDate || null,
         expectedEndDate: expectedEndDate || null,
+        constructionStartDate: constructionStartDate || null,
         status,
         teamId,
         pmUserId,
@@ -280,7 +299,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
         (await api<{ id: number }>('/api/projects', { method: 'POST', body })).id;
       if (projectId && !(await confirmScheduleMove(pid))) return;
       if (projectId) await api(`/api/projects/${pid}`, { method: 'PUT', body });
-      setSavedDates({ start: startDate, end: expectedEndDate });
+      setSavedDates({ start: startDate, end: expectedEndDate, construction: constructionStartDate });
       setProjectId(pid);
       onSaved?.();
       if (!derivation) return setSaved(true);
@@ -290,6 +309,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setError((e as Error).message);
     } finally {
       setBusy(false);
+      setPhase('');
     }
   };
 
@@ -305,6 +325,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setError((e as Error).message);
     } finally {
       setBusy(false);
+      setPhase('');
     }
   };
 
@@ -318,7 +339,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       acc[cat] = derived.filter((p) => p.category === cat).length;
       return acc;
     }, {});
-    return { all: derived.length, ...byCat };
+    return { all: derived.length, ...byCat } as Record<RuleCategory | 'all', number>;
   }, [derived]);
 
   const visiblePermits =
@@ -422,6 +443,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleWaste(waste.value)}
+                          aria-label={waste.label}
                           className="h-4 w-4 accent-[#1F4E79]"
                         />
                         {waste.label}
@@ -440,6 +462,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                         name="projectKind"
                         checked={projectKind === k}
                         onChange={() => setProjectKind(k)}
+                        aria-label={k === 'NEW' ? '신설' : '증설'}
                         className="h-4 w-4 accent-[#1F4E79]"
                       />
                       {k === 'NEW' ? '신설' : '증설'}
@@ -453,7 +476,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="0" className={input} />
                   <span className="shrink-0 text-sm text-gray-500">톤/일</span>
                 </div>
-                <p className="mt-1 text-xs text-[#B45309]">100톤/일 이상 시 설치승인 대상</p>
+                <p className={`mt-1 text-xs ${Number(capacity) >= 100 ? 'text-[#B45309]' : 'text-gray-500'}`}>100톤/일 이상 시 설치승인 대상</p>
               </Field>
 
               {projectKind === 'EXPANSION' && (
@@ -473,8 +496,14 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 </Field>
               )}
 
-              <Field label="착공예정일">
+              <Field label="착수일">
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} />
+                <p className="mt-1 text-xs text-gray-500">설계를 시작하는 날입니다. 일정의 착수일 기준이 됩니다.</p>
+              </Field>
+
+              <Field label="착공예정일">
+                <input type="date" value={constructionStartDate} onChange={(e) => setConstructionStartDate(e.target.value)} className={input} />
+                <p className="mt-1 text-xs text-gray-500">공사를 시작하는 날입니다. 인허가 판정과 일정의 착공일 기준에 씁니다.</p>
               </Field>
 
               {editId && (
@@ -531,7 +560,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 onClick={() => handleNext()}
                 className="rounded-lg bg-[#1F4E79] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {busy ? '처리 중…' : editId ? '저장 후 인허가 다시 도출 →' : '다음: 인허가 자동 도출 →'}
+                {busy ? phase || '처리 중…' : editId ? '저장 후 인허가 다시 도출 →' : '다음: 인허가 자동 도출 →'}
               </button>
             </div>
           </section>
@@ -551,6 +580,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 ruleset-v{result?.rulesetVersion} · {result && new Date(result.ranAt).toLocaleString('ko-KR')}
               </p>
             </div>
+            {busy && phase && <p role="status" className="mt-2 text-sm text-[#1F4E79]">{phase}</p>}
             {!!result?.errors && (
               <p className="mt-2 text-sm text-[#991B1B]">규칙 오류 {result.errors}건 — 해당 규칙은 판정하지 못했습니다.</p>
             )}
@@ -628,7 +658,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
             )}
 
             {/* Category tabs */}
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap items-center gap-2">
               <CategoryTab label={`전체(${counts.all})`} active={activeCategory === 'ALL'} onClick={() => setActiveCategory('ALL')} />
               {CATEGORY_TAB_ORDER.map((cat) => (
                 <CategoryTab
@@ -638,6 +668,12 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   onClick={() => setActiveCategory(cat)}
                 />
               ))}
+              {openApplicable.length > 0 && (
+                <button type="button" disabled={busy} onClick={approveAll}
+                  className="ml-auto rounded-lg bg-[#0F6E56] px-3.5 py-1.5 text-sm font-semibold text-white transition hover:bg-[#0b5a46] focus:outline-none focus:ring-2 focus:ring-[#0F6E56]/30 disabled:opacity-50">
+                  해당 일괄 승인 ({openApplicable.length})
+                </button>
+              )}
             </div>
 
             {/* Table */}
@@ -645,18 +681,27 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
               <table className="w-full min-w-[760px] whitespace-nowrap text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
                   <tr>
+                    <th className="px-4 py-3 font-medium">검토</th>
                     <th className="px-4 py-3 font-medium">판정</th>
                     <th className="px-4 py-3 font-medium">인허가명</th>
                     <th className="px-4 py-3 font-medium">카테고리</th>
                     <th className="px-4 py-3 font-medium">해당 사유</th>
                     <th className="px-4 py-3 font-medium">관련 법규</th>
                     <th className="px-4 py-3 font-medium">승인 시점</th>
-                    <th className="px-4 py-3 font-medium">검토</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E3DC]">
                   {visiblePermits.map((p) => (
                     <tr key={p.rule_key} className="transition hover:bg-[#F8F7F2]">
+                      <td className="px-4 py-3">
+                        <ReviewCell
+                          s={byRule[p.rule_key]}
+                          duplicate={permitNames.has(p.permit_name)}
+                          busy={busy}
+                          onApprove={approve}
+                          onReject={reject}
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`whitespace-nowrap ${
@@ -695,15 +740,6 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                             {byRule[p.rule_key]?.payload.required_by_date && ` (${byRule[p.rule_key].payload.required_by_date})`}
                           </span>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <ReviewCell
-                          s={byRule[p.rule_key]}
-                          duplicate={permitNames.has(p.permit_name)}
-                          busy={busy}
-                          onApprove={approve}
-                          onReject={reject}
-                        />
                       </td>
                     </tr>
                   ))}
