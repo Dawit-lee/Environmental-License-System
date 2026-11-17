@@ -690,7 +690,7 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
                     <td className="px-3 py-2 tabular-nums">{r.end ? md(r.end) : ''}</td>
                     <td className={cell}>{r.owner}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.weight ?? ''}</td>
-                    <td className={`px-3 py-2 ${r.error ? 'text-danger' : 'text-gray-400'}`}>{r.error ?? '정상'}</td>
+                    <td className={`min-w-48 whitespace-normal px-3 py-2 ${r.error ? 'text-danger' : 'text-gray-400'}`}>{r.error ?? '정상'}</td>
                   </tr>
                 ))}
               </tbody>
