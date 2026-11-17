@@ -36,7 +36,8 @@ export const HELP = {
 export type HelpKey = keyof typeof HELP;
 
 const tipBox =
-  'pointer-events-none invisible absolute top-full z-40 mt-1.5 w-64 whitespace-normal rounded-lg bg-gray-900 px-3 py-2 text-left text-xs font-normal leading-relaxed text-white opacity-0 shadow-lg transition group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100';
+  // hidden (not invisible): an invisible box still widens the page near the right edge.
+  'pointer-events-none hidden absolute top-full z-40 mt-1.5 w-64 whitespace-normal rounded-lg bg-gray-900 px-3 py-2 text-left text-xs font-normal leading-relaxed text-white shadow-lg group-hover:block group-focus-within:block';
 
 /** Wraps a control: its one-line explanation shows on hover or keyboard focus. */
 export function Tip({ k, children, align = 'right' }: { k: HelpKey; children: ReactNode; align?: 'left' | 'right' }) {
