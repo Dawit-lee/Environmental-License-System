@@ -46,16 +46,19 @@ const SORT_VALUE: Record<SortKey, (p: Project) => string | number> = {
   location: (p) => p.location,
 };
 
+/** Less important columns: hidden under 1280 px so the key ones fit without scrolling. */
+const WIDE = 'hidden xl:table-cell';
+
 const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'name', label: '프로젝트명' },
   { key: 'facility', label: '시설유형' },
-  { key: 'team', label: '부서/팀' },
+  { key: 'team', label: '부서/팀', className: WIDE },
   { key: 'pm', label: 'PM' },
-  { key: 'em', label: 'EM' },
+  { key: 'em', label: 'EM', className: WIDE },
   { key: 'status', label: '상태' },
   { key: 'progress', label: '취득 진행' },
   { key: 'nearExpiry', label: '만료임박', className: 'text-right' },
-  { key: 'location', label: '위치' },
+  { key: 'location', label: '위치', className: WIDE },
 ];
 
 /** scope filter value: 'ME' (projects I'm a member of), 'MINE' (my team), 'ALL', 'd:<departmentId>' or 't:<teamId>' */
@@ -202,7 +205,7 @@ export default function ProjectListPage() {
           </div>
         ) : (
           <div className="mt-6 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-            <table className="w-full min-w-[1080px] whitespace-nowrap text-left text-sm">
+            <table className="w-full min-w-[640px] whitespace-nowrap xl:min-w-[1080px] text-left text-sm">
               <thead className="bg-[#F8F7F2] text-xs text-gray-500">
                 <tr>
                   {COLUMNS.map((c) => (
@@ -245,9 +248,9 @@ export default function ProjectListPage() {
                           {FACILITY_LABEL[p.facilityType]}
                         </span>
                       </td>
-                      <Cell text={teamOf(p)} max="max-w-[200px]" />
+                      <Cell text={teamOf(p)} max={`max-w-[200px] ${WIDE}`} />
                       <Cell text={p.pmName ?? ''} max="max-w-[100px]" />
-                      <Cell text={p.emName ?? ''} max="max-w-[100px]" />
+                      <Cell text={p.emName ?? ''} max={`max-w-[100px] ${WIDE}`} />
                       <td className="px-4 py-3">
                         <span className={`whitespace-nowrap ${STATUS_BADGE[p.status]}`}>
                           {STATUS_LABEL[p.status]}
@@ -264,7 +267,7 @@ export default function ProjectListPage() {
                       <td className={`px-4 py-3 text-right ${p.nearExpiryCount ? 'font-semibold text-[#991B1B]' : 'text-gray-400'}`}>
                         {p.nearExpiryCount || '—'}
                       </td>
-                      <Cell text={p.location} max="max-w-[240px]" muted />
+                      <Cell text={p.location} max={`max-w-[240px] ${WIDE}`} muted />
                     </tr>
                   );
                 })}

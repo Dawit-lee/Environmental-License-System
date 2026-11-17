@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import {
   ANCHOR_LABEL, ANCHORS, completeItem, reopenItem, confirmBaseline, createItem, deleteItem, getDisciplines, getSchedule,
@@ -51,6 +52,15 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
     const t = new URLSearchParams(window.location.search).get('tool');
     return t === 'base' || t === 'template' || t === 'paste' || t === 'share' ? t : null;
   });
+
+  // ?item=<id> (a notification link): open that item once it is loaded
+  const [params] = useSearchParams();
+  const openId = Number(params.get('item')) || 0;
+  const opened = useRef(0);
+  useEffect(() => {
+    const item = openId !== opened.current ? schedule?.items.find((i) => i.id === openId) : undefined;
+    if (item) { opened.current = openId; setEditing(item); }
+  }, [openId, schedule]);
 
   // together: the Gantt copies its data once per key (loads)
   const load = () =>

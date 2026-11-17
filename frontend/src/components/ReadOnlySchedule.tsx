@@ -14,6 +14,36 @@ const when = (e: SharedEvent) => {
   return sameDay ? `${day(e.startsAt)} ${time(e.startsAt)}~${time(e.endsAt)}` : `${day(e.startsAt)} ${time(e.startsAt)} ~ ${day(e.endsAt)} ${time(e.endsAt)}`;
 };
 
+/** Columns a phone has no room for. */
+const WIDE = 'hidden sm:table-cell print:table-cell';
+const dot = (d: string) => d.replaceAll('-', '.');
+
+/** Phones: dates as a list instead of bars (a 180 px chart overlaps its own labels). */
+function DateList({ items }: { items: Map<string, SharedItem[]> }) {
+  return (
+    <div className="space-y-3 text-sm sm:hidden print:hidden">
+      {[...items.entries()].map(([group, rows]) => (
+        <section key={group}>
+          <h2 className="font-semibold text-gray-800">{group}</h2>
+          <ul className="divide-y divide-[#F1EFE8]">
+            {rows.map((r, n) => (
+              <li key={n} className="flex items-baseline justify-between gap-3 py-1.5">
+                <span className="min-w-0 truncate" title={r.title}>
+                  {r.kind === 'MILESTONE' && <span aria-hidden className="text-[#1F4E79]">◆ </span>}
+                  {r.title}{r.partnerName && <span className="text-gray-500"> ({r.partnerName})</span>}
+                </span>
+                <span className="shrink-0 text-xs text-gray-600">
+                  {r.kind === 'MILESTONE' ? dot(r.endDate) : `${dot(r.startDate)} ~ ${dot(r.endDate)}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 export default function ReadOnlySchedule({ title, subtitle, items, events }: {
   title: string; subtitle?: string; items: SharedItem[]; events: SharedEvent[];
 }) {
@@ -31,23 +61,24 @@ export default function ReadOnlySchedule({ title, subtitle, items, events }: {
         <h1 className="text-xl font-bold text-[#1F4E79]">{title}</h1>
         {subtitle && <p className="mt-1 text-xs text-gray-500">{subtitle}</p>}
       </div>
-      {items.length > 0 && days.length > 0 && <Bars items={groups} from={new Date(Math.min(...days.map(Number)))}
-        to={addDays(new Date(Math.max(...days.map(Number))), 1)} />}
+      {items.length > 0 && days.length > 0 && <div className="hidden sm:block print:block"><Bars items={groups} from={new Date(Math.min(...days.map(Number)))}
+        to={addDays(new Date(Math.max(...days.map(Number))), 1)} /></div>}
+      {items.length > 0 && <DateList items={groups} />}
       {!items.length && <p className="text-sm text-gray-500">공정 항목이 없습니다.</p>}
       {events.length > 0 && (
         <section>
           <h2 className="mb-2 text-sm font-semibold text-gray-900">이벤트</h2>
           <table className="w-full text-left text-sm">
             <thead className="bg-[#F8F7F2] text-xs text-gray-500">
-              <tr><th className="px-2 py-1.5">일시</th><th className="px-2 py-1.5">제목</th><th className="px-2 py-1.5">장소</th><th className="px-2 py-1.5">분야</th></tr>
+              <tr><th className="px-2 py-1.5">일시</th><th className="px-2 py-1.5">제목</th><th className={`px-2 py-1.5 ${WIDE}`}>장소</th><th className={`px-2 py-1.5 ${WIDE}`}>분야</th></tr>
             </thead>
             <tbody>
               {events.map((e, n) => (
                 <tr key={n} className="border-t border-[#E5E3DC]">
                   <td className="whitespace-nowrap px-2 py-1.5">{when(e)}</td>
                   <td className="px-2 py-1.5">{e.title}</td>
-                  <td className="px-2 py-1.5">{e.location ?? ''}</td>
-                  <td className="px-2 py-1.5">{e.disciplineName ?? '공통'}</td>
+                  <td className={`px-2 py-1.5 ${WIDE}`}>{e.location ?? ''}</td>
+                  <td className={`px-2 py-1.5 ${WIDE}`}>{e.disciplineName ?? '공통'}</td>
                 </tr>
               ))}
             </tbody>
@@ -86,8 +117,11 @@ function Bars({ items, from, to }: { items: Map<string, SharedItem[]>; from: Dat
                 </div>
                 <div className="relative h-4 flex-1">
                   {r.kind === 'MILESTONE'
-                    ? <span className="absolute -translate-x-1/2 text-[#1F4E79]" style={{ left: pct(start) }}
-                        title={r.endDate}>◆ <span className="text-gray-600">{r.endDate.slice(5).replace('-', '/')}</span></span>
+                    ? differenceInCalendarDays(start, from) / span > 0.85 // near the right edge: date on the left, so it stays on the line
+                      ? <span className="absolute -translate-x-full whitespace-nowrap text-[#1F4E79]" style={{ left: `calc(${pct(start)} + 0.5em)` }}
+                          title={r.endDate}><span className="text-gray-600">{r.endDate.slice(5).replace('-', '/')}</span> ◆</span>
+                      : <span className="absolute -translate-x-1/2 whitespace-nowrap text-[#1F4E79]" style={{ left: pct(start) }}
+                          title={r.endDate}>◆ <span className="text-gray-600">{r.endDate.slice(5).replace('-', '/')}</span></span>
                     : <span className="absolute top-1 h-2 rounded bg-[#1F4E79] print:[print-color-adjust:exact]"
                         style={{ left: pct(start), width: `max(2px, calc(${pct(end)} - ${pct(start)}))` }}
                         title={`${r.startDate} ~ ${r.endDate}`} />}
