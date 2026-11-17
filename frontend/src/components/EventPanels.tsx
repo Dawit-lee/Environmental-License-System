@@ -15,8 +15,8 @@ import { useEscape } from './useEscape';
 
 interface Member { userId: number; name: string }
 
-const field = 'w-full rounded-lg border border-[#E5E3DC] px-2.5 py-1.5 text-sm outline-none focus:border-[#1F4E79]';
-const btn = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
+const field = 'w-full rounded-lg border border-line px-2.5 py-1.5 text-sm outline-none focus:border-brand';
+const btn = 'rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
 const row = 'grid grid-cols-[88px_1fr] items-center gap-3';
 const SUBKINDS: Partial<Record<EventKind, string[]>> = {
   CLIENT_REPORT: ['착수', '중간', '최종', '월간', '격주'],
@@ -32,7 +32,7 @@ function Drawer({ label, sub, title, onClose, children }: {
       <div onClick={onClose} className="absolute inset-0 bg-black/40" />
       <aside role="dialog" aria-modal="true" aria-label={label}
         className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 border-b border-[#E5E3DC] px-6 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="min-w-0">
             <p className="text-xs text-gray-500">{sub}</p>
             <h2 className="mt-1 truncate text-lg font-semibold text-gray-900" title={title}>{title}</h2>
@@ -62,7 +62,7 @@ export function EntryDetail({ entry, onClose, onEdit }: { entry: CalendarEntry; 
           <Line label="날짜" value={m ? `${m.date}${m.done ? ' · 완료' : ''}` : d!.dueDate} />
           <Line label="분야" value={m?.disciplineName} />
         </dl>
-        <div className="px-6"><Link className="text-sm text-[#1F4E79] hover:underline" to={`/projects/${projectId}/schedule`}>프로젝트 일정으로 이동</Link></div>
+        <div className="px-6"><Link className="text-sm text-brand hover:underline" to={`/projects/${projectId}/schedule`}>프로젝트 일정으로 이동</Link></div>
       </Drawer>
     );
   }
@@ -70,7 +70,7 @@ export function EntryDetail({ entry, onClose, onEdit }: { entry: CalendarEntry; 
   return (
     <Drawer label="이벤트" sub={`${EVENT_KIND_LABEL[e.kind]}${e.subkind ? ` · ${e.subkind}` : ''}`} title={e.title} onClose={onClose}>
       <dl className="flex-1 space-y-2.5 overflow-y-auto px-6 py-5">
-        <Line label="프로젝트" value={<Link className="text-[#1F4E79] hover:underline" to={`/projects/${e.projectId}/schedule`}>{e.projectName}</Link>} />
+        <Line label="프로젝트" value={<Link className="text-brand hover:underline" to={`/projects/${e.projectId}/schedule`}>{e.projectName}</Link>} />
         <Line label="일시" value={eventWhen(e)} />
         <Line label="장소" value={e.location} />
         <Line label="상대 기관" value={e.counterpartOrg} />
@@ -83,7 +83,7 @@ export function EntryDetail({ entry, onClose, onEdit }: { entry: CalendarEntry; 
         <Line label="체크리스트" value={e.checklist && (
           <ul className="list-inside list-disc space-y-0.5">{e.checklist.split('\n').filter(Boolean).map((l, i) => <li key={i}>{l}</li>)}</ul>)} />
       </dl>
-      {onEdit && <div className="border-t border-[#E5E3DC] px-6 py-4"><button type="button" className={btn} onClick={() => onEdit(e)}>수정</button></div>}
+      {onEdit && <div className="border-t border-line px-6 py-4"><button type="button" className={btn} onClick={() => onEdit(e)}>수정</button></div>}
     </Drawer>
   );
 }
@@ -131,7 +131,7 @@ export function EventForm({ projectId, event, defaultDate, disciplines, members,
   return (
     <Drawer label="이벤트" sub={event ? EVENT_KIND_LABEL[event.kind] : '새 이벤트'} title={event?.title ?? '이벤트 추가'} onClose={onClose}>
       <form className="flex-1 space-y-3 overflow-y-auto px-6 py-5" onSubmit={(e) => { e.preventDefault(); save(); }}>
-        {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+        {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
         <label className={row}><span className="text-sm text-gray-500">종류</span>
           <select className={field} value={form.kind} onChange={(e) => {
             const kind = e.target.value as EventKind;
@@ -176,7 +176,7 @@ export function EventForm({ projectId, event, defaultDate, disciplines, members,
           </select></label>
         <div className={`${row} items-start`}><span className="pt-1 text-sm text-gray-500">참석자</span>
           <div className="space-y-1.5">
-            <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-[#E5E3DC] px-2.5 py-1.5">
+            <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-line px-2.5 py-1.5">
               {members.map((m) => (
                 <label key={m.userId} className="flex items-center gap-2 truncate text-sm">
                   <input type="checkbox" checked={attending.has(m.userId)} onChange={(e) => set({
@@ -190,7 +190,7 @@ export function EventForm({ projectId, event, defaultDate, disciplines, members,
             {form.attendees.filter((a) => !a.userId).map((a) => (
               <p key={a.externalName} className="flex items-center justify-between text-sm text-gray-700">
                 <span className="truncate">{a.externalName} (외부)</span>
-                <button type="button" className="text-xs text-gray-400 hover:text-[#991B1B]"
+                <button type="button" className="text-xs text-gray-400 hover:text-danger"
                   onClick={() => set({ attendees: form.attendees.filter((x) => x !== a) })}>빼기</button>
               </p>
             ))}
@@ -214,12 +214,12 @@ export function EventForm({ projectId, event, defaultDate, disciplines, members,
         )}
         <div className="flex justify-end pt-2">
           <button type="submit" disabled={busy}
-            className="rounded-lg bg-[#1F4E79] px-4 py-2 text-sm font-semibold text-white hover:bg-[#173a5c] disabled:opacity-40">저장</button>
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-40">저장</button>
         </div>
       </form>
       {event && (
-        <div className="border-t border-[#E5E3DC] px-6 py-4">
-          <button type="button" disabled={busy} className={`${btn} hover:!border-[#991B1B] hover:!text-[#991B1B]`}
+        <div className="border-t border-line px-6 py-4">
+          <button type="button" disabled={busy} className={`${btn} hover:!border-danger hover:!text-danger`}
             onClick={() => window.confirm(`'${event.title}'을 삭제할까요?`) && run(() => deleteEvent(projectId, event.id))}>삭제</button>
         </div>
       )}

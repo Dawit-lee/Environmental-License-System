@@ -26,7 +26,7 @@ class ErrorBoundary extends Component<{ resetKey: string; children: ReactNode },
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="mt-4 rounded-lg bg-[#1F4E79] px-4 py-2 text-sm font-medium text-white hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+          className="mt-4 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/30"
         >
           새로고침
         </button>

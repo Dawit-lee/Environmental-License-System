@@ -49,16 +49,16 @@ const STATUS_LABEL: Record<PermitStatus, string> = {
 
 const STATUS_BADGE: Record<PermitStatus, string> = {
   NOT_APPLIED: 'text-gray-600',
-  IN_PROGRESS: 'text-[#1F4E79]',
-  COMPLETED: 'text-[#0F6E56]',
-  NEAR_EXPIRY: 'text-[#B45309]',
-  EXPIRED: 'text-[#991B1B]',
+  IN_PROGRESS: 'text-brand',
+  COMPLETED: 'text-ok',
+  NEAR_EXPIRY: 'text-warn',
+  EXPIRED: 'text-danger',
 };
 
 function dDayClasses(dDay: number | null): string {
   if (dDay === null) return 'text-gray-400';
-  if (dDay <= 7) return 'text-[#991B1B] font-semibold';
-  if (dDay <= 30) return 'text-[#B45309] font-semibold';
+  if (dDay <= 7) return 'text-danger font-semibold';
+  if (dDay <= 30) return 'text-warn font-semibold';
   if (dDay <= 60) return 'text-amber-500 font-medium';
   return 'text-gray-500';
 }
@@ -151,12 +151,12 @@ export default function ProjectDetailPage() {
 
   if (error || !project) {
     return (
-      <div className="min-h-full bg-[#F8F7F2]">
+      <div className="min-h-full bg-paper">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-          <Link to="/projects" className="text-sm text-gray-500 transition hover:text-[#1F4E79] hover:underline">
+          <Link to="/projects" className="text-sm text-gray-500 transition hover:text-brand hover:underline">
             ← 프로젝트 목록
           </Link>
-          <p className={`mt-16 text-center text-sm ${error ? 'text-[#991B1B]' : 'text-gray-400'}`}>
+          <p className={`mt-16 text-center text-sm ${error ? 'text-danger' : 'text-gray-400'}`}>
             {error ?? '불러오는 중…'}
           </p>
         </div>
@@ -169,11 +169,11 @@ export default function ProjectDetailPage() {
     .filter((t) => t.key !== 'operations' || project.operationsEnabled); // opt-in module (설정 › 모듈)
 
   return (
-    <div className="min-h-full bg-[#F8F7F2]">
+    <div className="min-h-full bg-paper">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Breadcrumb */}
         <nav className="text-sm text-gray-500">
-          <Link to="/projects" className="transition hover:text-[#1F4E79] hover:underline">
+          <Link to="/projects" className="transition hover:text-brand hover:underline">
             프로젝트 목록
           </Link>
           <span className="mx-2 text-gray-300">›</span>
@@ -182,20 +182,20 @@ export default function ProjectDetailPage() {
 
         {/* Summary card: full on 개요, one line on the other tabs so the schedule and tables get the height */}
         {tab !== 'overview' ? (
-          <section className="mt-4 rounded-xl border border-[#E5E3DC] bg-white px-5 py-3 shadow-sm">
+          <section className="mt-4 rounded-xl border border-line bg-white px-5 py-3 shadow-sm">
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
               <h1 className="truncate text-lg font-bold text-gray-900" title={project.name}>{project.name}</h1>
               <span className="text-sm text-gray-500">
                 {FACILITY_LABEL[project.facilityType]} · {STAGES[lifecycleStage(project, permits)]} 단계
               </span>
               <span className="text-sm text-gray-500 sm:ml-auto">
-                인허가 {stats.total} · 취득완료 {stats.completed} · <span className={stats.nearExpiry ? 'text-[#B45309]' : ''}>만료임박 {stats.nearExpiry}</span> · 미신청 {stats.notApplied}
+                인허가 {stats.total} · 취득완료 {stats.completed} · <span className={stats.nearExpiry ? 'text-warn' : ''}>만료임박 {stats.nearExpiry}</span> · 미신청 {stats.notApplied}
               </span>
             </div>
             <Notices project={project} warnings={ruleWarnings} />
           </section>
         ) : (
-        <section className="mt-4 rounded-xl border border-[#E5E3DC] bg-white p-6 shadow-sm">
+        <section className="mt-4 rounded-xl border border-line bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <span className="text-sm text-gray-500">
@@ -224,23 +224,23 @@ export default function ProjectDetailPage() {
 
           {/* Stats row */}
           <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="전체 인허가" value={stats.total} tone="text-[#1F4E79]" />
-            <Stat label="취득완료" value={stats.completed} tone="text-[#0F6E56]" />
-            <Stat label="만료임박" value={stats.nearExpiry} tone="text-[#B45309]" />
-            <Stat label="미신청" value={stats.notApplied} tone="text-[#991B1B]" />
+            <Stat label="전체 인허가" value={stats.total} tone="text-brand" />
+            <Stat label="취득완료" value={stats.completed} tone="text-ok" />
+            <Stat label="만료임박" value={stats.nearExpiry} tone="text-warn" />
+            <Stat label="미신청" value={stats.notApplied} tone="text-danger" />
           </div>
 
           <StageBar current={lifecycleStage(project, permits)} />
         </section>
         )}
 
-        <nav className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-[#E5E3DC]" aria-label="프로젝트 메뉴">
+        <nav className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line" aria-label="프로젝트 메뉴">
           {tabs.map((t) => (
             <NavLink
               key={t.key}
               to={`/projects/${id}/${t.key}`}
               className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
-                tab === t.key ? 'border-[#1F4E79] text-[#1F4E79]' : 'border-transparent text-gray-500 hover:text-gray-800'
+                tab === t.key ? 'border-brand text-brand' : 'border-transparent text-gray-500 hover:text-gray-800'
               }`}
             >
               {t.label}
@@ -290,14 +290,14 @@ export default function ProjectDetailPage() {
               setReporting(true);
               downloadReport(project.id).catch((e: Error) => window.alert(e.message)).finally(() => setReporting(false));
             }}
-            className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20 disabled:opacity-60"
+            className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
           >
             {reporting ? '만드는 중…' : '진행 현황 보고 ⬇'}
           </button></Tip>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'ALL' | PermitStatus)}
-            className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20"
+            className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
           >
             <option value="ALL">상태 전체</option>
             {Object.entries(STATUS_LABEL).map(([value, label]) => (
@@ -318,9 +318,9 @@ export default function ProjectDetailPage() {
         )}
 
         {/* Permit table */}
-        {permits.length > 0 && <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+        {permits.length > 0 && <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
           <table className="w-full min-w-[600px] whitespace-nowrap xl:min-w-[860px] text-left text-sm">
-            <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
+            <thead className="bg-paper text-xs uppercase text-gray-500">
               <tr>
                 <th className="px-4 py-3 font-medium">인허가명</th>
                 <th className="px-4 py-3 font-medium">카테고리</th>
@@ -332,9 +332,9 @@ export default function ProjectDetailPage() {
                 <th className="px-4 py-3 text-right font-medium">액션</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E3DC]">
+            <tbody className="divide-y divide-line">
               {visible.map((p) => (
-                <tr key={p.id} className="transition hover:bg-[#F8F7F2]">
+                <tr key={p.id} className="transition hover:bg-paper">
                   <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
                   <td className="px-4 py-3">
                     <span className="whitespace-nowrap text-gray-700">
@@ -343,13 +343,13 @@ export default function ProjectDetailPage() {
                   </td>
                   <td className={`px-4 py-3 ${WIDE}`}>
                     <a href={p.regulationUrl ?? undefined} target="_blank" rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-[#1F4E79] transition hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30">
+                      className="inline-flex items-center gap-1 text-brand transition hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30">
                       {p.regulation}<span aria-hidden>↗</span>
                     </a>
                   </td>
                   <td className={`px-4 py-3 ${WIDE}`}>
                     <a href={p.authorityUrl ?? undefined} target="_blank" rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-gray-700 transition hover:text-[#1F4E79] hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30">
+                      className="inline-flex items-center gap-1 text-gray-700 transition hover:text-brand hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30">
                       {p.authority}<span aria-hidden>↗</span>
                     </a>
                   </td>
@@ -364,7 +364,7 @@ export default function ProjectDetailPage() {
                     <button
                       type="button"
                       onClick={() => setSelected(p)}
-                      className="rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-[#1F4E79] hover:text-[#1F4E79] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+                      className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
                     >
                       상세보기
                     </button>
@@ -399,12 +399,12 @@ function Notices({ project, warnings }: { project: Project; warnings: Derivation
   return (
     <>
       {!project.member && (
-        <p className="mt-3 rounded-lg bg-[#F8F7F2] px-3 py-2 text-sm text-gray-600">
+        <p className="mt-3 rounded-lg bg-paper px-3 py-2 text-sm text-gray-600">
           이 프로젝트의 멤버가 아니라 인허가 목록만 볼 수 있습니다. 수정하려면 프로젝트 어드민에게 멤버 추가를 요청하세요.
         </p>
       )}
       {warnings.map((w) => (
-        <p key={w.rule_key} className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-[#B45309]">
+        <p key={w.rule_key} className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-warn">
           {w.permit_name} — {w.message}
         </p>
       ))}
@@ -414,7 +414,7 @@ function Notices({ project, warnings }: { project: Project; warnings: Derivation
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div className="rounded-lg bg-[#F8F7F2] p-4 text-center">
+    <div className="rounded-lg bg-paper p-4 text-center">
       <div className={`text-2xl font-bold ${tone}`}>{value}</div>
       <div className="mt-1 text-xs text-gray-500">{label}</div>
     </div>
@@ -426,8 +426,8 @@ function Tab({ label, active, onClick }: { label: string; active: boolean; onCli
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30 ${
-        active ? 'bg-[#1F4E79] text-white' : 'bg-white text-gray-600 hover:bg-[#E5E3DC]'
+      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
+        active ? 'bg-brand text-white' : 'bg-white text-gray-600 hover:bg-line'
       }`}
     >
       {label}
@@ -443,7 +443,7 @@ function StageBar({ current }: { current: number }) {
           <span
             aria-current={i === current ? 'step' : undefined}
             className={`flex-1 rounded-full px-2 py-1.5 text-center font-medium ${
-              i === current ? 'bg-[#1F4E79] text-white' : i < current ? 'bg-[#1F4E79]/10 text-[#1F4E79]' : 'bg-[#F8F7F2] text-gray-400'
+              i === current ? 'bg-brand text-white' : i < current ? 'bg-brand/10 text-brand' : 'bg-paper text-gray-400'
             }`}
           >
             {label}

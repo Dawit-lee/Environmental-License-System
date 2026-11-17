@@ -9,7 +9,7 @@ import { Help } from './Onboarding';
 // Schedule widgets (설계 §6.5): dashboard "이번 주 이벤트" and "지연 항목(분야별)", overview "일정" card.
 // ---------------------------------------------------------------------------
 
-const card = 'rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm';
+const card = 'rounded-xl border border-line bg-white p-5 shadow-sm';
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
 /** Events overlapping this week (Mon–Sun) in my calendar scope, one line each. */
@@ -23,11 +23,11 @@ export function WeekEvents() {
     <section className={card}>
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold text-gray-900">이번 주 이벤트</h2>
-        <Link to="/calendar" className="text-xs text-[#1F4E79] hover:underline">회사 달력</Link>
+        <Link to="/calendar" className="text-xs text-brand hover:underline">회사 달력</Link>
       </div>
       <div className="mt-3 overflow-x-auto">
         <table className={`w-full ${events?.length ? 'min-w-[560px]' : ''} table-fixed whitespace-nowrap text-left text-sm`}>
-          <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-gray-500">
             <tr>
               <th className="w-40 px-3 py-2.5 font-medium">일시</th>
               <th className="w-24 px-3 py-2.5 font-medium">종류</th>
@@ -35,15 +35,15 @@ export function WeekEvents() {
               <th className="w-48 px-3 py-2.5 font-medium">프로젝트</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#E5E3DC]">
+          <tbody className="divide-y divide-line">
             {events?.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">이번 주 이벤트가 없습니다.</td></tr>}
             {events?.map((e) => (
-              <tr key={e.id} className="hover:bg-[#F8F7F2]">
+              <tr key={e.id} className="hover:bg-paper">
                 <td className="truncate px-3 py-2.5 text-gray-600">{eventWhen(e)}</td>
                 <td className="truncate px-3 py-2.5 text-gray-600">{EVENT_KIND_LABEL[e.kind]}</td>
                 <td className="truncate px-3 py-2.5 font-medium text-gray-800" title={e.title}>{e.title}</td>
                 <td className="truncate px-3 py-2.5">
-                  <Link to={`/projects/${e.projectId}/schedule`} className="text-gray-700 hover:text-[#1F4E79] hover:underline" title={e.projectName}>{e.projectName}</Link>
+                  <Link to={`/projects/${e.projectId}/schedule`} className="text-gray-700 hover:text-brand hover:underline" title={e.projectName}>{e.projectName}</Link>
                 </td>
               </tr>
             ))}
@@ -64,12 +64,12 @@ export function DelayedByDiscipline({ counts }: { counts: DelayedCount[] | null 
   return (
     <section className={card}>
       <h2 className="text-lg font-semibold text-gray-900">기한 경과 일정 (분야별)<Help k="overdue" align="right" /></h2>
-      <ul className="mt-3 divide-y divide-[#E5E3DC] text-sm">
+      <ul className="mt-3 divide-y divide-line text-sm">
         {counts?.length === 0 && <li className="py-3 text-gray-400">기한이 지난 일정 항목이 없습니다.</li>}
         {counts?.map(({ discipline, count }) => (
           <li key={discipline} className="flex justify-between py-2.5">
             <span className="truncate text-gray-700">{discipline}</span>
-            <span className="text-[#991B1B]">{count}건</span>
+            <span className="text-danger">{count}건</span>
           </li>
         ))}
       </ul>
@@ -95,7 +95,7 @@ export function ScheduleSummary({ projectId }: { projectId: number }) {
     <section className={card}>
       <div className="flex items-baseline justify-between">
         <h2 className="text-lg font-semibold text-gray-900">일정</h2>
-        <Link to={base} className={`text-sm ${delayed ? 'text-[#991B1B]' : 'text-gray-500'} hover:underline`}>기한 경과 {delayed}건</Link>
+        <Link to={base} className={`text-sm ${delayed ? 'text-danger' : 'text-gray-500'} hover:underline`}>기한 경과 {delayed}건</Link>
       </div>
       <p className="mt-3 text-xs text-gray-500">다음 마일스톤</p>
       <ul className="mt-1 space-y-1 text-sm">

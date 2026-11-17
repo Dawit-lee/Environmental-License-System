@@ -45,10 +45,10 @@ export default function ProjectCalendar({ projectId, disciplines, members, onOpe
         </label>
         <p className="text-xs text-gray-500">이벤트 {data.events.length}건 · 마일스톤 {data.milestones.length}건</p>
         <button type="button" onClick={() => setEditing('new')}
-          className="ml-auto rounded-lg bg-[#1F4E79] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#173a5c]">+ 이벤트</button>
+          className="ml-auto rounded-lg bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover">+ 이벤트</button>
       </div>
-      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
-      <Suspense fallback={<div className="h-[640px] rounded-xl border border-[#E5E3DC] bg-white" />}>
+      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      <Suspense fallback={<div className="h-[640px] rounded-xl border border-line bg-white" />}>
         <ScheduleCalendar data={data} showDeadlines={showDeadlines} showProject={false}
           onRange={(from, to) => setRange([from, to])}
           onOpen={(entry) => (entry.type === 'milestone' ? onOpenItem(entry.milestone.id) : setOpen(entry))} />

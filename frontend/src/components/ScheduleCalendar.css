@@ -1,18 +1,18 @@
 /* FullCalendar themed through its own CSS variables with the app's tokens (no FullCalendar CSS overrides of layout). */
 .schedule-calendar {
-  --fc-border-color: #E5E3DC;
+  --fc-border-color: var(--color-line);
   --fc-page-bg-color: #fff;
-  --fc-neutral-bg-color: #F8F7F2;
+  --fc-neutral-bg-color: var(--color-paper);
   --fc-today-bg-color: rgba(31, 78, 121, 0.06);
   --fc-button-text-color: #374151;
   --fc-button-bg-color: #fff;
-  --fc-button-border-color: #E5E3DC;
-  --fc-button-hover-bg-color: #F8F7F2;
-  --fc-button-hover-border-color: #1F4E79;
-  --fc-button-active-bg-color: #1F4E79;
-  --fc-button-active-border-color: #1F4E79;
-  --fc-event-bg-color: #1F4E79;
-  --fc-event-border-color: #1F4E79;
+  --fc-button-border-color: var(--color-line);
+  --fc-button-hover-bg-color: var(--color-paper);
+  --fc-button-hover-border-color: var(--color-brand);
+  --fc-button-active-bg-color: var(--color-brand);
+  --fc-button-active-border-color: var(--color-brand);
+  --fc-event-bg-color: var(--color-brand);
+  --fc-event-border-color: var(--color-brand);
   --fc-small-font-size: 0.75rem;
   font-size: 0.8125rem;
 }

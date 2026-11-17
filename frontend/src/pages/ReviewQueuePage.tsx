@@ -20,17 +20,17 @@ import { Help } from '../components/Onboarding';
 interface Member { userId: number; canSelfApprove: boolean; canBulkApprove: boolean }
 
 const QC: Record<QuoteCheck, { label: string; cls: string }> = {
-  MISMATCH: { label: '원문 불일치', cls: 'text-[#991B1B]' },
+  MISMATCH: { label: '원문 불일치', cls: 'text-danger' },
   UNVERIFIABLE: { label: '원문 대조 필요', cls: 'text-gray-700' },
-  VERIFIED: { label: '원문 확인됨', cls: 'text-[#0F6E56]' },
+  VERIFIED: { label: '원문 확인됨', cls: 'text-ok' },
 };
 const MANUAL_BADGE = { label: '직접 추가', cls: 'text-gray-600' };
 const ST: Record<SuggestionStatus, { label: string; cls: string }> = {
   PENDING: { label: '검토 대기', cls: 'text-gray-600' },
   SUBMITTED: { label: '승인 요청됨', cls: 'text-sky-800' },
-  ACCEPTED: { label: '승인', cls: 'text-[#0F6E56]' },
-  EDITED_ACCEPTED: { label: '수정 후 승인', cls: 'text-[#0F6E56]' },
-  REJECTED: { label: '거절', cls: 'text-[#991B1B]' },
+  ACCEPTED: { label: '승인', cls: 'text-ok' },
+  EDITED_ACCEPTED: { label: '수정 후 승인', cls: 'text-ok' },
+  REJECTED: { label: '거절', cls: 'text-danger' },
 };
 const QC_ORDER: Record<QuoteCheck | 'NONE', number> = { MISMATCH: 0, UNVERIFIABLE: 1, VERIFIED: 2, NONE: 3 };
 const FREQ: Record<Frequency, string> = {
@@ -60,10 +60,10 @@ const EMPTY: ObligationPayload = {
   citation_raw: '', summary: '', requirement_text: '', type: 'MEASURE_SURVEY', category: 'AIR_QUALITY', frequency: 'MONTHLY',
 };
 
-const btn = 'rounded-lg px-3.5 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30 disabled:cursor-not-allowed disabled:opacity-40';
-const btnPrimary = `${btn} bg-[#1F4E79] text-white hover:bg-[#173a5c]`;
-const btnGhost = `${btn} border border-[#E5E3DC] text-gray-700 hover:bg-[#F8F7F2]`;
-const input = 'w-full rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-sm';
+const btn = 'rounded-lg px-3.5 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-40';
+const btnPrimary = `${btn} bg-brand text-white hover:bg-brand-hover`;
+const btnGhost = `${btn} border border-line text-gray-700 hover:bg-paper`;
+const input = 'w-full rounded-lg border border-line px-3 py-1.5 text-sm';
 
 /** With `projectId` (project tab) the project dropdown is hidden. */
 export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: number }) {
@@ -154,12 +154,12 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
   };
 
   return (
-    <div className="min-h-full bg-[#F8F7F2]">
+    <div className="min-h-full bg-paper">
       <div className={fixedId ? '' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6'}>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             {!fixedId && <p className="text-xs font-semibold tracking-wide text-gray-500">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>}
-            <h1 className="mt-1 flex items-center text-2xl font-bold text-[#1F4E79]">AI 검토<Help k="review" /></h1>
+            <h1 className="mt-1 flex items-center text-2xl font-bold text-brand">AI 검토<Help k="review" /></h1>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               검토 중인 조건은 승인 전까지 인허가 대장과 기한 알림에 들어가지 않습니다. 원문과 다른 항목이 맨 위에 옵니다.
             </p>
@@ -170,7 +170,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
               <select
                 value={projectId ?? ''}
                 onChange={(e) => setProjectId(Number(e.target.value))}
-                className="rounded-lg border border-[#E5E3DC] bg-white px-2.5 py-1.5 text-sm"
+                className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-sm"
               >
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
@@ -183,7 +183,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
           </div>
         </div>
 
-        {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+        {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
         {projectId && <RevisionSuggestions projectId={projectId} />}
         {projectId && <ScheduleSuggestionReview key={projectId} projectId={projectId} />}
@@ -194,7 +194,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
               key={f}
               type="button"
               onClick={() => setFilter(f)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === f ? 'bg-[#1F4E79] text-white' : 'bg-white text-gray-600 hover:bg-[#E5E3DC]'}`}
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === f ? 'bg-brand text-white' : 'bg-white text-gray-600 hover:bg-line'}`}
             >
               {f === 'ALL' ? '전체' : ST[f].label} ({f === 'ALL' ? items.length : items.filter((s) => s.status === f).length})
             </button>
@@ -203,8 +203,8 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
 
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* List */}
-          <section className="min-w-0 rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#E5E3DC] px-4 py-3">
+          <section className="min-w-0 rounded-xl border border-line bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
               <h2 className="text-sm font-semibold text-gray-800">검토 대상 조건 {rows.length}건</h2>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setMode('add')} disabled={!permits.length} className={btnGhost}
@@ -215,7 +215,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
               </div>
             </div>
             {bulkResults && (
-              <div role="status" className="border-b border-[#E5E3DC] bg-[#F8F7F2] px-4 py-3 text-sm">
+              <div role="status" className="border-b border-line bg-paper px-4 py-3 text-sm">
                 <div className="flex items-center justify-between">
                   <b className="text-gray-800">일괄 승인 결과: {bulkResults.filter((r) => r.ok).length}건 승인 · {bulkResults.filter((r) => !r.ok).length}건 제외</b>
                   <button type="button" onClick={() => setBulkResults(null)} className="text-xs text-gray-500 hover:underline">닫기</button>
@@ -226,7 +226,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                     const label = it ? (effective(it).citation_key || effective(it).summary) : `#${r.id}`;
                     return (
                       <li key={r.id} className="flex gap-2">
-                        <span className={`shrink-0 ${r.ok ? 'text-[#0F6E56]' : 'text-[#991B1B]'}`}>{r.ok ? '✓ 승인' : '✕ 제외'}</span>
+                        <span className={`shrink-0 ${r.ok ? 'text-ok' : 'text-danger'}`}>{r.ok ? '✓ 승인' : '✕ 제외'}</span>
                         <span className="font-mono text-xs leading-5">{label}</span>
                         {!r.ok && <span className="text-gray-600">— {r.reason}</span>}
                       </li>
@@ -237,7 +237,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
             )}
             <div className="overflow-x-auto">
               <table className="w-full table-fixed text-left text-sm">
-                <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+                <thead className="bg-paper text-xs text-gray-500">
                   <tr>
                     {me?.canBulkApprove && <th className="w-10 px-3 py-2.5" />}
                     <th className="w-24 px-3 py-2.5 font-medium">조건번호</th>
@@ -247,14 +247,14 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                     <th className="w-24 px-3 py-2.5 font-medium">상태</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E5E3DC]">
+                <tbody className="divide-y divide-line">
                   {rows.map((s) => {
                     const p = effective(s);
                     return (
                       <tr
                         key={s.id}
                         onClick={() => { setSelectedId(s.id); setMode('view'); }}
-                        className={`cursor-pointer transition ${s.id === sel?.id && mode !== 'add' ? 'bg-[#1F4E79]/5' : 'hover:bg-[#F8F7F2]'}`}
+                        className={`cursor-pointer transition ${s.id === sel?.id && mode !== 'add' ? 'bg-brand/5' : 'hover:bg-paper'}`}
                       >
                         {me?.canBulkApprove && (
                           <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -268,14 +268,14 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                                 if (e.target.checked) next.add(s.id); else next.delete(s.id);
                                 return next;
                               })}
-                              className="h-4 w-4 accent-[#1F4E79]"
+                              className="h-4 w-4 accent-brand"
                             />
                           </td>
                         )}
                         <td className="truncate px-3 py-2.5 font-mono text-xs" title={p.citation_raw ?? undefined}>
                           {p.citation_key || p.citation_raw || '—'}
-                          {p.citation_synthetic && <span className="ml-1 font-sans text-[#B45309]" title="문서에 번호가 없어 시스템이 만든 키">*</span>}
-                          {dupKeys.has(`${s.runId}:${p.citation_key}`) && <span className="ml-1 font-sans text-[#991B1B]" title="같은 문서 안에서 조건번호가 겹칩니다">중복</span>}
+                          {p.citation_synthetic && <span className="ml-1 font-sans text-warn" title="문서에 번호가 없어 시스템이 만든 키">*</span>}
+                          {dupKeys.has(`${s.runId}:${p.citation_key}`) && <span className="ml-1 font-sans text-danger" title="같은 문서 안에서 조건번호가 겹칩니다">중복</span>}
                         </td>
                         <td className="truncate px-3 py-2.5 text-gray-800" title={p.summary}>{p.summary}</td>
                         <td className="truncate px-3 py-2.5 text-gray-600">{FREQ[p.frequency]}</td>
@@ -295,7 +295,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
           </section>
 
           {/* Detail */}
-          <section className="min-w-0 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+          <section className="min-w-0 rounded-xl border border-line bg-white p-5 shadow-sm">
             {mode === 'add' && projectId != null ? (
               <PayloadForm
                 title="조건 직접 추가"
@@ -384,7 +384,7 @@ function Detail({ s, lead, permitName, onEdit, run }: {
 
         <div>
           <p className="mb-1 text-xs font-semibold text-gray-500">{p.source_quote ? `원문 인용 (${p.page_no ?? '?'}쪽)` : '조건 전문'}</p>
-          <blockquote className="rounded-r-lg border-l-4 border-[#1F4E79] bg-[#F8F7F2] px-3 py-2 text-sm">{p.source_quote || p.requirement_text}</blockquote>
+          <blockquote className="rounded-r-lg border-l-4 border-brand bg-paper px-3 py-2 text-sm">{p.source_quote || p.requirement_text}</blockquote>
         </div>
 
         {s.origin === 'AI' && p.page_no && (
@@ -415,7 +415,7 @@ function Detail({ s, lead, permitName, onEdit, run }: {
                   s.editedPayload ? '수정 내용으로 승인했습니다. 수정 기록이 남습니다.' : '승인했습니다. 인허가 대장과 기한 알림에 등록됩니다.')}>
                 {s.editedPayload ? '수정 후 승인' : '승인'}
               </button>
-              <button type="button" className={`${btnGhost} text-[#991B1B]`}
+              <button type="button" className={`${btnGhost} text-danger`}
                 onClick={async () => { const r = (await ask('거절 사유'))?.trim(); if (r) run(() => rejectSuggestion(s, r), '거절했습니다.'); }}>거절</button>
             </>
           )}
@@ -462,7 +462,7 @@ function PageViewer({ id, pageNo, onViewed }: { id: number; pageNo: number; onVi
   return (
     <div>
       <p className="mb-1 text-xs font-semibold text-gray-500">원문 {pageNo}쪽</p>
-      <div className="max-h-[480px] overflow-auto rounded-lg border border-[#E5E3DC] bg-gray-50">
+      <div className="max-h-[480px] overflow-auto rounded-lg border border-line bg-gray-50">
         {url ? (
           <img src={url} alt={`원문 ${pageNo}쪽`} className="w-full"
             onLoad={() => recordPageView(id, pageNo).then(onViewed, () => undefined)} />
@@ -552,7 +552,7 @@ function Info({ label, value }: { label: string; value: string }) {
   );
 }
 
-const TONE = { red: 'bg-red-50 text-[#991B1B]', amber: 'bg-amber-50 text-[#B45309]', sky: 'bg-sky-50 text-sky-800' };
+const TONE = { red: 'bg-red-50 text-danger', amber: 'bg-amber-50 text-warn', sky: 'bg-sky-50 text-sky-800' };
 function Callout({ tone, title, children }: { tone: keyof typeof TONE; title: string; children: ReactNode }) {
   return (
     <div className={`flex gap-2 rounded-lg px-3 py-2 text-sm ${TONE[tone]}`}>

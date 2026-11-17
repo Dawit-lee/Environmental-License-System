@@ -13,9 +13,9 @@ interface PasteRow {
   unit: string | null; limitLower: number | null; limitValue: number | null; level: Level | null; error: string | null;
 }
 
-const INPUT = 'rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
-const BTN = 'rounded-lg border border-[#E5E3DC] px-3 py-1 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
-const PRIMARY = 'rounded-lg bg-[#1F4E79] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#173a5c] disabled:opacity-40';
+const INPUT = 'rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const BTN = 'rounded-lg border border-line px-3 py-1 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
+const PRIMARY = 'rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
 
 export default function MeasurementPaste({ point, onSaved }: { point: { id: number; name: string }; onSaved: () => void }) {
   const [text, setText] = useState('');
@@ -57,12 +57,12 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
 
   return (
     <>
-      <h2 className="mt-8 text-lg font-bold text-[#1F4E79]">엑셀 붙여넣기 · {point.name}</h2>
+      <h2 className="mt-8 text-lg font-bold text-brand">엑셀 붙여넣기 · {point.name}</h2>
       <p className="mt-2 text-sm text-gray-500">
         엑셀에서 측정일·항목·값 3열을 복사해 붙여넣습니다. 첫 행이 제목이면 건너뜁니다. 항목은 코드(CO)나 이름(일산화탄소) 모두 되고, 최대 500행입니다.
       </p>
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
-      {saved && <p role="status" className="mt-3 rounded-lg bg-[#F8F7F2] px-3 py-2 text-sm text-gray-700">{saved}</p>}
+      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {saved && <p role="status" className="mt-3 rounded-lg bg-paper px-3 py-2 text-sm text-gray-700">{saved}</p>}
       <textarea value={text} rows={5} aria-label="붙여넣을 측정값" spellCheck={false}
         placeholder={'측정일\t항목\t값\n2026-01-05\tCO\t12.5'}
         onChange={(e) => { setText(e.target.value); setRows(null); }}
@@ -78,9 +78,9 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
       </div>
 
       {rows && (
-        <div className="mt-3 max-h-[420px] overflow-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+        <div className="mt-3 max-h-[420px] overflow-auto rounded-xl border border-line bg-white shadow-sm">
           <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
-            <thead className="sticky top-0 bg-[#F8F7F2] text-xs text-gray-500">
+            <thead className="sticky top-0 bg-paper text-xs text-gray-500">
               <tr>
                 <th className="px-4 py-3 text-right font-medium">행</th>
                 <th className="px-4 py-3 font-medium">측정일</th>
@@ -92,7 +92,7 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
                 <th className="px-4 py-3 font-medium">오류</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E3DC]">
+            <tbody className="divide-y divide-line">
               {rows.map((r) => (
                 <tr key={r.line} className={r.error ? 'text-gray-400' : 'text-gray-800'}>
                   <td className="px-4 py-2 text-right tabular-nums">{r.line}</td>

@@ -29,11 +29,11 @@ const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
 type View = 'gantt' | 'calendar' | 'delays' | 'deadlines' | 'print';
 interface Member { userId: number; name: string }
 
-const btn = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
-const field = 'w-full rounded-lg border border-[#E5E3DC] px-2.5 py-1.5 text-sm outline-none focus:border-[#1F4E79]';
+const btn = 'rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
+const field = 'w-full rounded-lg border border-line px-2.5 py-1.5 text-sm outline-none focus:border-brand';
 /** An item linked to a base date, offsets left out: the server computes them back from its dates. */
 const UNLINK_OFFSETS = { offsetDays: null, offsetMonths: null, durationDays: null };
-const seg = (on: boolean) => `px-3 py-1.5 text-xs font-medium ${on ? 'bg-[#1F4E79] text-white' : 'text-gray-600 hover:bg-[#F8F7F2]'}`;
+const seg = (on: boolean) => `px-3 py-1.5 text-xs font-medium ${on ? 'bg-brand text-white' : 'text-gray-600 hover:bg-paper'}`;
 
 export default function ProjectSchedule({ projectId }: { projectId: number }) {
   const [ask, promptUi] = usePrompt();
@@ -107,7 +107,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
     <div className="space-y-4">
       {promptUi}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex overflow-hidden rounded-lg border border-[#E5E3DC] bg-white">
+        <div className="inline-flex overflow-hidden rounded-lg border border-line bg-white">
           <button type="button" className={seg(view === 'gantt')} onClick={() => setView('gantt')}>간트</button>
           <button type="button" className={seg(view === 'calendar')} onClick={() => setView('calendar')}>달력</button>
           <button type="button" title={HELP.delays.text} className={seg(view === 'delays')} onClick={() => setView('delays')}>지연 현황</button>
@@ -118,10 +118,10 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
           <p className="text-sm text-gray-500">
             {schedule.baselineNo ? `기준 ${schedule.baselineNo}차` : <>기준 미확정<Help k="unbaselined" /></>}
             {schedule.progress && <> · 예정 {schedule.progress.planned}% / 진행 {schedule.progress.actual}%
-              {schedule.progress.weightTotal !== 100 && <span className="text-[#991B1B]"> (보할 합 {schedule.progress.weightTotal})</span>}</>}
+              {schedule.progress.weightTotal !== 100 && <span className="text-danger"> (보할 합 {schedule.progress.weightTotal})</span>}</>}
             {' · '}항목 {schedule.items.length}건
-            {' · '}<span className={overdue ? 'text-[#991B1B]' : ''}>기한 경과 {overdue}건</span><Help k="overdue" />
-            {schedule.baselineNo > 0 && <>{' · '}<span className={schedule.delayCount ? 'text-[#991B1B]' : ''}>일정 지연 {schedule.delayCount}건</span><Help k="slip" /></>}
+            {' · '}<span className={overdue ? 'text-danger' : ''}>기한 경과 {overdue}건</span><Help k="overdue" />
+            {schedule.baselineNo > 0 && <>{' · '}<span className={schedule.delayCount ? 'text-danger' : ''}>일정 지연 {schedule.delayCount}건</span><Help k="slip" /></>}
           </p>
         )}
         {view !== 'deadlines' && schedule && (
@@ -142,7 +142,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
       {view === 'print' && schedule && (
         <>
           <div className="flex items-center gap-2">
-            <select aria-label="분야 필터" className="rounded-lg border border-[#E5E3DC] bg-white px-2 py-1.5 text-xs"
+            <select aria-label="분야 필터" className="rounded-lg border border-line bg-white px-2 py-1.5 text-xs"
               value={filter.discipline} onChange={(e) => setFilter({ ...filter, discipline: e.target.value })}>
               <option value="">분야 전체</option>
               <option value="0">공통(미지정)</option>
@@ -165,13 +165,13 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
       {view === 'gantt' && (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <select aria-label="분야 필터" className="rounded-lg border border-[#E5E3DC] bg-white px-2 py-1.5 text-xs"
+            <select aria-label="분야 필터" className="rounded-lg border border-line bg-white px-2 py-1.5 text-xs"
               value={filter.discipline} onChange={(e) => setFilter({ ...filter, discipline: e.target.value })}>
               <option value="">분야 전체</option>
               <option value="0">공통(미지정)</option>
               {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
-            <select aria-label="담당 필터" className="rounded-lg border border-[#E5E3DC] bg-white px-2 py-1.5 text-xs"
+            <select aria-label="담당 필터" className="rounded-lg border border-line bg-white px-2 py-1.5 text-xs"
               value={filter.owner} onChange={(e) => setFilter({ ...filter, owner: e.target.value })}>
               <option value="">담당 전체</option>
               <option value="0">미지정</option>
@@ -183,30 +183,30 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
               기한 경과만
             </label>
             <div className="ml-auto flex items-center gap-2">
-              <div className="inline-flex overflow-hidden rounded-lg border border-[#E5E3DC] bg-white">
+              <div className="inline-flex overflow-hidden rounded-lg border border-line bg-white">
                 <button type="button" className={seg(scale === 'day')} onClick={() => setScale('day')}>일</button>
                 <button type="button" className={seg(scale === 'week')} onClick={() => setScale('week')}>주</button>
                 <button type="button" className={seg(scale === 'month')} onClick={() => setScale('month')}>월</button>
               </div>
               <button type="button" onClick={() => setEditing('new')}
-                className="rounded-lg bg-[#1F4E79] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#173a5c]">+ 항목</button>
+                className="rounded-lg bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover">+ 항목</button>
             </div>
           </div>
 
-          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
           {dated.length < visible.length && (
             <p className="text-sm text-gray-500">날짜 미정 {visible.length - dated.length}건: 기준일이 정해지면 간트에 나타납니다. [기준일]에서 날짜를 넣으세요.</p>
           )}
           {schedule && dated.length > 0 && (
-            <Suspense fallback={<div className="h-[600px] rounded-xl border border-[#E5E3DC] bg-white" />}>
+            <Suspense fallback={<div className="h-[600px] rounded-xl border border-line bg-white" />}>
             <ScheduleGantt key={`${scale}:${loads}`} items={dated} dependencies={schedule.dependencies} events={events}
               disciplines={disciplines} today={schedule.today} scale={scale} submission={submission}
               onOpen={(id) => setEditing(schedule.items.find((i) => i.id === id) ?? null)} onMove={move} />
             </Suspense>
           )}
           {schedule && visible.length === 0 && schedule.items.length > 0 && (
-            <p className="rounded-xl border border-dashed border-[#E5E3DC] bg-white px-6 py-12 text-center text-sm text-gray-500">조건에 맞는 항목이 없습니다.</p>
+            <p className="rounded-xl border border-dashed border-line bg-white px-6 py-12 text-center text-sm text-gray-500">조건에 맞는 항목이 없습니다.</p>
           )}
           {schedule && schedule.items.length === 0 && (
             <EmptyState text="분야별 작업과 마일스톤을 간트로 관리합니다. 템플릿으로 시작하면 자주 쓰는 공정이 한 번에 들어갑니다.">
@@ -290,12 +290,12 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
       <div onClick={onClose} className="absolute inset-0 bg-black/40" />
       <aside role="dialog" aria-modal="true" aria-label="일정 항목"
         className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 border-b border-[#E5E3DC] px-6 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="min-w-0">
             <p className="truncate text-xs text-gray-500">
               {item ? `${STATUS_LABEL[item.status]}${item.delayDays > 0 ? ` ${item.delayDays}일` : ''}` : '새 항목'}
               {item?.baselineEnd && ` · 원래 ${item.baselineEnd} → 지금 ${item.endDate ?? '미정'}`}
-              {!!item?.slipDays && item.slipDays > 0 && <span className="text-[#991B1B]"> (+{item.slipDays}일)</span>}
+              {!!item?.slipDays && item.slipDays > 0 && <span className="text-danger"> (+{item.slipDays}일)</span>}
             </p>
             <h2 className="mt-1 truncate text-lg font-semibold text-gray-900">{item?.title ?? '일정 항목 추가'}</h2>
           </div>
@@ -306,7 +306,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
           e.preventDefault();
           run(() => item ? updateItem(projectId, item.id, form) : createItem(projectId, form));
         }}>
-          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
           <label className={row}><span className="text-sm text-gray-500">항목명</span>
             <input required maxLength={200} className={field} value={form.title} onChange={(e) => set({ title: e.target.value })} /></label>
           <label className={row}><span className="text-sm text-gray-500">종류</span>
@@ -347,7 +347,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
           )}
           {item?.delayReason && <p className="truncate text-xs text-gray-500" title={item.delayReason}>마지막 연기 사유: {item.delayReason}</p>}
           {/* 기본 칸만 먼저: 기준일 연결·진행률·선행은 접어 둔다 */}
-          <details open={advancedOpen} className="rounded-lg border border-[#E5E3DC] px-3 py-2">
+          <details open={advancedOpen} className="rounded-lg border border-line px-3 py-2">
             <summary className="cursor-pointer text-sm text-gray-600">고급 (기준일 연결 · 진행률 · 선행 항목)</summary>
             <div className="mt-3 space-y-3">
           <label className={row}><span className="text-sm text-gray-500">묶음</span>
@@ -369,7 +369,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
                     const v = e.target.value === '' ? null : Number(e.target.value);
                     set(unit === 'month' ? { offsetMonths: v, offsetDays: null } : { offsetDays: v, offsetMonths: null });
                   }} />
-                <select aria-label="단위" className="rounded-lg border border-[#E5E3DC] px-2 text-sm" value={unit} onChange={(e) => {
+                <select aria-label="단위" className="rounded-lg border border-line px-2 text-sm" value={unit} onChange={(e) => {
                   const u = e.target.value as 'day' | 'month';
                   setUnit(u);
                   set(u === 'month' ? { offsetMonths: offset, offsetDays: null } : { offsetDays: offset, offsetMonths: null });
@@ -398,7 +398,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
             <input type="number" min={0} max={100} step="0.01" className={field} placeholder="공정률 계산용(선택)" value={form.weight ?? ''}
               onChange={(e) => set({ weight: num(e.target.value) })} /></label>
           <div className={`${row} items-start`}><span className="pt-1 text-sm text-gray-500">먼저 끝낼 항목</span>
-            <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-[#E5E3DC] px-2.5 py-1.5">
+            <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-line px-2.5 py-1.5">
               {others.length === 0 && <p className="text-xs text-gray-400">다른 항목이 없습니다.</p>}
               {others.map((i) => (
                 <label key={i.id} className="flex items-center gap-2 truncate text-sm" title={i.title}>
@@ -412,14 +412,14 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
           </div>
             </div>
           </details>
-          <div className="sticky bottom-0 -mx-6 flex justify-end border-t border-[#E5E3DC] bg-white px-6 py-3">
+          <div className="sticky bottom-0 -mx-6 flex justify-end border-t border-line bg-white px-6 py-3">
             <button type="submit" disabled={busy}
-              className="rounded-lg bg-[#1F4E79] px-4 py-2 text-sm font-semibold text-white hover:bg-[#173a5c] disabled:opacity-40">저장</button>
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-40">저장</button>
           </div>
         </form>
 
         {item && (
-          <div className="space-y-3 border-t border-[#E5E3DC] px-6 py-4">
+          <div className="space-y-3 border-t border-line px-6 py-4">
             {item.actualEnd ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-600">완료 · 실적 종료일 {item.actualEnd}</span>
@@ -430,7 +430,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
               <div className="flex items-center gap-2">
                 <span className="text-sm text-gray-500">실적 종료일</span>
                 <input type="date" aria-label="실적 종료일" max={schedule.today} value={actualEnd}
-                  onChange={(e) => setActualEnd(e.target.value)} className="rounded-lg border border-[#E5E3DC] px-2 py-1.5 text-sm" />
+                  onChange={(e) => setActualEnd(e.target.value)} className="rounded-lg border border-line px-2 py-1.5 text-sm" />
                 <button type="button" disabled={busy || !actualEnd} className={btn}
                   onClick={() => run(() => completeItem(projectId, item.id, actualEnd))}>완료 처리</button>
               </div>
@@ -447,7 +447,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
                 onClick={() => run(() => updateItem(projectId, item.id, { ...toInput(item, schedule.dependencies), anchor: schedule.base }))}>
                 {ANCHOR_LABEL[schedule.base]}에 연결</button>
             )}{' '}
-            <button type="button" disabled={busy} className={`${btn} hover:!border-[#991B1B] hover:!text-[#991B1B]`}
+            <button type="button" disabled={busy} className={`${btn} hover:!border-danger hover:!text-danger`}
               onClick={() => window.confirm(`'${item.title}'${hasChildren ? '과 하위 항목' : ''}을 삭제할까요? 이력은 남습니다.`)
                 && run(() => deleteItem(projectId, item.id))}>삭제</button>
           </div>

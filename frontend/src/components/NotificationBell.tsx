@@ -53,25 +53,25 @@ export default function NotificationBell() {
         onClick={() => setOpen((o) => !o)}
         aria-label={`알림 ${unread}건 읽지 않음`}
         aria-expanded={open}
-        className="relative rounded-lg px-2.5 py-1.5 text-lg transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+        className="relative rounded-lg px-2.5 py-1.5 text-lg transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30"
       >
         <span aria-hidden>🔔</span>
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-[#991B1B] px-1 text-center text-[11px] font-semibold leading-[18px] text-white">
+          <span className="absolute -right-0.5 -top-0.5 min-w-[18px] rounded-full bg-danger px-1 text-center text-[11px] font-semibold leading-[18px] text-white">
             {unread > 99 ? '99+' : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden whitespace-normal rounded-xl border border-[#E5E3DC] bg-white shadow-lg">
-          <div className="flex items-center justify-between border-b border-[#E5E3DC] px-4 py-2.5">
+        <div className="absolute right-0 top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden whitespace-normal rounded-xl border border-line bg-white shadow-lg">
+          <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
             <span className="text-sm font-semibold text-gray-900">알림</span>
             {unread > lawNew && (
               <button
                 type="button"
                 onClick={() => markAllRead().then(load, () => {})}
-                className="text-xs font-medium text-[#1F4E79] hover:underline"
+                className="text-xs font-medium text-brand hover:underline"
               >
                 모두 읽음
               </button>
@@ -81,7 +81,7 @@ export default function NotificationBell() {
             <button
               type="button"
               onClick={() => { setOpen(false); navigate('/inbox?kind=LAW'); }}
-              className="flex w-full gap-2 border-b border-[#E5E3DC] px-4 py-2.5 text-left text-sm font-medium text-gray-800 transition hover:bg-[#F8F7F2]"
+              className="flex w-full gap-2 border-b border-line px-4 py-2.5 text-left text-sm font-medium text-gray-800 transition hover:bg-paper"
             >
               <span aria-hidden>⚖️</span>
               <span>법령 개정 미확인 {lawNew}건</span>
@@ -90,18 +90,18 @@ export default function NotificationBell() {
           {items.length === 0 && lawNew === 0 ? (
             <p className="px-4 py-6 text-center text-sm text-gray-400">알림이 없습니다.</p>
           ) : (
-            <ul className="max-h-96 divide-y divide-[#E5E3DC] overflow-y-auto">
+            <ul className="max-h-96 divide-y divide-line overflow-y-auto">
               {items.map((n) => { const due = dueLabel(n); return (
                 <li key={n.id}>
                   <button
                     type="button"
                     onClick={() => openItem(n)}
-                    className={`block w-full px-4 py-2.5 text-left text-sm transition hover:bg-[#F8F7F2] ${
+                    className={`block w-full px-4 py-2.5 text-left text-sm transition hover:bg-paper ${
                       n.readAt ? 'text-gray-500' : 'text-gray-800'
                     }`}
                   >
                     {due && (
-                      <span className={`block text-xs font-semibold ${n.readAt ? '' : due.days <= 7 ? 'text-[#991B1B]' : 'text-[#B45309]'}`}>
+                      <span className={`block text-xs font-semibold ${n.readAt ? '' : due.days <= 7 ? 'text-danger' : 'text-warn'}`}>
                         {due.text}
                       </span>
                     )}

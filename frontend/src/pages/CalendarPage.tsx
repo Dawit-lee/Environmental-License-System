@@ -18,10 +18,10 @@ function tone(dDay: number): DotTone {
 }
 
 const TONE_DOT: Record<DotTone, string> = {
-  red: 'bg-[#991B1B]',
-  orange: 'bg-[#B45309]',
+  red: 'bg-danger',
+  orange: 'bg-warn',
   yellow: 'bg-amber-400',
-  green: 'bg-[#0F6E56]',
+  green: 'bg-ok',
   gray: 'bg-gray-300',
 };
 
@@ -84,12 +84,12 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
   };
 
   return (
-    <div className="min-h-full bg-[#F8F7F2]">
+    <div className="min-h-full bg-paper">
       <div className={projectId ? '' : 'mx-auto max-w-5xl px-4 py-8 sm:px-6'}>
-        {!projectId && <h1 className="text-2xl font-bold text-[#1F4E79]">인허가 캘린더</h1>}
+        {!projectId && <h1 className="text-2xl font-bold text-brand">인허가 캘린더</h1>}
 
         {/* Legend */}
-        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-[#E5E3DC] bg-white px-4 py-2.5 text-sm">
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-line bg-white px-4 py-2.5 text-sm">
           {(Object.keys(TONE_LABEL) as DotTone[]).map((tone) => (
             <span key={tone} className="flex items-center gap-2 text-gray-600">
               <span className={`h-2.5 w-2.5 rounded-full ${TONE_DOT[tone]}`} />
@@ -104,7 +104,7 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
             type="button"
             onClick={prevMonth}
             aria-label="이전 달"
-            className="rounded-lg px-3 py-1.5 text-lg text-gray-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+            className="rounded-lg px-3 py-1.5 text-lg text-gray-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
           >
             ‹
           </button>
@@ -115,19 +115,19 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
             type="button"
             onClick={nextMonth}
             aria-label="다음 달"
-            className="rounded-lg px-3 py-1.5 text-lg text-gray-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+            className="rounded-lg px-3 py-1.5 text-lg text-gray-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
           >
             ›
           </button>
         </div>
 
-        {error && <p className="mt-4 text-center text-sm text-[#991B1B]">{error}</p>}
+        {error && <p className="mt-4 text-center text-sm text-danger">{error}</p>}
 
         {/* Calendar grid */}
-        <div className="mt-4 overflow-hidden rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-          <div className="grid grid-cols-7 border-b border-[#E5E3DC] bg-[#F8F7F2] text-center text-xs font-medium text-gray-500">
+        <div className="mt-4 overflow-hidden rounded-xl border border-line bg-white shadow-sm">
+          <div className="grid grid-cols-7 border-b border-line bg-paper text-center text-xs font-medium text-gray-500">
             {WEEKDAYS.map((w, i) => (
-              <div key={w} className={`py-2 ${i === 0 ? 'text-[#991B1B]' : i === 6 ? 'text-[#1F4E79]' : ''}`}>
+              <div key={w} className={`py-2 ${i === 0 ? 'text-danger' : i === 6 ? 'text-brand' : ''}`}>
                 {w}
               </div>
             ))}
@@ -135,22 +135,22 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
           <div className="grid grid-cols-7">
             {cells.map((day, idx) => {
               if (day === null) {
-                return <div key={`b-${idx}`} className="min-h-[104px] border-b border-r border-[#E5E3DC] bg-[#F8F7F2]/40" />;
+                return <div key={`b-${idx}`} className="min-h-[104px] border-b border-r border-line bg-paper/40" />;
               }
               const key = dateKey(day);
               const items = byDate[key] ?? [];
               const isOpen = openDay === key;
               return (
-                <div key={key} className="relative min-h-[104px] border-b border-r border-[#E5E3DC] p-1.5">
+                <div key={key} className="relative min-h-[104px] border-b border-r border-line p-1.5">
                   <button
                     type="button"
                     onClick={() => setOpenDay(isOpen ? null : key)}
                     disabled={items.length === 0}
                     className={`flex h-full w-full flex-col items-start rounded-md p-1 text-left transition focus:outline-none ${
                       items.length > 0
-                        ? 'cursor-pointer hover:bg-[#F8F7F2] focus:ring-2 focus:ring-[#1F4E79]/30'
+                        ? 'cursor-pointer hover:bg-paper focus:ring-2 focus:ring-brand/30'
                         : 'cursor-default'
-                    } ${isOpen ? 'bg-[#1F4E79]/5 ring-2 ring-[#1F4E79]/30' : ''}`}
+                    } ${isOpen ? 'bg-brand/5 ring-2 ring-brand/30' : ''}`}
                   >
                     <span className="text-sm text-gray-700">{day}</span>
                     {items.length > 0 && (
@@ -168,7 +168,7 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
 
                   {/* Popover */}
                   {isOpen && items.length > 0 && (
-                    <div className="absolute left-1/2 top-full z-20 mt-1 w-64 -translate-x-1/2 rounded-lg border border-[#E5E3DC] bg-white p-3 shadow-lg">
+                    <div className="absolute left-1/2 top-full z-20 mt-1 w-64 -translate-x-1/2 rounded-lg border border-line bg-white p-3 shadow-lg">
                       <div className="mb-2 flex items-center justify-between">
                         <span className="text-sm font-semibold text-gray-900">{month}월 {day}일</span>
                         <button
@@ -183,7 +183,7 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
                       <ul className="space-y-2">
                         {items.map((it) => (
                           <li key={it.id}>
-                            <Link to={`/projects/${it.projectId}`} className="flex items-start gap-2 rounded text-sm hover:bg-[#F8F7F2]">
+                            <Link to={`/projects/${it.projectId}`} className="flex items-start gap-2 rounded text-sm hover:bg-paper">
                               <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
                               <div>
                                 <p className="font-medium text-gray-800">{it.title}</p>

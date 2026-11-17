@@ -13,12 +13,12 @@ import { useEscape } from './useEscape';
 // header (title + one line), sections, and a footer with a summary on the left and the action that says what it does.
 // ---------------------------------------------------------------------------
 
-export const btn = 'rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
-export const primary = 'rounded-lg bg-[#1F4E79] px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-[#173a5c] disabled:cursor-not-allowed disabled:opacity-40';
-export const segBtn = (on: boolean) => `px-3 py-1.5 text-xs ${on ? 'bg-[#1F4E79] font-semibold text-white' : 'text-gray-600 hover:bg-[#F8F7F2]'}`;
+export const btn = 'rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
+export const primary = 'rounded-lg bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40';
+export const segBtn = (on: boolean) => `px-3 py-1.5 text-xs ${on ? 'bg-brand font-semibold text-white' : 'text-gray-600 hover:bg-paper'}`;
 const cell = 'max-w-[220px] truncate px-3 py-2';
 const head = 'px-3 py-2 font-medium';
-const dateInput = 'rounded-lg border border-[#E5E3DC] bg-white px-2 py-1 text-sm tabular-nums outline-none focus:border-[#1F4E79]';
+const dateInput = 'rounded-lg border border-line bg-white px-2 py-1 text-sm tabular-nums outline-none focus:border-brand';
 const md = (d: string | null | undefined) => (d ? d.slice(2).replaceAll('-', '.') : '미정');
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -33,7 +33,7 @@ export function Modal({ title, subtitle, onClose, children, footer, wide, size }
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10">
       <div role="dialog" aria-modal="true" aria-label={title}
         className={`w-full ${WIDTH[size ?? (wide ? 'lg' : 'md')]} rounded-xl bg-white shadow-xl`}>
-        <div className="flex items-start justify-between gap-3 border-b border-[#E5E3DC] px-6 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
             {subtitle && <p className="mt-0.5 text-xs text-gray-400">{subtitle}</p>}
@@ -42,7 +42,7 @@ export function Modal({ title, subtitle, onClose, children, footer, wide, size }
         </div>
         <div className="space-y-5 px-6 py-5">{children}</div>
         {footer && (
-          <div className="flex flex-wrap items-center gap-2 rounded-b-xl border-t border-[#E5E3DC] bg-[#F8F7F2] px-6 py-3.5">{footer}</div>
+          <div className="flex flex-wrap items-center gap-2 rounded-b-xl border-t border-line bg-paper px-6 py-3.5">{footer}</div>
         )}
       </div>
     </div>
@@ -67,10 +67,10 @@ export function Section({ title, hint, children }: { title: string; hint?: React
 /** Label / number boxes in one row (기준 확정). */
 function Stats({ items }: { items: [ReactNode, string, boolean?][] }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)_minmax(0,1fr)] divide-x divide-[#E5E3DC] rounded-lg border border-[#E5E3DC]">
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)_minmax(0,1fr)] divide-x divide-line rounded-lg border border-line">
       {items.map(([value, label, bad], i) => (
         <div key={i} className="min-w-0 px-4 py-3">
-          <div className={`truncate text-base font-semibold tabular-nums ${bad ? 'text-[#991B1B]' : 'text-gray-900'}`}>{value}</div>
+          <div className={`truncate text-base font-semibold tabular-nums ${bad ? 'text-danger' : 'text-gray-900'}`}>{value}</div>
           <div className="text-xs text-gray-400">{label}</div>
         </div>
       ))}
@@ -79,7 +79,7 @@ function Stats({ items }: { items: [ReactNode, string, boolean?][] }) {
 }
 
 export const Alert = ({ error }: { error: string | null }) =>
-  error ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p> : null;
+  error ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p> : null;
 
 /** Runs one async action with busy/error state. */
 function useRun() {
@@ -150,7 +150,7 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
       <Alert error={error} />
       <div className="flex flex-wrap items-center gap-3 text-sm">
         <span className="w-16 text-gray-500">주 기준일</span>
-        <div className="inline-flex overflow-hidden rounded-lg border border-[#E5E3DC] bg-white">
+        <div className="inline-flex overflow-hidden rounded-lg border border-line bg-white">
           {(['KICKOFF', 'SUBMISSION'] as const).map((b) => (
             <button key={b} type="button" aria-pressed={schedule.base === b} disabled={busy} className={segBtn(schedule.base === b)}
               onClick={() => schedule.base !== b && run(() => setBase(projectId, b).then(onChanged))}>{ANCHOR_LABEL[b]}</button>
@@ -164,10 +164,10 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
           <tr><th className="py-1.5 pr-3 font-normal">기준일</th><th className="py-1.5 pr-3 font-normal">날짜</th>
             <th className="py-1.5 pr-3 font-normal">쓰는 항목</th><th className="py-1.5 font-normal">메모</th></tr>
         </thead>
-        <tbody className="divide-y divide-[#F0EEE8]">
+        <tbody className="divide-y divide-line-soft">
           {ANCHORS.map((a) => (
             <tr key={a}>
-              <td className={`py-1.5 pr-3 ${changed.includes(a) ? 'font-semibold text-[#1F4E79]' : 'text-gray-700'}`}>
+              <td className={`py-1.5 pr-3 ${changed.includes(a) ? 'font-semibold text-brand' : 'text-gray-700'}`}>
                 {ANCHOR_LABEL[a]}{projectDate(a) && <span className="ml-1 text-xs font-normal text-gray-400">프로젝트</span>}</td>
               <td className="py-1.5 pr-3">
                 <input type="date" aria-label={`${ANCHOR_LABEL[a]} 날짜`} value={dates[a]} className={dateInput}
@@ -178,7 +178,7 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
                 {!projectDate(a) && (
                   <input aria-label={`${ANCHOR_LABEL[a]} 메모`} maxLength={200} value={notes[a]} placeholder="메모" disabled={!dates[a]}
                     onChange={(e) => setNotes({ ...notes, [a]: e.target.value })}
-                    className="w-full min-w-32 rounded-lg border border-[#E5E3DC] px-2 py-1 text-sm outline-none focus:border-[#1F4E79] disabled:bg-[#F8F7F2]" />
+                    className="w-full min-w-32 rounded-lg border border-line px-2 py-1 text-sm outline-none focus:border-brand disabled:bg-paper" />
                 )}
               </td>
             </tr>
@@ -187,12 +187,12 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
       </table>
 
       {!!shown.length && (
-        <div className="space-y-3 rounded-lg border border-[#1F4E79] p-4">
+        <div className="space-y-3 rounded-lg border border-brand p-4">
           {shown.map((p) => {
             const d = p.from ? differenceInCalendarDays(parseISO(p.to), parseISO(p.from)) : 0;
             return (
               <p key={p.anchor} className="text-sm text-gray-700">
-                <b className="text-[#1F4E79]">{ANCHOR_LABEL[p.anchor]} {md(p.from)} → {md(p.to)}</b>
+                <b className="text-brand">{ANCHOR_LABEL[p.anchor]} {md(p.from)} → {md(p.to)}</b>
                 {d !== 0 && <span className="ml-2 text-xs text-gray-400">{d > 0 ? `${d}일 늦춤` : `${-d}일 당김`}</span>}
               </p>
             );
@@ -202,12 +202,12 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
             완료·고정 항목과 기준 계획은 그대로입니다.
           </p>
           {!!moves.length && (
-            <div className="max-h-52 overflow-y-auto rounded-lg border border-[#E5E3DC]">
+            <div className="max-h-52 overflow-y-auto rounded-lg border border-line">
               <table className="w-full whitespace-nowrap text-left text-sm">
-                <thead className="sticky top-0 bg-[#F8F7F2] text-xs text-gray-500">
+                <thead className="sticky top-0 bg-paper text-xs text-gray-500">
                   <tr><th className={head}>항목</th><th className={head}>지금</th><th className={head}>이동 후</th></tr>
                 </thead>
-                <tbody className="divide-y divide-[#F0EEE8]">
+                <tbody className="divide-y divide-line-soft">
                   {moves.map((m) => (
                     <tr key={m.id}>
                       <td className={cell} title={m.title}>{m.title}</td>
@@ -258,19 +258,19 @@ export function BaselineDialog({ projectId, schedule, onClose, onDone }: {
           <Stats items={[[`기준 ${schedule.baselineNo}차`, '지금 기준'], [`${late.length}건`, '기준보다 늦어짐', late.length > 0], [`${early}건`, '기준보다 당겨짐']]} />
           {!!late.length && (
             <Section title="늦어진 항목">
-              <div className="max-h-56 overflow-auto rounded-lg border border-[#E5E3DC]">
+              <div className="max-h-56 overflow-auto rounded-lg border border-line">
                 <table className="w-full whitespace-nowrap text-left text-sm">
-                  <thead className="sticky top-0 bg-[#F8F7F2] text-xs text-gray-500">
+                  <thead className="sticky top-0 bg-paper text-xs text-gray-500">
                     <tr><th className={head}>항목</th><th className={head}>기준</th><th className={head}>지금</th>
                       <th className={`${head} text-right`}>차이</th><th className={head}>사유</th></tr>
                   </thead>
-                  <tbody className="divide-y divide-[#F0EEE8]">
+                  <tbody className="divide-y divide-line-soft">
                     {late.map((i) => (
                       <tr key={i.id}>
                         <td className={cell} title={i.title}>{i.title}</td>
                         <td className="px-3 py-2 tabular-nums text-gray-400">{md(i.baselineEnd)}</td>
                         <td className="px-3 py-2 tabular-nums">{md(i.endDate)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-[#991B1B]">+{i.slipDays}일</td>
+                        <td className="px-3 py-2 text-right tabular-nums text-danger">+{i.slipDays}일</td>
                         <td className={cell} title={i.delayReason ?? ''}>{i.delayReason ?? '—'}</td>
                       </tr>
                     ))}
@@ -284,14 +284,14 @@ export function BaselineDialog({ projectId, schedule, onClose, onDone }: {
           <Section title="재확정 사유" hint="필수">
             <input aria-label="재확정 사유" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)}
               placeholder="예: 발주처 과업 변경 협의 결과 반영"
-              className="w-full rounded-lg border border-[#E5E3DC] px-3 py-2 text-sm outline-none focus:border-[#1F4E79]" />
+              className="w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand" />
           </Section>
         </>
       ) : (
         <>
           <Stats items={[[`${items.length}건`, '항목'], [first ? `${md(first)} ~ ${md(last)}` : '—', '기간'], [`${undated}건`, '날짜 미정', undated > 0]]} />
           {undated > 0 && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm leading-relaxed text-[#991B1B]">
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm leading-relaxed text-danger">
               날짜 미정 {undated}건은 기준 날짜 없이 저장됩니다.
               {!!missing.length && <><br />{missing.join('·')}이 비어 있어서입니다. [기준일]에서 넣으면 계산됩니다.</>}
             </p>
@@ -334,19 +334,19 @@ export function DelayTable({ projectId, baselined }: { projectId: number; baseli
         <button type="button" className={btn} disabled={!rows.length} onClick={copy}>{copied ? '복사됨' : '주간보고용 복사'}</button>
       </div>
       {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-[#E5E3DC] bg-white px-6 py-12 text-center text-sm text-gray-500">
+        <p className="rounded-xl border border-dashed border-line bg-white px-6 py-12 text-center text-sm text-gray-500">
           {baselined ? '지연된 항목이 없습니다.' : '기준을 확정하면 기준보다 늦어진 항목이 여기에 나옵니다. 계획 종료일이 지난 항목은 간트의 "기한 경과"로 봅니다.'}</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white">
+        <div className="overflow-x-auto rounded-xl border border-line bg-white">
           <table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+            <thead className="bg-paper text-xs text-gray-500">
               <tr>
                 <th className={head}>분야</th><th className={head}>항목</th><th className={head}>담당</th>
                 <th className={head}>기준 종료</th><th className={head}>현재 종료</th><th className={head}>실적</th>
                 <th className={`${head} text-right`}>지연</th><th className={head}>사유</th><th className={`${head} text-right`}>후행</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E3DC]">
+            <tbody className="divide-y divide-line">
               {rows.map((r) => (
                 <tr key={r.id}>
                   <td className={cell}>{r.disciplineName ?? '공통'}</td>
@@ -355,7 +355,7 @@ export function DelayTable({ projectId, baselined }: { projectId: number; baseli
                   <td className="px-3 py-2 text-gray-500">{r.baselineEnd ?? '—'}</td>
                   <td className="px-3 py-2">{r.endDate}</td>
                   <td className="px-3 py-2 text-gray-500">{r.actualEnd ?? '—'}</td>
-                  <td className="px-3 py-2 text-right text-[#991B1B]">+{r.delayDays}일</td>
+                  <td className="px-3 py-2 text-right text-danger">+{r.delayDays}일</td>
                   <td className={cell} title={r.reason ?? ''}>{r.reason ?? '—'}</td>
                   <td className="px-3 py-2 text-right">{r.successors || '—'}</td>
                 </tr>
@@ -399,7 +399,7 @@ export function resolveTemplateItem(i: Pick<TemplateItem, 'kind' | 'offsetDays' 
 
 function KindMark({ kind, faded }: { kind: TemplateItem['kind']; faded?: boolean }) {
   return kind === 'MILESTONE'
-    ? <span className={`inline-block size-2 rotate-45 rounded-[1px] bg-[#1F4E79] ${faded ? 'opacity-25' : ''}`} />
+    ? <span className={`inline-block size-2 rotate-45 rounded-[1px] bg-brand ${faded ? 'opacity-25' : ''}`} />
     : <span className={`inline-block h-1.5 w-3 rounded-sm bg-[#8FA9C2] ${faded ? 'opacity-25' : ''}`} />;
 }
 
@@ -432,18 +432,18 @@ function MiniTimeline({ lanes, marks, relative }: { lanes: Lane[]; marks: { labe
   // a tick label right under a base-date label would be hidden by it
   const near = (s: string) => marks.some((m) => Math.abs(x(s) - x(m.date)) < 0.15);
   return (
-    <div className="overflow-x-auto rounded-lg border border-[#E5E3DC]">
+    <div className="overflow-x-auto rounded-lg border border-line">
       <div className="relative min-w-[600px] pb-1.5">
         <div className="pointer-events-none absolute inset-y-0 left-28 right-4">
           {ticks.map(([s]) => <div key={s} className="absolute bottom-1.5 top-6 border-l border-dashed border-[#EEECE6]" style={{ left: pct(s) }} />)}
           {marks.map((m) => (
-            <div key={m.label} className="absolute bottom-1.5 top-0 border-l-[1.5px] border-[#1F4E79]" style={{ left: pct(m.date) }}>
-              <span className={`absolute top-1.5 whitespace-nowrap bg-white px-1 text-[11px] font-semibold text-[#1F4E79] ${x(m.date) > 0.7 ? 'right-1' : 'left-1'}`}>
+            <div key={m.label} className="absolute bottom-1.5 top-0 border-l-[1.5px] border-brand" style={{ left: pct(m.date) }}>
+              <span className={`absolute top-1.5 whitespace-nowrap bg-white px-1 text-[11px] font-semibold text-brand ${x(m.date) > 0.7 ? 'right-1' : 'left-1'}`}>
                 {m.label}{relative ? '' : ` ${md(m.date)}`}</span>
             </div>
           ))}
         </div>
-        <div className="relative ml-28 mr-4 h-6 border-b border-[#E5E3DC]">
+        <div className="relative ml-28 mr-4 h-6 border-b border-line">
           {ticks.filter(([s]) => !near(s)).map(([s, l]) => <span key={s} className="absolute top-1.5 -translate-x-1/2 whitespace-nowrap text-[11px] tabular-nums text-gray-400" style={{ left: pct(s) }}>{l}</span>)}
         </div>
         {lanes.map((l) => (
@@ -452,7 +452,7 @@ function MiniTimeline({ lanes, marks, relative }: { lanes: Lane[]; marks: { labe
             <div className="relative mr-4 h-full flex-1">
               {l.items.map((i) => i.kind === 'MILESTONE'
                 ? <span key={i.id} title={`${i.title}${relative ? '' : ` ${md(i.end)}`}`}
-                  className={`absolute top-1/2 size-[9px] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[1px] bg-[#1F4E79] ${i.off ? 'opacity-20' : ''}`}
+                  className={`absolute top-1/2 size-[9px] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[1px] bg-brand ${i.off ? 'opacity-20' : ''}`}
                   style={{ left: pct(i.end) }} />
                 : <span key={i.id} title={i.title}
                   className={`absolute top-1/2 h-2 -translate-y-1/2 rounded-sm bg-[#8FA9C2] ${i.off ? 'opacity-20' : ''}`}
@@ -536,9 +536,9 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
             const sel = t.id === chosen;
             return (
               <button key={t.id} type="button" role="radio" aria-checked={sel} onClick={() => choose(t)}
-                className={`grid gap-1.5 rounded-xl border bg-white px-4 py-3.5 text-left ${sel ? 'border-[#1F4E79] ring-1 ring-[#1F4E79]' : 'border-[#E5E3DC] hover:border-[#B9C6D3]'}`}>
+                className={`grid gap-1.5 rounded-xl border bg-white px-4 py-3.5 text-left ${sel ? 'border-brand ring-1 ring-brand' : 'border-line hover:border-[#B9C6D3]'}`}>
                 <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <span className={`size-3.5 shrink-0 rounded-full ${sel ? 'border-4 border-[#1F4E79]' : 'border-[1.5px] border-gray-300'}`} />{t.name}
+                  <span className={`size-3.5 shrink-0 rounded-full ${sel ? 'border-4 border-brand' : 'border-[1.5px] border-gray-300'}`} />{t.name}
                 </span>
                 {TEMPLATE_USE[t.code ?? ''] && (
                   <span className="text-xs leading-relaxed text-gray-500">{TEMPLATE_USE[t.code ?? ''].map((l) => <span key={l} className="block">{l}</span>)}</span>
@@ -570,7 +570,7 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
           </Section>
 
           {schedule.items.length > 0 && (
-            <p className="rounded-lg bg-[#F8F7F2] px-3.5 py-2.5 text-xs leading-relaxed text-gray-600">
+            <p className="rounded-lg bg-paper px-3.5 py-2.5 text-xs leading-relaxed text-gray-600">
               이 프로젝트에 이미 항목 {schedule.items.length}건이 있습니다.<br />기존 항목은 그대로 두고 아래 항목만 더합니다.
               {items.some((i) => existing.has(i.title.trim())) && <><br />이름이 같은 항목은 빼 두었습니다. 넣으려면 다시 체크하세요.</>}
             </p>
@@ -578,7 +578,7 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
 
           <Section title="일정 미리보기">
             {missing.length && !relative
-              ? <p className="rounded-lg border border-[#E5E3DC] px-4 py-6 text-center text-xs text-gray-400">{missing.map((a) => ANCHOR_LABEL[a]).join('·')}을 넣으면 일정 막대가 보입니다.</p>
+              ? <p className="rounded-lg border border-line px-4 py-6 text-center text-xs text-gray-400">{missing.map((a) => ANCHOR_LABEL[a]).join('·')}을 넣으면 일정 막대가 보입니다.</p>
               : <MiniTimeline relative={relative}
                 marks={anchors.map((a) => ({ label: SHORT[a], date: tlDates[a] }))}
                 lanes={groups.map((g) => ({
@@ -588,13 +588,13 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
           </Section>
 
           <Section title="추가할 항목" hint="체크를 풀면 빠집니다">
-            <div className="max-h-80 overflow-auto rounded-lg border border-[#E5E3DC]">
+            <div className="max-h-80 overflow-auto rounded-lg border border-line">
               {groups.map((g) => {
                 const gi = items.filter((i) => i.disciplineCode === g);
                 const n = gi.filter((i) => !off.has(i.id)).length;
                 return (
                   <div key={g ?? ''}>
-                    <label className="sticky top-0 z-10 flex items-center gap-2.5 border-b border-[#E5E3DC] bg-[#F8F7F2] px-3.5 py-2 text-xs font-semibold text-gray-700">
+                    <label className="sticky top-0 z-10 flex items-center gap-2.5 border-b border-line bg-paper px-3.5 py-2 text-xs font-semibold text-gray-700">
                       <input type="checkbox" checked={n === gi.length} aria-label={`${discName(g)} 전체`}
                         ref={(el) => { if (el) el.indeterminate = n > 0 && n < gi.length; }}
                         onChange={(e) => toggle(gi.map((i) => i.id), e.target.checked)} />
@@ -605,7 +605,7 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
                       const r = resolveTemplateItem(i, dates[i.anchor]);
                       const out = off.has(i.id);
                       return (
-                        <label key={i.id} className={`grid grid-cols-[16px_14px_minmax(0,1fr)_auto] items-center gap-2.5 whitespace-nowrap border-b border-[#F0EEE8] px-3.5 py-1.5 text-sm last:border-b-0 sm:grid-cols-[16px_14px_minmax(0,1fr)_150px_64px] ${out ? 'text-gray-400' : 'text-gray-800'}`}>
+                        <label key={i.id} className={`grid grid-cols-[16px_14px_minmax(0,1fr)_auto] items-center gap-2.5 whitespace-nowrap border-b border-line-soft px-3.5 py-1.5 text-sm last:border-b-0 sm:grid-cols-[16px_14px_minmax(0,1fr)_150px_64px] ${out ? 'text-gray-400' : 'text-gray-800'}`}>
                           <input type="checkbox" checked={!out} onChange={(e) => toggle([i.id], e.target.checked)} />
                           <span className="flex justify-center"><KindMark kind={i.kind} faded={out} /></span>
                           <span className="truncate" title={i.title}>
@@ -662,25 +662,25 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
         <button type="button" className={primary} disabled={busy || !ok} onClick={add}>{ok ? `${ok}건 추가` : '추가'}</button>
       </>}>
       <div>
-        <div className="grid grid-cols-6 divide-x divide-[#E5E3DC] rounded-t-lg border border-b-0 border-[#E5E3DC] bg-[#F8F7F2] text-xs text-gray-500">
+        <div className="grid grid-cols-6 divide-x divide-line rounded-t-lg border border-b-0 border-line bg-paper text-xs text-gray-500">
           {PASTE_COLS.map((c) => <span key={c} className="truncate px-2.5 py-1.5">{c}</span>)}
         </div>
         <textarea aria-label="붙여 넣을 표" rows={6} value={text} spellCheck={false} onChange={(e) => setText(e.target.value)}
-          className="block w-full resize-y whitespace-pre rounded-b-lg border border-[#E5E3DC] px-3 py-2 font-mono text-xs leading-relaxed outline-none focus:border-[#1F4E79]"
+          className="block w-full resize-y whitespace-pre rounded-b-lg border border-line px-3 py-2 font-mono text-xs leading-relaxed outline-none focus:border-brand"
           placeholder={'공정·기계\tP&ID 2차\t2027-03-02\t2027-04-13\t이가온\t15'} />
       </div>
       <Alert error={error} />
       {result && (
         <Section title="미리보기" hint={`${result.rows.length}행 · ${result.errors ? `오류 ${result.errors}행` : '모두 정상'}`}>
-          <div className="max-h-72 overflow-auto rounded-lg border border-[#E5E3DC]">
+          <div className="max-h-72 overflow-auto rounded-lg border border-line">
             <table className="w-full whitespace-nowrap text-left text-sm">
-              <thead className="sticky top-0 bg-[#F8F7F2] text-xs text-gray-500">
+              <thead className="sticky top-0 bg-paper text-xs text-gray-500">
                 <tr>
                   <th className={`${head} text-right`}>행</th><th className={head}>분야</th><th className={head}>작업</th><th className={head}>시작</th>
                   <th className={head}>종료</th><th className={head}>담당</th><th className={`${head} text-right`}>보할</th><th className={head}>확인</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#F0EEE8]">
+              <tbody className="divide-y divide-line-soft">
                 {result.rows.map((r) => (
                   <tr key={r.line} className={r.error ? 'bg-red-50' : ''}>
                     <td className="px-3 py-2 text-right tabular-nums text-gray-400">{r.line}</td>
@@ -690,7 +690,7 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
                     <td className="px-3 py-2 tabular-nums">{r.end ? md(r.end) : ''}</td>
                     <td className={cell}>{r.owner}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.weight ?? ''}</td>
-                    <td className={`px-3 py-2 ${r.error ? 'text-[#991B1B]' : 'text-gray-400'}`}>{r.error ?? '정상'}</td>
+                    <td className={`px-3 py-2 ${r.error ? 'text-danger' : 'text-gray-400'}`}>{r.error ?? '정상'}</td>
                   </tr>
                 ))}
               </tbody>

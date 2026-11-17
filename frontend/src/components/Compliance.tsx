@@ -24,11 +24,11 @@ interface Month { month: string; due: number; onTime: number; percent: number | 
 interface PermitRow { permitItemId: number | null; name: string | null; due: number; onTime: number; late: number; percent: number | null }
 interface ProjectSummary { from: string; to: string; operations: boolean; total: Metrics; permits: PermitRow[] }
 
-const card = 'rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm';
+const card = 'rounded-xl border border-line bg-white p-5 shadow-sm';
 const th = 'px-3 py-2.5 font-medium';
 const td = 'px-3 py-2.5';
 const pct = (p: number | null) => (p === null ? '해당 없음' : `${p}%`);
-const alarm = (n: number) => (n > 0 ? 'text-[#991B1B]' : 'text-gray-700'); // colour only for 지연·초과
+const alarm = (n: number) => (n > 0 ? 'text-danger' : 'text-gray-700'); // colour only for 지연·초과
 const query = (o: Record<string, string | number | null>) => {
   const q = Object.entries(o).filter(([, v]) => v !== null && v !== '').map(([k, v]) => `${k}=${v}`).join('&');
   return q ? `?${q}` : '';
@@ -50,7 +50,7 @@ function MetricCards({ m, company, operations }: { m: Metrics; company: boolean;
   return (
     <>
       <div className={`mt-4 grid grid-cols-2 gap-4 ${operations ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-        <Metric label="기한 내 이행률" value={pct(t.percent)} tone={t.percent === null ? 'text-gray-400' : 'text-[#1F4E79]'}
+        <Metric label="기한 내 이행률" value={pct(t.percent)} tone={t.percent === null ? 'text-gray-400' : 'text-brand'}
           sub={t.percent === null ? '기간 안에 기한이 지난 업무 없음' : `기한 내 완료 ${t.onTime}건 / 기한 도래 ${t.due}건`} />
         <Metric label="기한 경과" value={t.overdue} tone={alarm(t.overdue)} sub="열린 업무 중 기한이 지난 것" />
         {operations && <Metric label="미조치 초과" value={t.openCorrective} tone={alarm(t.openCorrective)} sub="열린 조치 업무" />}
@@ -72,7 +72,7 @@ function MetricCards({ m, company, operations }: { m: Metrics; company: boolean;
 }
 
 function Period({ from, to, onChange }: { from: string; to: string; onChange: (from: string, to: string) => void }) {
-  const input = 'rounded-md border border-[#E5E3DC] bg-white px-2 py-1 text-sm text-gray-700';
+  const input = 'rounded-md border border-line bg-white px-2 py-1 text-sm text-gray-700';
   return (
     <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-gray-600">
       기간
@@ -90,7 +90,7 @@ function MonthlyTrend({ months }: { months: Month[] }) {
   return (
     <div className="mt-4 overflow-x-auto">
       <div className="min-w-[320px]">
-        <div className="flex h-40 items-end gap-1.5 border-b border-[#E5E3DC]">
+        <div className="flex h-40 items-end gap-1.5 border-b border-line">
           {months.map((m) => (
             <div key={m.month} className="flex h-full min-w-0 flex-1 flex-col justify-end"
               title={`${m.month} — ${m.percent === null ? '기한이 지난 업무 없음' : `기한 내 완료 ${m.onTime}건 / 기한 도래 ${m.due}건 (${m.percent}%)`}`}>
@@ -128,7 +128,7 @@ export function CompanyCompliance({ stageOf }: { stageOf: (projectId: number) =>
     );
   }, [filter]);
 
-  if (!data) return error ? <p className="mt-6 text-sm text-[#991B1B]">{error}</p> : null;
+  if (!data) return error ? <p className="mt-6 text-sm text-danger">{error}</p> : null;
   return (
     <section className="mt-6">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -137,7 +137,7 @@ export function CompanyCompliance({ stageOf }: { stageOf: (projectId: number) =>
           집계 범위: {data.scope === 'COMPANY' ? `회사 전체 (프로젝트 ${data.projectCount}개)` : `내 프로젝트 ${data.projectCount}개`}
         </span>
         <div className="ml-auto flex flex-wrap items-center gap-3">
-          <select aria-label="팀" className="rounded-md border border-[#E5E3DC] bg-white px-2 py-1 text-sm text-gray-700"
+          <select aria-label="팀" className="rounded-md border border-line bg-white px-2 py-1 text-sm text-gray-700"
             value={filter.teamId ?? ''} onChange={(e) => setFilter({ ...filter, teamId: e.target.value ? Number(e.target.value) : null })}>
             <option value="">전체 팀</option>
             {data.teams.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
@@ -145,7 +145,7 @@ export function CompanyCompliance({ stageOf }: { stageOf: (projectId: number) =>
           <Period from={data.from} to={data.to} onChange={(from, to) => setFilter({ ...filter, from, to })} />
         </div>
       </div>
-      {error && <p className="mt-2 text-sm text-[#991B1B]">{error}</p>}
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
       <MetricCards m={data.total} company operations={data.operations} />
 
       <div className="mt-6 space-y-6">
@@ -153,7 +153,7 @@ export function CompanyCompliance({ stageOf }: { stageOf: (projectId: number) =>
           <h3 className="font-semibold text-gray-900">프로젝트별 현황</h3>
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[640px] whitespace-nowrap text-left text-sm">
-              <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+              <thead className="bg-paper text-xs text-gray-500">
                 <tr>
                   <th className={th}>프로젝트</th>
                   <th className={th}>팀</th>
@@ -165,14 +165,14 @@ export function CompanyCompliance({ stageOf }: { stageOf: (projectId: number) =>
                   <th className={`${th} text-right`}>현장 반영</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DC]">
+              <tbody className="divide-y divide-line">
                 {data.projects.length === 0 && (
                   <tr><td colSpan={data.operations ? 8 : 7} className="px-3 py-6 text-center text-gray-400">집계할 프로젝트가 없습니다.</td></tr>
                 )}
                 {data.projects.map((p) => {
                   const t = p.metrics.tasks;
                   return (
-                    <tr key={p.projectId} tabIndex={0} className="cursor-pointer transition hover:bg-[#F8F7F2]"
+                    <tr key={p.projectId} tabIndex={0} className="cursor-pointer transition hover:bg-paper"
                       onClick={() => navigate(`/projects/${p.projectId}`)}
                       onKeyDown={(e) => e.key === 'Enter' && navigate(`/projects/${p.projectId}`)}>
                       <td className={`${td} w-full max-w-0 truncate font-medium text-gray-800`} title={p.name}>{p.name}</td>
@@ -225,7 +225,7 @@ export function ProjectCompliance({ projectId }: { projectId: number }) {
         <h3 className="font-semibold text-gray-900">인허가 항목별 이행률</h3>
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-[480px] whitespace-nowrap text-left text-sm">
-            <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+            <thead className="bg-paper text-xs text-gray-500">
               <tr>
                 <th className={th}>인허가 항목</th>
                 <th className={`${th} text-right`}>기한 도래</th>
@@ -234,7 +234,7 @@ export function ProjectCompliance({ projectId }: { projectId: number }) {
                 <th className={`${th} text-right`}>이행률</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E3DC]">
+            <tbody className="divide-y divide-line">
               {data.permits.length === 0 && (
                 <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">기간 안에 기한이 지난 업무가 없습니다.</td></tr>
               )}

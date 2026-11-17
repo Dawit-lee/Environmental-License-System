@@ -97,7 +97,7 @@ export function fromGantt(task: ITask, kind: ScheduleItem['kind']): { startDate:
 }
 
 const DelayCell = ({ row }: { row: ITask }) =>
-  row.delayDays > 0 ? <span className="text-[#991B1B]">+{row.delayDays}일</span> : null;
+  row.delayDays > 0 ? <span className="text-danger">+{row.delayDays}일</span> : null;
 
 /** Bar content: the title, and 기준 대비 연기 as plain text just right of the bar. */
 const Bar = ({ data }: { data: ITask }) => {
@@ -202,7 +202,7 @@ export default function ScheduleGantt({ items, dependencies, disciplines, events
   };
 
   return (
-    <div className="schedule-gantt overflow-hidden rounded-xl border border-[#E5E3DC] bg-white">
+    <div className="schedule-gantt overflow-hidden rounded-xl border border-line bg-white">
       <style>{TODAY_CSS}</style>
       <Willow fonts={false}>
         <Gantt

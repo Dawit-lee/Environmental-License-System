@@ -51,15 +51,15 @@ export default function ProjectMembers({ projectId }: { projectId: number }) {
 
   return (
     <section className="mt-8 max-w-5xl">
-      <h2 className="text-lg font-bold text-[#1F4E79]">멤버와 권한</h2>
+      <h2 className="text-lg font-bold text-brand">멤버와 권한</h2>
       <p className="mt-1 text-sm text-gray-500">
         {admin ? '멤버를 추가하고 승인 권한을 정합니다.' : '프로젝트 어드민만 바꿀 수 있습니다.'}
       </p>
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+      <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
         <table className="w-full min-w-[720px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-gray-500">
             <tr>
               <th className="px-4 py-3 font-medium">이름</th>
               <th className="px-4 py-3 font-medium">이메일</th>
@@ -69,7 +69,7 @@ export default function ProjectMembers({ projectId }: { projectId: number }) {
               <th className="px-4 py-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#E5E3DC]">
+          <tbody className="divide-y divide-line">
             {members.map((m) => (
               <tr key={m.userId}>
                 <td className="px-4 py-2.5 font-medium text-gray-800">{m.name}</td>
@@ -82,7 +82,7 @@ export default function ProjectMembers({ projectId }: { projectId: number }) {
                       checked={m[f.key]}
                       disabled={!admin}
                       onChange={(e) => run(() => api(`${base}/${m.userId}`, { method: 'PATCH', body: JSON.stringify({ [f.key]: e.target.checked }) }))}
-                      className="h-4 w-4 accent-[#1F4E79]"
+                      className="h-4 w-4 accent-brand"
                     />
                   </td>
                 ))}
@@ -91,7 +91,7 @@ export default function ProjectMembers({ projectId }: { projectId: number }) {
                     <button
                       type="button"
                       onClick={() => window.confirm(`${m.name}을(를) 멤버에서 뺄까요?`) && run(() => api(`${base}/${m.userId}`, { method: 'DELETE' }))}
-                      className="text-xs text-gray-500 hover:text-[#991B1B]"
+                      className="text-xs text-gray-500 hover:text-danger"
                     >
                       빼기
                     </button>
@@ -112,12 +112,12 @@ export default function ProjectMembers({ projectId }: { projectId: number }) {
           }}
         >
           <select aria-label="추가할 사용자" value={adding} onChange={(e) => setAdding(e.target.value)}
-            className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm">
+            className="rounded-lg border border-line bg-white px-3 py-1.5 text-sm">
             <option value="">같은 회사 사용자 선택</option>
             {candidates.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
           </select>
           <button type="submit" disabled={!adding}
-            className="rounded-lg bg-[#1F4E79] px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-[#173a5c] disabled:opacity-40">
+            className="rounded-lg bg-brand px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-40">
             멤버 추가
           </button>
         </form>
