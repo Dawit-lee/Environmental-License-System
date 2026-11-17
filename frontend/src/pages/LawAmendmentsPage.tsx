@@ -160,7 +160,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
                     className={`cursor-pointer transition ${i.id === selectedId ? 'bg-[#1F4E79]/5' : 'hover:bg-[#F8F7F2]'}`}>
                     <td className="px-3 py-2.5"><Badge {...LEVEL[i.level]} /></td>
                     <td className="px-3 py-2.5">
-                      <span className="font-medium text-gray-800">{i.lawName}</span>
+                      <button type="button" className="text-left font-medium text-gray-800">{i.lawName}</button>
                       <span className="ml-2 text-xs text-gray-500">{i.revisionType} · 공포 {i.promulgatedOn ?? '-'}</span>
                     </td>
                     <td className="px-3 py-2.5 text-gray-700">

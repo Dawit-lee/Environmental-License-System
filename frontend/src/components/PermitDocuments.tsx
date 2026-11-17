@@ -83,7 +83,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
         if (!window.confirm(`${(e as Error).message}\n\n다시 추출할까요?`)) return;
         res = await startExtraction(permit.projectId, permit.id, doc.id, true);
       }
-      setRuns((r) => ({ ...r, [doc.id]: { id: res.runId, status: 'RUNNING', errorMessage: null, model: null,
+      setRuns((r) => ({ ...r, [doc.id]: { id: res.runId, status: 'RUNNING', errorMessage: null, provider: null, model: null,
         inputRef: { document_id: doc.id, permit_item_id: permit.id, sha256: doc.sha256,
           prev_document_id: doc.supersedesDocumentId ?? undefined }, startedAt: '', finishedAt: null } }));
     } catch (e) {

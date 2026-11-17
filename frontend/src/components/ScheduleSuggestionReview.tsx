@@ -108,7 +108,7 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
           </thead>
           <tbody className="divide-y divide-[#E5E3DC]">
             {rows.map((s) => {
-              const p = effective(s) as ScheduleRowPayload;
+              const p = effective(s);
               const open = s.status === 'PENDING' || s.status === 'SUBMITTED';
               const similar = p.matchId != null && !p.createNew;
               const isEditing = editing?.id === s.id;

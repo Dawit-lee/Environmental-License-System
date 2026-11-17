@@ -5,6 +5,7 @@ import PermitDocuments from './PermitDocuments';
 import PermitLawLinks from './PermitLawLinks';
 import PermitVersions from './PermitVersions';
 import { Help } from './Onboarding';
+import { useEscape } from './useEscape';
 
 // ---------------------------------------------------------------------------
 // PermitDetailDrawer — slide-in panel (480px) showing a single permit's
@@ -69,6 +70,7 @@ export default function PermitDetailDrawer({
   }, [permit]);
 
   const open = permit !== null;
+  useEscape(onClose, open);
 
   return (
     <div
