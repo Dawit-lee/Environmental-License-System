@@ -333,7 +333,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       acc[cat] = derived.filter((p) => p.category === cat).length;
       return acc;
     }, {});
-    return { all: derived.length, ...byCat };
+    return { all: derived.length, ...byCat } as Record<RuleCategory | 'all', number>;
   }, [derived]);
 
   const visiblePermits =

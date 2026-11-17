@@ -176,7 +176,7 @@ function SummaryCard({ label, value, tone }: { label: ReactNode; value: number; 
   return (
     <div className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm transition hover:shadow-md">
       <div className={`text-3xl font-bold ${tone}`}>{value}</div>
-      <div className="mt-1 truncate text-sm text-gray-500" title={label}>{label}</div>
+      <div className="mt-1 truncate text-sm text-gray-500" title={typeof label === 'string' ? label : undefined}>{label}</div>
     </div>
   );
 }

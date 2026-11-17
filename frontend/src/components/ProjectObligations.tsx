@@ -145,7 +145,7 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
                 <tr key={r.key} onClick={() => setOpenKey(r.key)} className="cursor-pointer hover:bg-[#F8F7F2]">
                   <td className="px-4 py-2.5 text-gray-600">{r.corrective ? '조치' : '의무'}</td>
                   <td className="max-w-[320px] px-4 py-2.5">
-                    <span className="block truncate font-medium text-gray-800" title={r.title}>{r.title}</span>
+                    <button type="button" className="block max-w-full truncate text-left font-medium text-gray-800" title={r.title}>{r.title}</button>
                   </td>
                   <td className="max-w-[220px] px-4 py-2.5">
                     {permit ? (

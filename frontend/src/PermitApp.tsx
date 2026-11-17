@@ -1,26 +1,28 @@
-import { useState, type MouseEvent } from 'react';
+import { lazy, useState, type MouseEvent } from 'react';
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router';
-import DashboardPage from './pages/DashboardPage';
-import ProjectListPage from './pages/ProjectListPage';
-import NewProjectPage from './pages/NewProjectPage';
-import ProjectDetailPage from './pages/ProjectDetailPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
-import JoinRequestsPage from './pages/JoinRequestsPage';
-import OrgPage from './pages/OrgPage';
-import InboxPage from './pages/InboxPage';
-import CompanyCalendarPage from './pages/CompanyCalendarPage';
-import LegacyRedirect from './pages/LegacyRedirect';
 import SharePage from './pages/SharePage';
-import GuidePage from './pages/GuidePage';
 import { setOnboardingDismissed } from './components/Onboarding';
 import NotificationBell from './components/NotificationBell';
+import { RouteBoundary } from './components/ErrorBoundary';
 import { logout, type Session } from './api/auth';
 import { isMaster } from './api/client';
 
+// routed screens load on demand to keep the first chunk small
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const ProjectListPage = lazy(() => import('./pages/ProjectListPage'));
+const NewProjectPage = lazy(() => import('./pages/NewProjectPage'));
+const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage'));
+const JoinRequestsPage = lazy(() => import('./pages/JoinRequestsPage'));
+const OrgPage = lazy(() => import('./pages/OrgPage'));
+const InboxPage = lazy(() => import('./pages/InboxPage'));
+const CompanyCalendarPage = lazy(() => import('./pages/CompanyCalendarPage'));
+const LegacyRedirect = lazy(() => import('./pages/LegacyRedirect'));
+const GuidePage = lazy(() => import('./pages/GuidePage'));
+
 // ---------------------------------------------------------------------------
-// PermitApp — shell for the permit management UI. Login is real (JWT session in
-// localStorage); the routed screens still use mock data.
+// PermitApp — shell for the permit management UI (JWT session in localStorage).
 // ---------------------------------------------------------------------------
 
 const STORAGE_KEY = 'permit_session';
@@ -145,6 +147,7 @@ export default function PermitApp() {
             </header>
 
             <main className="flex-1">
+              <RouteBoundary>
               <Routes>
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
@@ -161,6 +164,7 @@ export default function PermitApp() {
                 <Route path="/guide" element={<GuidePage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
+              </RouteBoundary>
             </main>
           </div>
         </div>

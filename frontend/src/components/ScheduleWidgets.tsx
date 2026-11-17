@@ -87,8 +87,8 @@ export function ScheduleSummary({ projectId }: { projectId: number }) {
     const now = format(new Date(), "yyyy-MM-dd'T'HH:mm");
     getProjectEvents(projectId).then((l) => setNext(l.find((e) => e.endsAt.slice(0, 16) >= now) ?? null), () => {});
   }, [projectId]);
-  const milestones = items.filter((i) => i.kind === 'MILESTONE' && !i.actualEnd && i.endDate >= today)
-    .sort((a, b) => a.endDate.localeCompare(b.endDate)).slice(0, 3);
+  const milestones = items.filter((i) => i.kind === 'MILESTONE' && !i.actualEnd && i.endDate != null && i.endDate >= today)
+    .sort((a, b) => a.endDate!.localeCompare(b.endDate!)).slice(0, 3);
   const delayed = items.filter((i) => i.status === 'DELAYED').length;
   const base = `/projects/${projectId}/schedule`;
   return (

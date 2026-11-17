@@ -14,6 +14,7 @@ import ReadOnlySchedule from './ReadOnlySchedule';
 import ShareDialog from './ShareDialog';
 import { usePrompt } from './PromptDialog';
 import { EmptyState, HELP, Help, Tip, primaryBtn, secondaryBtn } from './Onboarding';
+import { useEscape } from './useEscape';
 
 // the Gantt library is large; only this tab loads it
 const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
@@ -253,6 +254,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
   onClose: () => void;
   onSaved: () => void;
 }) {
+  useEscape(onClose);
   const dateOf = (a: Anchor) => schedule.anchors.find((x) => x.anchor === a)?.date ?? null;
   // a new item is relative to the main base date when that date is known (설계 §2.3)
   const [form, setForm] = useState<ItemInput>(() => item ? { ...toInput(item, schedule.dependencies), reason: '' } : {
