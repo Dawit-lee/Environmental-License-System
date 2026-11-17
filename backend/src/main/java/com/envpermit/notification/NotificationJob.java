@@ -118,8 +118,9 @@ public class NotificationJob {
     }
 
     private static String link(DeadlineEvent e, String fallback) {
-        return SCHEDULE_ITEM.equals(e.getKind()) || Deadlines.PROJECT_EVENT.equals(e.getKind())
-                ? "/projects/" + e.getProjectId() + "/schedule" : fallback;
+        String schedule = "/projects/" + e.getProjectId() + "/schedule";
+        if (SCHEDULE_ITEM.equals(e.getKind())) return schedule + "?item=" + e.getTargetId(); // the tab opens that item
+        return Deadlines.PROJECT_EVENT.equals(e.getKind()) ? schedule : fallback;
     }
 
     /**

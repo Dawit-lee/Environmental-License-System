@@ -46,7 +46,9 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
   useEffect(() => {
     setError(null);
     getDeadlines(ymd(new Date(year, month - 1, 1)), ymd(new Date(year, month, 0)))
-      .then((l) => setDeadlines(projectId ? l.filter((d) => d.projectId === projectId) : l), (e: Error) => setError(e.message));
+      // 인허가 기한 only: schedule items and events have the 달력 view next to this one
+      .then((l) => setDeadlines(l.filter((d) => (!projectId || d.projectId === projectId)
+        && d.kind !== 'SCHEDULE_ITEM' && d.kind !== 'PROJECT_EVENT')), (e: Error) => setError(e.message));
   }, [year, month, projectId]);
 
   const byDate = useMemo(() => {

@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import {
   ANCHOR_LABEL, ANCHORS, completeItem, reopenItem, confirmBaseline, createItem, deleteItem, getDisciplines, getSchedule,
@@ -52,6 +53,15 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
     const t = new URLSearchParams(window.location.search).get('tool');
     return t === 'base' || t === 'template' || t === 'paste' || t === 'share' ? t : null;
   });
+
+  // ?item=<id> (a notification link): open that item once it is loaded
+  const [params] = useSearchParams();
+  const openId = Number(params.get('item')) || 0;
+  const opened = useRef(0);
+  useEffect(() => {
+    const item = openId !== opened.current ? schedule?.items.find((i) => i.id === openId) : undefined;
+    if (item) { opened.current = openId; setEditing(item); }
+  }, [openId, schedule]);
 
   // together: the Gantt copies its data once per key (loads)
   const load = () =>
@@ -266,6 +276,9 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
   const offset = form.offsetMonths ?? form.offsetDays;
   const relative = !!form.anchor && offset != null;
   const [actualEnd, setActualEnd] = useState(schedule.today);
+  // open when the item already uses an advanced field, so nothing set is hidden
+  const [advancedOpen] = useState(() => !!item && (!!item.anchor || item.progress > 0 || item.weight != null
+    || !!item.partnerName || item.parentId != null || schedule.dependencies.some((d) => d.successorId === item.id)));
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const set = (patch: Partial<ItemInput>) => setForm((f) => ({ ...f, ...patch }));
@@ -328,6 +341,30 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
               {disciplines.filter((d) => d.active || d.id === form.disciplineId)
                 .map((d) => <option key={d.id} value={d.id}>{d.name}{d.active ? '' : ' (비활성)'}</option>)}
             </select></label>
+          {/* exact days for linked items too: a picked date drops the offsets, the server computes them back (as a drag does) */}
+          {form.kind === 'TASK' && (
+            <label className={row}><span className="text-sm text-gray-500">시작</span>
+              <input type="date" required className={field} value={form.startDate ?? ''}
+                onChange={(e) => set({ startDate: e.target.value, ...(relative ? UNLINK_OFFSETS : {}) })} /></label>
+          )}
+          <label className={row}><span className="text-sm text-gray-500">{form.kind === 'TASK' ? '종료' : '날짜'}</span>
+            <input type="date" required className={field} value={form.endDate ?? ''}
+              onChange={(e) => set({ endDate: e.target.value, ...(relative ? UNLINK_OFFSETS : {}) })} /></label>
+          <label className={row}><span className="text-sm text-gray-500">담당</span>
+            <select className={field} value={form.ownerUserId ?? ''} onChange={(e) => set({ ownerUserId: num(e.target.value) })}>
+              <option value="">미지정</option>
+              {members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
+            </select></label>
+          {item?.baselineEnd && (
+            <label className={row}><span className="text-sm text-gray-500">연기 사유</span>
+              <input maxLength={500} className={field} placeholder="기준보다 늦출 때 필수" value={form.reason ?? ''}
+                onChange={(e) => set({ reason: e.target.value })} /></label>
+          )}
+          {item?.delayReason && <p className="truncate text-xs text-gray-500" title={item.delayReason}>마지막 연기 사유: {item.delayReason}</p>}
+          {/* 기본 칸만 먼저: 기준일 연결·진행률·선행은 접어 둔다 */}
+          <details open={advancedOpen} className="rounded-lg border border-[#E5E3DC] px-3 py-2">
+            <summary className="cursor-pointer text-sm text-gray-600">고급 (기준일 연결 · 진행률 · 선행 항목)</summary>
+            <div className="mt-3 space-y-3">
           <label className={row}><span className="text-sm text-gray-500">묶음</span>
             <select className={field} value={form.parentId ?? ''} disabled={hasChildren} onChange={(e) => set({ parentId: num(e.target.value) })}>
               <option value="">없음</option>
@@ -340,14 +377,14 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
               {ANCHORS.map((a) => <option key={a} value={a}>{ANCHOR_LABEL[a]} ({dateOf(a) ?? '미정'})</option>)}
             </select></label>
           {form.anchor && (
-            <div className={row}><span className="text-sm text-gray-500">{form.kind === 'TASK' ? '종료 오프셋' : '오프셋'}</span>
+            <div className={row}><span className="text-sm text-gray-500">{form.kind === 'TASK' ? '종료일까지' : '기준일로부터'}</span>
               <div className="flex gap-2">
-                <input type="number" aria-label="오프셋" className={field} placeholder="비우면 아래 날짜로 계산" value={offset ?? ''}
+                <input type="number" aria-label="기준일로부터" className={field} placeholder="비우면 아래 날짜로 계산" value={offset ?? ''}
                   onChange={(e) => {
                     const v = e.target.value === '' ? null : Number(e.target.value);
                     set(unit === 'month' ? { offsetMonths: v, offsetDays: null } : { offsetDays: v, offsetMonths: null });
                   }} />
-                <select aria-label="오프셋 단위" className="rounded-lg border border-[#E5E3DC] px-2 text-sm" value={unit} onChange={(e) => {
+                <select aria-label="단위" className="rounded-lg border border-[#E5E3DC] px-2 text-sm" value={unit} onChange={(e) => {
                   const u = e.target.value as 'day' | 'month';
                   setUnit(u);
                   set(u === 'month' ? { offsetMonths: offset, offsetDays: null } : { offsetDays: offset, offsetMonths: null });
@@ -363,23 +400,9 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
           {relative && (
             <p className="text-xs text-gray-500">
               {offsetLabel({ anchor: form.anchor, offsetDays: form.offsetDays, offsetMonths: form.offsetMonths })} · 기준일이 바뀌면 함께 이동합니다.
-              {' '}날짜를 고르면 오프셋을 그 날짜에 맞춰 다시 계산합니다.
+              {' '}위에서 날짜를 고르면 그 날짜에 맞춰 다시 계산합니다.
             </p>
           )}
-          {/* exact days for linked items too: a picked date drops the offsets, the server computes them back (as a drag does) */}
-          {form.kind === 'TASK' && (
-            <label className={row}><span className="text-sm text-gray-500">시작</span>
-              <input type="date" required className={field} value={form.startDate ?? ''}
-                onChange={(e) => set({ startDate: e.target.value, ...(relative ? UNLINK_OFFSETS : {}) })} /></label>
-          )}
-          <label className={row}><span className="text-sm text-gray-500">{form.kind === 'TASK' ? '종료' : '날짜'}</span>
-            <input type="date" required className={field} value={form.endDate ?? ''}
-              onChange={(e) => set({ endDate: e.target.value, ...(relative ? UNLINK_OFFSETS : {}) })} /></label>
-          <label className={row}><span className="text-sm text-gray-500">담당</span>
-            <select className={field} value={form.ownerUserId ?? ''} onChange={(e) => set({ ownerUserId: num(e.target.value) })}>
-              <option value="">미지정</option>
-              {members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
-            </select></label>
           <label className={row}><span className="text-sm text-gray-500">협력사</span>
             <input maxLength={100} className={field} placeholder="예: 가온구조" value={form.partnerName ?? ''}
               onChange={(e) => set({ partnerName: e.target.value || null })} /></label>
@@ -389,13 +412,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
           <label className={row}><span className="text-sm text-gray-500">보할 %</span>
             <input type="number" min={0} max={100} step="0.01" className={field} placeholder="공정률 계산용(선택)" value={form.weight ?? ''}
               onChange={(e) => set({ weight: num(e.target.value) })} /></label>
-          {item?.baselineEnd && (
-            <label className={row}><span className="text-sm text-gray-500">연기 사유</span>
-              <input maxLength={500} className={field} placeholder="기준보다 늦출 때 필수" value={form.reason ?? ''}
-                onChange={(e) => set({ reason: e.target.value })} /></label>
-          )}
-          {item?.delayReason && <p className="truncate text-xs text-gray-500" title={item.delayReason}>마지막 연기 사유: {item.delayReason}</p>}
-          <div className={`${row} items-start`}><span className="pt-1 text-sm text-gray-500">선행 (FS)</span>
+          <div className={`${row} items-start`}><span className="pt-1 text-sm text-gray-500">먼저 끝낼 항목</span>
             <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-[#E5E3DC] px-2.5 py-1.5">
               {others.length === 0 && <p className="text-xs text-gray-400">다른 항목이 없습니다.</p>}
               {others.map((i) => (
@@ -408,7 +425,9 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
               ))}
             </div>
           </div>
-          <div className="flex justify-end pt-2">
+            </div>
+          </details>
+          <div className="sticky bottom-0 -mx-6 flex justify-end border-t border-[#E5E3DC] bg-white px-6 py-3">
             <button type="submit" disabled={busy}
               className="rounded-lg bg-[#1F4E79] px-4 py-2 text-sm font-semibold text-white hover:bg-[#173a5c] disabled:opacity-40">저장</button>
           </div>

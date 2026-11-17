@@ -47,6 +47,7 @@ export function toCalendarEvents(data: CalendarData, opts: { showDeadlines: bool
       start: m.date,
       allDay: true,
       display: 'list-item',
+      classNames: ['is-milestone'], // the ◆ in the title marks it; no list dot
       color: '#4B5563',
       extendedProps: { entry: { type: 'milestone', milestone: m } satisfies CalendarEntry },
     })),

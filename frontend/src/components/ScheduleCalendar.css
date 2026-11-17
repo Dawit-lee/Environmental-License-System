@@ -31,3 +31,5 @@
 }
 .schedule-calendar .fc .fc-popover .fc-daygrid-event .fc-event-title { -webkit-line-clamp: unset; }
 .schedule-calendar .fc .fc-daygrid-dot-event .fc-daygrid-event-dot { margin-top: 0.4em; }
+/* milestones: the ◆ in the title is the marker, so no list dot before it */
+.schedule-calendar .fc .is-milestone .fc-daygrid-event-dot { display: none; }
