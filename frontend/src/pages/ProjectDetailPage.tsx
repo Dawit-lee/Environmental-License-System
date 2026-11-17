@@ -15,6 +15,7 @@ import ProjectDocuments from '../components/ProjectDocuments';
 import ProjectOperations from '../components/ProjectOperations';
 import ProjectModules from '../components/ProjectModules';
 import ProjectMembers from '../components/ProjectMembers';
+import { EmptyState, Tip, primaryBtn } from '../components/Onboarding';
 
 // ---------------------------------------------------------------------------
 // ProjectDetailPage — the project hub: summary + lifecycle stage + routed tabs
@@ -263,13 +264,13 @@ export default function ProjectDetailPage() {
             ))}
           </div>
           <div className="flex items-center gap-2">
-          <button
+          <Tip k="report"><button
             type="button"
             onClick={() => downloadReport(project.id).catch((e: Error) => window.alert(e.message))}
             className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20"
           >
             진행 현황 보고 ⬇
-          </button>
+          </button></Tip>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'ALL' | PermitStatus)}
@@ -283,8 +284,18 @@ export default function ProjectDetailPage() {
           </div>
         </div>
 
+        {permits.length === 0 && (
+          <div className="mt-4">
+            <EmptyState text={project.member
+              ? '시설 종류·용량·입지로 필요한 인허가를 규칙에 따라 찾습니다. 도출 결과에서 맞는 항목을 승인하면 여기에 나옵니다.'
+              : '아직 등록된 인허가가 없습니다.'}>
+              {project.member && <Link to={`/projects/${project.id}/settings`} className={primaryBtn}>인허가 도출하기</Link>}
+            </EmptyState>
+          </div>
+        )}
+
         {/* Permit table */}
-        <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+        {permits.length > 0 && <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
           <table className="w-full min-w-[860px] whitespace-nowrap text-left text-sm">
             <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
               <tr>
@@ -339,7 +350,7 @@ export default function ProjectDetailPage() {
               ))}
             </tbody>
           </table>
-        </div>
+        </div>}
         </>)}
       </div>
 

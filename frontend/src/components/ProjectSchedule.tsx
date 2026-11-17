@@ -13,6 +13,7 @@ import { BaseDatesDialog, DelayTable, PasteDialog, TemplateDialog } from './Sche
 import ReadOnlySchedule from './ReadOnlySchedule';
 import ShareDialog from './ShareDialog';
 import { usePrompt } from './PromptDialog';
+import { EmptyState, HELP, Help, Tip, primaryBtn, secondaryBtn } from './Onboarding';
 
 // the Gantt library is large; only this tab loads it
 const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
@@ -42,7 +43,12 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
   const [filter, setFilter] = useState({ discipline: '', owner: '', delayedOnly: false });
   const [editing, setEditing] = useState<ScheduleItem | 'new' | null>(null);
   const [events, setEvents] = useState<ProjectEvent[]>([]); // the Gantt's 이벤트 row
-  const [tool, setTool] = useState<'base' | 'template' | 'paste' | 'share' | null>(null);
+  type Tool = 'base' | 'template' | 'paste' | 'share';
+  // ?tool=template etc.: the 시작하기 checklist opens the dialog directly
+  const [tool, setTool] = useState<Tool | null>(() => {
+    const t = new URLSearchParams(window.location.search).get('tool');
+    return t === 'base' || t === 'template' || t === 'paste' || t === 'share' ? t : null;
+  });
 
   // together: the Gantt copies its data once per key (loads)
   const load = () =>
@@ -108,13 +114,13 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
         <div className="inline-flex overflow-hidden rounded-lg border border-[#E5E3DC] bg-white">
           <button type="button" className={seg(view === 'gantt')} onClick={() => setView('gantt')}>간트</button>
           <button type="button" className={seg(view === 'calendar')} onClick={() => setView('calendar')}>달력</button>
-          <button type="button" className={seg(view === 'delays')} onClick={() => setView('delays')}>지연 현황</button>
-          <button type="button" className={seg(view === 'deadlines')} onClick={() => setView('deadlines')}>인허가 기한</button>
-          <button type="button" className={seg(view === 'print')} onClick={() => setView('print')}>인쇄본</button>
+          <button type="button" title={HELP.delays.text} className={seg(view === 'delays')} onClick={() => setView('delays')}>지연 현황</button>
+          <button type="button" title={HELP.deadlines.text} className={seg(view === 'deadlines')} onClick={() => setView('deadlines')}>인허가 기한</button>
+          <button type="button" title={HELP.print.text} className={seg(view === 'print')} onClick={() => setView('print')}>인쇄본</button>
         </div>
         {view !== 'deadlines' && schedule && (
-          <p className="truncate text-sm text-gray-500">
-            {schedule.baselineNo ? `기준 ${schedule.baselineNo}차` : '기준 미확정'}
+          <p className="text-sm text-gray-500">
+            {schedule.baselineNo ? `기준 ${schedule.baselineNo}차` : <>기준 미확정<Help k="unbaselined" /></>}
             {schedule.progress && <> · 예정 {schedule.progress.planned}% / 진행 {schedule.progress.actual}%
               {schedule.progress.weightTotal !== 100 && <span className="text-[#991B1B]"> (보할 합 {schedule.progress.weightTotal})</span>}</>}
             {' · '}항목 {schedule.items.length}건 · <span className={schedule.delayCount ? 'text-[#991B1B]' : ''}>지연 {schedule.delayCount}건</span>
@@ -122,12 +128,12 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
         )}
         {view !== 'deadlines' && schedule && (
           <div className="ml-auto flex items-center gap-2">
-            <button type="button" className={btn} onClick={() => setTool('base')}>기준일</button>
-            <button type="button" className={btn} disabled={!schedule.items.length} onClick={baseline}>
-              {schedule.baselineNo ? '기준 재확정' : '기준 확정'}</button>
-            <button type="button" className={btn} onClick={() => setTool('template')}>템플릿</button>
-            <button type="button" className={btn} onClick={() => setTool('paste')}>붙여넣기</button>
-            <button type="button" className={btn} onClick={() => setTool('share')}>공유</button>
+            <Tip k="base"><button type="button" className={btn} onClick={() => setTool('base')}>기준일</button></Tip>
+            <Tip k="baseline"><button type="button" className={btn} disabled={!schedule.items.length} onClick={baseline}>
+              {schedule.baselineNo ? '기준 재확정' : '기준 확정'}</button></Tip>
+            <Tip k="template"><button type="button" className={btn} onClick={() => setTool('template')}>템플릿</button></Tip>
+            <Tip k="paste"><button type="button" className={btn} onClick={() => setTool('paste')}>붙여넣기</button></Tip>
+            <Tip k="share"><button type="button" className={btn} onClick={() => setTool('share')}>공유</button></Tip>
           </div>
         )}
       </div>
@@ -200,10 +206,15 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
               onOpen={(id) => setEditing(schedule.items.find((i) => i.id === id) ?? null)} onMove={move} />
             </Suspense>
           )}
-          {schedule && visible.length === 0 && (
-            <p className="rounded-xl border border-dashed border-[#E5E3DC] bg-white px-6 py-12 text-center text-sm text-gray-500">
-              {schedule.items.length ? '조건에 맞는 항목이 없습니다.' : '일정 항목이 없습니다. [+ 항목]으로 분야별 작업·마일스톤을 추가하세요.'}
-            </p>
+          {schedule && visible.length === 0 && schedule.items.length > 0 && (
+            <p className="rounded-xl border border-dashed border-[#E5E3DC] bg-white px-6 py-12 text-center text-sm text-gray-500">조건에 맞는 항목이 없습니다.</p>
+          )}
+          {schedule && schedule.items.length === 0 && (
+            <EmptyState text="분야별 작업과 마일스톤을 간트로 관리합니다. 템플릿으로 시작하면 자주 쓰는 공정이 한 번에 들어갑니다.">
+              <button type="button" className={primaryBtn} onClick={() => setTool('template')}>템플릿으로 시작</button>
+              <button type="button" className={secondaryBtn} onClick={() => setTool('paste')}>엑셀 붙여넣기</button>
+              <button type="button" className={secondaryBtn} onClick={() => setEditing('new')}>+ 항목 직접 추가</button>
+            </EmptyState>
           )}
         </>
       )}

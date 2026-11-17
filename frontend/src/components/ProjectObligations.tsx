@@ -4,6 +4,8 @@ import { listProjectObligations, type Obligation } from '../api/revisions';
 import { isOverdue, listProjectTasks, taskStatusLabel, type Task } from '../api/tasks';
 import type { PermitItem } from '../types';
 import ObligationTaskDrawer from './ObligationTaskDrawer';
+import { Link } from 'react-router';
+import { EmptyState, primaryBtn, secondaryBtn } from './Onboarding';
 
 // ---------------------------------------------------------------------------
 // ProjectObligations — 프로젝트 › 의무사항: approved obligations of every permit, nearest due date first.
@@ -166,7 +168,10 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
         </table>
         {rows.length === 0 && all.length > 0 && <p className="py-10 text-center text-sm text-gray-400">조건에 맞는 항목이 없습니다.</p>}
         {all.length === 0 && (
-          <p className="py-10 text-center text-sm text-gray-400">승인된 의무사항이 없습니다. 허가증을 올리고 AI 검토에서 승인하면 여기에 나옵니다.</p>
+          <EmptyState bare text="허가조건 중 지켜야 할 정기 할 일을 모아 담당자와 기한을 관리합니다. 인허가 상세에서 허가증을 올리고 [AI 검토]에서 조건을 승인하면 여기에 나옵니다.">
+            <Link to={`/projects/${projectId}/permits`} className={primaryBtn}>허가증 올리러 가기</Link>
+            <Link to={`/projects/${projectId}/review`} className={secondaryBtn}>AI 검토 열기</Link>
+          </EmptyState>
         )}
       </div>
       {opened && (

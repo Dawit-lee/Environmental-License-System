@@ -8,6 +8,8 @@ import { EntryDetail } from '../components/EventPanels';
 import GoogleCalendarSync from '../components/GoogleCalendarSync';
 import type { CalendarEntry } from '../components/ScheduleCalendar';
 import type { Project } from '../types';
+import { Link } from 'react-router';
+import { EmptyState, primaryBtn } from '../components/Onboarding';
 
 const ScheduleCalendar = lazy(() => import('../components/ScheduleCalendar'));
 
@@ -22,7 +24,7 @@ const PEOPLE_KINDS = new Set(['TRIP', 'REVIEW', 'CLIENT_REPORT']);
 const select = 'rounded-lg border border-[#E5E3DC] bg-white px-2 py-1.5 text-xs';
 
 export default function CompanyCalendarPage() {
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<Project[] | null>(null); // null until loaded, so the empty state does not flash
   const [depts, setDepts] = useState<Department[]>([]);
   const [filter, setFilter] = useState<CalendarFilter>({});
   const [showDeadlines, setShowDeadlines] = useState(false);
@@ -60,12 +62,17 @@ export default function CompanyCalendarPage() {
             {isMaster() ? '회사 전체 프로젝트' : '내가 멤버인 프로젝트'}의 이벤트·출장·마일스톤입니다. 항목을 누르면 상세가 열립니다.
           </p>
         </div>
+        {projects?.length === 0 && (
+          <EmptyState text="프로젝트의 회의·출장·마일스톤을 한 달력에 모읍니다. 프로젝트를 만들고 일정에 이벤트를 넣으면 여기에 나옵니다.">
+            <Link to="/projects/new" className={primaryBtn}>새 프로젝트 만들기</Link>
+          </EmptyState>
+        )}
         <MySubscription />
 
         <div className="flex flex-wrap items-center gap-2">
           <select aria-label="프로젝트" className={select} value={filter.project ?? ''} onChange={(e) => set({ project: e.target.value })}>
             <option value="">프로젝트 전체</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {projects?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <select aria-label="부서" className={select} value={filter.dept ?? ''} onChange={(e) => set({ dept: e.target.value, team: '' })}>
             <option value="">부서 전체</option>
@@ -136,7 +143,7 @@ function PeopleWeeks({ events, nextMonday }: { events: ProjectEvent[]; nextMonda
             </tr>
           </thead>
           <tbody className="divide-y divide-[#E5E3DC]">
-            {rows.length === 0 && <tr><td colSpan={3} className="px-3 py-6 text-center text-gray-400">이번 주·다음 주에 참석자가 지정된 일정이 없습니다.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={3} className="whitespace-normal px-3 py-6 text-center text-gray-400">이번 주·다음 주에 참석자가 지정된 일정이 없습니다. 프로젝트 › 일정 › 달력에서 출장·회의를 넣고 참석자를 지정하세요.</td></tr>}
             {rows.map(([name, r]) => (
               <tr key={name}>
                 <td className="truncate px-3 py-2.5 font-medium text-gray-800" title={name}>{name}</td>

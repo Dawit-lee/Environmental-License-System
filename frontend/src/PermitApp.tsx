@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type MouseEvent } from 'react';
 import { BrowserRouter, NavLink, Navigate, Route, Routes } from 'react-router';
 import DashboardPage from './pages/DashboardPage';
 import ProjectListPage from './pages/ProjectListPage';
@@ -12,6 +12,8 @@ import InboxPage from './pages/InboxPage';
 import CompanyCalendarPage from './pages/CompanyCalendarPage';
 import LegacyRedirect from './pages/LegacyRedirect';
 import SharePage from './pages/SharePage';
+import GuidePage from './pages/GuidePage';
+import { setOnboardingDismissed } from './components/Onboarding';
 import NotificationBell from './components/NotificationBell';
 import type { Session } from './api/auth';
 import { isMaster } from './api/client';
@@ -127,6 +129,7 @@ export default function PermitApp() {
               {/* Right: bell + user + logout */}
               <div className="ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap">
                 <NotificationBell />
+                <HelpMenu />
                 <span className="hidden max-w-[180px] truncate text-sm text-gray-500 sm:inline" title={user}>
                   {user}
                 </span>
@@ -154,6 +157,7 @@ export default function PermitApp() {
                 <Route path="/laws" element={<LegacyRedirect />} />
                 <Route path="/join-requests" element={<JoinRequestsPage />} />
                 <Route path="/org" element={<OrgPage />} />
+                <Route path="/guide" element={<GuidePage />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
             </main>
@@ -161,5 +165,23 @@ export default function PermitApp() {
         </div>
       )}
     </BrowserRouter>
+  );
+}
+
+/** Header "?" menu: the guide and a way back to the dismissed 시작하기 checklist. */
+function HelpMenu() {
+  const close = (e: MouseEvent) => e.currentTarget.closest('details')?.removeAttribute('open');
+  const item = 'block whitespace-nowrap px-4 py-2 text-sm text-gray-700 hover:bg-[#F8F7F2]';
+  return (
+    <details className="relative">
+      <summary aria-label="도움말" title="도움말"
+        className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full border border-[#E5E3DC] text-sm font-semibold text-gray-600 hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20 [&::-webkit-details-marker]:hidden">
+        ?
+      </summary>
+      <div className="absolute right-0 z-50 mt-2 rounded-lg border border-[#E5E3DC] bg-white py-1 shadow-lg">
+        <NavLink to="/guide" onClick={close} className={item}>사용 가이드</NavLink>
+        <NavLink to="/dashboard" onClick={(e) => { close(e); setOnboardingDismissed(false); }} className={item}>시작하기 체크리스트 다시 보기</NavLink>
+      </div>
+    </details>
   );
 }
