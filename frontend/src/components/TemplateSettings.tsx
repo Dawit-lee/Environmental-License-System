@@ -34,7 +34,7 @@ export default function TemplateSettings() {
               <thead className="bg-[#F8F7F2] text-xs text-gray-500">
                 <tr>
                   <th className={head}>종류</th><th className={head}>항목</th><th className={head}>기준일</th>
-                  <th className={head}>오프셋</th><th className={head}>기간(일)</th>
+                  <th className={head}>기준일로부터</th><th className={head}>기간(일)</th>
                   <th className={head} title="Google 동기화의 '제출·보고 마일스톤'으로 보냅니다">제출·보고</th><th className={head} />
                 </tr>
               </thead>

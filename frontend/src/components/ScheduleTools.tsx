@@ -259,7 +259,9 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
     setBusy(true);
     setError(null);
     try {
-      const r = await pasteItems(projectId, text, confirm);
+      // confirm sends only the lines without errors (line = 1-based line of the pasted text, as the server counts)
+      const ok = new Set(result?.rows.filter((r) => !r.error).map((r) => r.line));
+      const r = await pasteItems(projectId, confirm ? text.split(/\r?\n/).filter((_, i) => ok.has(i + 1)).join('\n') : text, confirm);
       if (confirm) return onChanged();
       setResult(r);
     } catch (e) {
@@ -271,7 +273,7 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
 
   return (
     <Modal title="엑셀 붙여넣기" onClose={onClose} wide>
-      <p className="text-sm text-gray-500">엑셀에서 <b>분야 | 작업 | 시작 | 종료 | 담당 | 보할</b> 열을 복사해 붙여 넣으세요. 시작이 비었거나 종료와 같으면 마일스톤입니다.</p>
+      <p className="text-sm text-gray-500">엑셀에서 <b>분야 | 작업 | 시작 | 종료 | 담당 | 보할</b> 열을 복사해 붙여 넣으세요. 종료일은 꼭 넣고, 시작이 비었거나 종료와 같으면 마일스톤입니다.</p>
       <textarea aria-label="붙여 넣을 표" rows={6} value={text} onChange={(e) => { setText(e.target.value); setResult(null); }}
         className="w-full rounded-lg border border-[#E5E3DC] px-3 py-2 font-mono text-xs outline-none focus:border-[#1F4E79]"
         placeholder={'공정·기계\tP&ID 1차\t2027-03-02\t2027-04-13\t이가온\t15'} />
@@ -295,18 +297,25 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
                   <td className="px-3 py-2">{r.end ?? ''}</td>
                   <td className={cell}>{r.owner}</td>
                   <td className="px-3 py-2">{r.weight ?? ''}</td>
-                  <td className={`${cell} ${r.error ? 'text-[#991B1B]' : 'text-gray-500'}`} title={r.error ?? ''}>{r.error ?? '정상'}</td>
+                  <td className={`px-3 py-2 ${r.error ? 'text-[#991B1B]' : 'text-gray-500'}`}>{r.error ? '오류 (아래)' : '정상'}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+      {!!result?.errors && (
+        <ul className="space-y-0.5 text-xs text-[#991B1B]">
+          {result.rows.filter((r) => r.error).map((r) => <li key={r.line}>{r.line}행: {r.error}</li>)}
+        </ul>
+      )}
       <div className="flex items-center justify-end gap-2">
         {result && <span className="mr-auto text-sm text-gray-500">{result.rows.length}행 · 오류 {result.errors}행</span>}
         <button type="button" className={btn} disabled={busy || !text.trim()} onClick={() => run(false)}>미리보기</button>
-        <button type="button" className={primary} disabled={busy || !result || result.errors > 0 || !result.rows.length}
-          onClick={() => run(true)}>{result ? `${result.rows.length}건 추가` : '추가'}</button>
+        <button type="button" className={primary} disabled={busy || !result || result.rows.length === result.errors}
+          onClick={() => run(true)}>
+          {!result ? '추가' : result.errors ? `정상 ${result.rows.length - result.errors}건만 추가` : `${result.rows.length}건 추가`}
+        </button>
       </div>
     </Modal>
   );

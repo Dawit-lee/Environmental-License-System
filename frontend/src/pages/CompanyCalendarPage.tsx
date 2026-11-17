@@ -54,7 +54,9 @@ export default function CompanyCalendarPage() {
     return () => { stale = true; };
   }, [filter]);
 
-  const teams = depts.filter((d) => !filter.dept || String(d.id) === filter.dept).flatMap((d) => d.teams);
+  // every department has a 1팀: with no department chosen, show "부서 / 팀"
+  const teams = depts.filter((d) => !filter.dept || String(d.id) === filter.dept)
+    .flatMap((d) => d.teams.map((t) => ({ ...t, name: filter.dept ? t.name : `${d.name} / ${t.name}` })));
   const set = (patch: CalendarFilter) => setFilter((f) => ({ ...f, ...patch }));
   const tripsOnly = filter.kind === 'TRIP';
 
