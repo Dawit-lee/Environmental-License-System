@@ -15,7 +15,7 @@ import {
   type PermitSuggestion,
   type RuleCategory,
 } from '../api/derivation';
-import { acceptSuggestion, editSuggestion, rejectSuggestion } from '../api/review';
+import { acceptSuggestion, bulkAccept, editSuggestion, rejectSuggestion } from '../api/review';
 import { ANCHOR_LABEL, setAnchor } from '../api/schedule';
 import type { FacilityType, Project, ProjectStatus } from '../types';
 import { usePrompt } from '../components/PromptDialog';
@@ -240,6 +240,17 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     const why = (await ask('해당으로 판단한 근거를 입력하세요.'))?.trim();
     if (!why) return;
     act(async () => acceptSuggestion(await editSuggestion(s, { ...p, determination: 'APPLICABLE', hold_info: null, reason: why }), null));
+  };
+
+  // 해당 rows still open, minus name clashes with existing items (those need a person to look)
+  const openApplicable = Object.values(byRule).filter((s) => !['ACCEPTED', 'EDITED_ACCEPTED', 'REJECTED'].includes(s.status)
+    && (s.editedPayload ?? s.payload).determination !== 'ON_HOLD' && !permitNames.has(s.payload.permit_name));
+  const approveAll = () => {
+    if (!window.confirm(`해당 ${openApplicable.length}건을 모두 승인할까요? 승인하면 인허가 항목이 됩니다.`)) return;
+    act(async () => {
+      const failed = (await bulkAccept(openApplicable.map((s) => s.id))).filter((r) => !r.ok);
+      if (failed.length) throw new Error(`${failed.length}건은 승인하지 못했습니다: ${failed[0].reason}`);
+    });
   };
 
   const reject = async (s: PermitSuggestion) => {
@@ -628,7 +639,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
             )}
 
             {/* Category tabs */}
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap items-center gap-2">
               <CategoryTab label={`전체(${counts.all})`} active={activeCategory === 'ALL'} onClick={() => setActiveCategory('ALL')} />
               {CATEGORY_TAB_ORDER.map((cat) => (
                 <CategoryTab
@@ -638,6 +649,12 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   onClick={() => setActiveCategory(cat)}
                 />
               ))}
+              {openApplicable.length > 0 && (
+                <button type="button" disabled={busy} onClick={approveAll}
+                  className="ml-auto rounded-lg bg-[#0F6E56] px-3.5 py-1.5 text-sm font-semibold text-white transition hover:bg-[#0b5a46] focus:outline-none focus:ring-2 focus:ring-[#0F6E56]/30 disabled:opacity-50">
+                  해당 일괄 승인 ({openApplicable.length})
+                </button>
+              )}
             </div>
 
             {/* Table */}
@@ -645,18 +662,27 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
               <table className="w-full min-w-[760px] whitespace-nowrap text-left text-sm">
                 <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
                   <tr>
+                    <th className="px-4 py-3 font-medium">검토</th>
                     <th className="px-4 py-3 font-medium">판정</th>
                     <th className="px-4 py-3 font-medium">인허가명</th>
                     <th className="px-4 py-3 font-medium">카테고리</th>
                     <th className="px-4 py-3 font-medium">해당 사유</th>
                     <th className="px-4 py-3 font-medium">관련 법규</th>
                     <th className="px-4 py-3 font-medium">승인 시점</th>
-                    <th className="px-4 py-3 font-medium">검토</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E5E3DC]">
                   {visiblePermits.map((p) => (
                     <tr key={p.rule_key} className="transition hover:bg-[#F8F7F2]">
+                      <td className="px-4 py-3">
+                        <ReviewCell
+                          s={byRule[p.rule_key]}
+                          duplicate={permitNames.has(p.permit_name)}
+                          busy={busy}
+                          onApprove={approve}
+                          onReject={reject}
+                        />
+                      </td>
                       <td className="px-4 py-3">
                         <span
                           className={`whitespace-nowrap ${
@@ -695,15 +721,6 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                             {byRule[p.rule_key]?.payload.required_by_date && ` (${byRule[p.rule_key].payload.required_by_date})`}
                           </span>
                         )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <ReviewCell
-                          s={byRule[p.rule_key]}
-                          duplicate={permitNames.has(p.permit_name)}
-                          busy={busy}
-                          onApprove={approve}
-                          onReject={reject}
-                        />
                       </td>
                     </tr>
                   ))}

@@ -43,10 +43,15 @@ export default function CompanyCalendarPage() {
     getDepartments().then(setDepts, () => {});
   }, []);
   useEffect(() => {
-    if (range) getCalendar(range[0], range[1], filter).then(setData, (e: Error) => setError(e.message));
+    if (!range) return;
+    let stale = false; // an older range/filter answering late must not overwrite the current one
+    getCalendar(range[0], range[1], filter).then((d) => { if (!stale) setData(d); }, (e: Error) => { if (!stale) setError(e.message); });
+    return () => { stale = true; };
   }, [range, filter]);
   useEffect(() => {
-    getCalendar(ymd(monday), ymd(addDays(nextMonday, 6)), filter).then((d) => setWeeks(d.events), () => {});
+    let stale = false;
+    getCalendar(ymd(monday), ymd(addDays(nextMonday, 6)), filter).then((d) => { if (!stale) setWeeks(d.events); }, () => {});
+    return () => { stale = true; };
   }, [filter]);
 
   const teams = depts.filter((d) => !filter.dept || String(d.id) === filter.dept).flatMap((d) => d.teams);

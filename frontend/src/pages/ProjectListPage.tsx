@@ -58,7 +58,7 @@ const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'location', label: '위치' },
 ];
 
-/** scope filter value: 'MINE' (my team), 'ALL', 'd:<departmentId>' or 't:<teamId>' */
+/** scope filter value: 'ME' (projects I'm a member of), 'MINE' (my team), 'ALL', 'd:<departmentId>' or 't:<teamId>' */
 type Scope = string;
 
 export default function ProjectListPage() {
@@ -71,22 +71,25 @@ export default function ProjectListPage() {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [depts, setDepts] = useState<Department[]>([]);
   const [myTeam, setMyTeam] = useState<number | null>(null);
+  const [myIds, setMyIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api<Project[]>('/api/projects?scope=company'), getDepartments(), getCompanyUsers()]).then(
-      ([ps, ds, us]) => {
+    Promise.all([api<Project[]>('/api/projects?scope=company'), getDepartments(), getCompanyUsers(), api<Project[]>('/api/projects')]).then(
+      ([ps, ds, us, mine]) => {
         const team = us.find((u) => u.id === sessionUserId())?.teamId ?? null;
         setProjects(ps);
         setDepts(ds);
         setMyTeam(team);
-        setScope((s) => s ?? (team ? 'MINE' : 'ALL'));
+        setMyIds(new Set(mine.map((p) => p.id)));
+        setScope((s) => s ?? (mine.length ? 'ME' : 'ALL'));
       },
       (e: Error) => setError(e.message),
     );
   }, []);
 
   const inScope = useMemo(() => {
+    if (scope === 'ME') return (p: Project) => myIds.has(p.id);
     if (scope === 'MINE') return (p: Project) => p.teamId === myTeam;
     if (scope?.startsWith('t:')) return (p: Project) => p.teamId === Number(scope.slice(2));
     if (scope?.startsWith('d:')) {
@@ -94,7 +97,7 @@ export default function ProjectListPage() {
       return (p: Project) => p.teamId !== null && teams.has(p.teamId);
     }
     return () => true;
-  }, [scope, myTeam, depts]);
+  }, [scope, myTeam, myIds, depts]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -144,7 +147,8 @@ export default function ProjectListPage() {
             placeholder="프로젝트명 또는 위치 검색"
             className="min-w-[220px] flex-1 rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20"
           />
-          <select aria-label="부서/팀" value={scope ?? 'ALL'} onChange={(e) => setScope(e.target.value)} className={selectClasses}>
+          <select aria-label="부서/팀" value={scope ?? 'ME'} onChange={(e) => setScope(e.target.value)} className={selectClasses}>
+            <option value="ME">내 프로젝트</option>
             {myTeam !== null && <option value="MINE">내 팀</option>}
             <option value="ALL">부서/팀 전체</option>
             {depts.map((d) => (

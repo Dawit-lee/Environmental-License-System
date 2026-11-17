@@ -53,6 +53,7 @@ const categoryLabel = (c: string) => (CATEGORY[c] ? `${CATEGORY[c][0]} › ${CAT
 const EVENT: Record<SuggestionEvent['type'], string> = {
   CREATED: '등록', EDITED: '수정', PAGE_VIEWED: '원문 열람', SUBMITTED: '승인 요청', RETURNED: '반려',
   ACCEPTED: '승인', REJECTED: '거절', REOPENED: '재검토',
+  UNPAIRED: '나눔', PAIRED: '합침', REDIFFED: '변경분 다시 계산',
 };
 
 const EMPTY: ObligationPayload = {
@@ -451,11 +452,12 @@ function PageViewer({ id, pageNo, onViewed }: { id: number; pageNo: number; onVi
   const [error, setError] = useState('');
   useEffect(() => {
     let objectUrl: string | null = null;
+    let stale = false; // a late answer for the previous page must not replace this one
     setUrl(null);
     setError('');
-    pageImage(id, pageNo).then((b) => { objectUrl = URL.createObjectURL(b); setUrl(objectUrl); },
-      (e: Error) => setError(e.message));
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
+    pageImage(id, pageNo).then((b) => { if (stale) return; objectUrl = URL.createObjectURL(b); setUrl(objectUrl); },
+      (e: Error) => { if (!stale) setError(e.message); });
+    return () => { stale = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [id, pageNo]);
   return (
     <div>
