@@ -259,6 +259,13 @@ class ScheduleBaselineApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.items[?(@.title == 'P&ID 1차')].endDate").value("2027-04-13"))
                 .andExpect(jsonPath("$.items[?(@.title == '합사 개설')].endDate").value("2027-02-12"));
 
+        // unchecked items are left out: 5 + 15 + (5 − 2)
+        List<Integer> serviceItems = JsonPath.read(call(lee, get("/api/schedule-templates")).andReturn().getResponse()
+                .getContentAsString(), "$[1].items[*].id");
+        call(lee, json(post(schedule() + "/apply-template"), "{\"templateId\":" + ids.get(1) + ",\"skipItemIds\":["
+                + serviceItems.get(0) + "," + serviceItems.get(1) + "]}"))
+                .andExpect(jsonPath("$.items.length()").value(23));
+
         // only the company master edits a template
         long first = ((Number) JsonPath.read(call(lee, get("/api/schedule-templates")).andReturn().getResponse()
                 .getContentAsString(), "$[0].items[0].id")).longValue();

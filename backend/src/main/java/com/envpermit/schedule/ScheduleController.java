@@ -33,6 +33,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -500,10 +501,11 @@ class ScheduleController {
 
     // --- templates and paste (설계 §5) --------------------------------------------------------------------
 
-    record ApplyTemplateRequest(@NotNull Long templateId) {
+    /** skipItemIds: template items the user unchecked in the dialog; null = all of them. */
+    record ApplyTemplateRequest(@NotNull Long templateId, List<Long> skipItemIds) {
     }
 
-    /** Adds the template's items as relative items; they get dates once their base date is set. */
+    /** Adds the template's items (less the skipped ones) as relative items; they get dates once their base date is set. */
     @PostMapping("/api/projects/{pid}/schedule/apply-template")
     @Transactional
     ScheduleView applyTemplate(@AuthenticationPrincipal Jwt jwt, @PathVariable long pid,
@@ -516,13 +518,17 @@ class ScheduleController {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         }
         Map<String, LocalDate> anchors = anchorDates(pid);
+        Set<Long> skip = req.skipItemIds() == null ? Set.of() : Set.copyOf(req.skipItemIds());
         jdbc.query("""
-                SELECT d.id AS discipline_id, ti.kind, ti.title, ti.anchor, ti.offset_days, ti.offset_months, ti.duration_days,
+                SELECT ti.id, d.id AS discipline_id, ti.kind, ti.title, ti.anchor, ti.offset_days, ti.offset_months, ti.duration_days,
                        ti.submission
                 FROM schedule_template_item ti
                 LEFT JOIN discipline d ON d.code = ti.discipline_code
                      AND d.company_id = (SELECT company_id FROM project WHERE id = ?)
                 WHERE ti.template_id = ? ORDER BY ti.sort_order, ti.id""", rs -> {
+            if (skip.contains(rs.getLong("id"))) {
+                return;
+            }
             String kind = rs.getString("kind");
             Integer od = (Integer) rs.getObject("offset_days");
             Integer om = (Integer) rs.getObject("offset_months");
