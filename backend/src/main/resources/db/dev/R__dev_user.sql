@@ -1,10 +1,13 @@
 -- Local dev only (runs with the "dev" profile). All names are fictional.
--- Logins (password dev1234! for all):
+-- Logins (password = env DEV_SEED_PASSWORD, see application-dev.yml; only used when the user row is first created):
 --   dev@envpermit.local   개발자  (회사 A, ADMIN, creator of the A projects)
 --   kim@envpermit.local   김담당  (회사 A, member of project 1 without approval flags)
 --   other@envpermit.local 타회사  (회사 B; cannot see A's projects → 403)
+-- pgcrypto hashes the seed password; bcrypt $2a$ is what Spring's BCryptPasswordEncoder reads.
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 INSERT INTO users (email, password_hash, name, role)
-VALUES ('dev@envpermit.local', '$2a$10$LmSvVrFIpIK00B6QLKhF9uj7n.mYazuToeyq6LsET0JtD8qcZMz3S', '개발자', 'ADMIN')
+VALUES ('dev@envpermit.local', crypt('${dev_seed_password}', gen_salt('bf', 10)), '개발자', 'ADMIN')
 ON CONFLICT (email) DO NOTHING;
 
 -- Databases seeded before the addresses were made fully fictional: rename in place (the seed below runs once).
@@ -15,7 +18,7 @@ UPDATE project SET location = '한솔시 북구 물빛동 700' WHERE name = '한
 
 DO $$
 DECLARE
-    pw    CONSTANT TEXT := '$2a$10$LmSvVrFIpIK00B6QLKhF9uj7n.mYazuToeyq6LsET0JtD8qcZMz3S';
+    pw    CONSTANT TEXT := crypt('${dev_seed_password}', gen_salt('bf', 10));
     co_a  BIGINT; co_b BIGINT;
     u_dev BIGINT; u_kim BIGINT; u_other BIGINT;
     p1 BIGINT; p2 BIGINT; p3 BIGINT; p4 BIGINT; p5 BIGINT;

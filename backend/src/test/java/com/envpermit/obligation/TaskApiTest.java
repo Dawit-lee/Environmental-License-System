@@ -121,7 +121,7 @@ class TaskApiTest extends IntegrationTest {
 
         call(lee, json(post("/api/tasks/" + task + "/complete"), "{}"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(ObligationTasks.NEEDS_EVIDENCE));
+                .andExpect(jsonPath("$.message").value(ObligationTasks.NEEDS_EVIDENCE));
 
         long doc = upload(permitId, "측정성적서-1월.pdf");
         call(lee, json(post("/api/tasks/" + task + "/evidence"), "{\"documentId\":" + doc + "}"))
@@ -189,7 +189,7 @@ class TaskApiTest extends IntegrationTest {
         long otherTask = openTask(other);
         attach(otherTask);
         call(lee, json(post("/api/tasks/" + otherTask + "/complete"), "{}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NEEDS_NEXT_DUE));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.NEEDS_NEXT_DUE));
         call(lee, get("/api/tasks/" + otherTask)).andExpect(jsonPath("$.task.status").value("OPEN"));
         call(lee, json(post("/api/tasks/" + otherTask + "/complete"), "{\"nextDueDate\":\"2026-07-01\"}"))
                 .andExpect(status().isOk());
@@ -205,7 +205,7 @@ class TaskApiTest extends IntegrationTest {
         long task = openTask(obligation);
 
         call(kim, post("/api/obligations/" + obligation + "/complete"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NEEDS_EVIDENCE));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.NEEDS_EVIDENCE));
         attach(task);
         call(kim, post("/api/obligations/" + obligation + "/complete"))
                 .andExpect(status().isOk())
@@ -222,7 +222,7 @@ class TaskApiTest extends IntegrationTest {
         long own = upload(permitId, "성적서.pdf");
 
         call(lee, json(post("/api/tasks/" + task + "/evidence"), "{\"documentId\":" + foreign + "}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.OTHER_PERMIT));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.OTHER_PERMIT));
         call(lee, json(post("/api/tasks/" + task + "/evidence"), "{\"documentId\":999999}"))
                 .andExpect(status().isUnprocessableEntity());
 
@@ -425,9 +425,9 @@ class TaskApiTest extends IntegrationTest {
         long task = openTask(obligation);
 
         call(kim, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + parkId + ",\"version\":0}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NOT_MEMBER));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.NOT_MEMBER));
         call(kim, json(patch("/api/obligations/" + obligation), "{\"defaultAssigneeId\":" + parkId + "}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NOT_MEMBER));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.NOT_MEMBER));
         call(park, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + parkId + "}")).andExpect(status().isForbidden());
         call(park, json(patch("/api/obligations/" + obligation), "{\"defaultAssigneeId\":null}")).andExpect(status().isForbidden());
 

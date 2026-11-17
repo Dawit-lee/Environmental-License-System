@@ -112,8 +112,7 @@ class SignupController {
     ResponseEntity<Message> join(@Valid @RequestBody Join req, HttpServletRequest http) {
         Instant now = clock.instant();
         Company company = company(req.code());
-        // shortcut: remote address only; behind a proxy every applicant shares one IP. Read X-Forwarded-For once deployed behind one.
-        String ip = http.getRemoteAddr();
+        String ip = http.getRemoteAddr(); // the real client behind the tunnel (server.forward-headers-strategy)
         if (requests.countByCompanyIdAndIpAndCreatedAtAfter(company.getId(), ip, now.minus(RATE_WINDOW)) >= RATE_MAX) {
             throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS, "신청이 너무 잦습니다. 잠시 후 다시 시도해 주세요.");
         }

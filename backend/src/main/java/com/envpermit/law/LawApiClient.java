@@ -1,5 +1,6 @@
 package com.envpermit.law;
 
+import com.envpermit.core.HttpTimeouts;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
@@ -37,7 +38,7 @@ public class LawApiClient {
 
     private final String oc;
     private final ObjectMapper json;
-    private final RestClient http = RestClient.create();
+    private final RestClient http = HttpTimeouts.restClient();
     private long lastCallNanos;
 
     public LawApiClient(@Value("${LAW_API_OC:}") String oc, ObjectMapper json) {

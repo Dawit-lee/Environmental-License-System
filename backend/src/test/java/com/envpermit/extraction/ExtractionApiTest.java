@@ -116,7 +116,7 @@ class ExtractionApiTest extends IntegrationTest {
         call(kim, get("/api/company")).andExpect(jsonPath("$.aiExtractionEnabled").value(false));
 
         extract(kim).andExpect(status().isForbidden())
-                .andExpect(status().reason("회사 설정에서 AI 추출이 꺼져 있습니다. 회사 마스터가 켤 수 있습니다."));
+                .andExpect(jsonPath("$.message").value("회사 설정에서 AI 추출이 꺼져 있습니다. 회사 마스터가 켤 수 있습니다."));
         assertThat(llm.calls).isEmpty();
         assertThat(runs.count()).isZero();
     }
@@ -291,7 +291,7 @@ class ExtractionApiTest extends IntegrationTest {
 
         call(kim, get("/api/ai-runs/" + runId))
                 .andExpect(jsonPath("$.status").value("FAILED"))
-                .andExpect(jsonPath("$.errorMessage").value("AI 서비스 호출에 실패했습니다: timeout"));
+                .andExpect(jsonPath("$.errorMessage").value("AI 서비스 호출에 실패했습니다."));
     }
 
     @Test
@@ -302,7 +302,7 @@ class ExtractionApiTest extends IntegrationTest {
         long sameBytes = upload("협의의견서(사본).pdf", PERMIT_PDF);
 
         call(kim, post(path(sameBytes))).andExpect(status().isConflict())
-                .andExpect(status().reason(startsWith("이미 추출한 문서입니다.")));
+                .andExpect(jsonPath("$.message", startsWith("이미 추출한 문서입니다.")));
         call(kim, json(post(path(sameBytes)), "{\"confirmDuplicate\":true}")).andExpect(status().isAccepted());
         call(kim, get("/api/projects/" + projectId + "/suggestions")).andExpect(jsonPath("$.length()").value(6));
     }
@@ -356,14 +356,14 @@ class ExtractionApiTest extends IntegrationTest {
         long onP1 = idOf(list, "3-2");
 
         call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":0}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(NOT_VIEWED_P1));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(NOT_VIEWED_P1));
         // EDITED approval is gated the same way
         ObjectNode edited = (ObjectNode) payloadOf(list, "3-2");
         edited.put("summary", "공사 중 소음·진동 분기 측정");
         call(kim, json(patch("/api/suggestions/" + onP1), "{\"editedPayload\":" + edited + ",\"version\":0}"))
                 .andExpect(status().isOk());
         call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":1}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(NOT_VIEWED_P1));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(NOT_VIEWED_P1));
         // another page does not count
         call(kim, json(post("/api/suggestions/" + onP1 + "/page-views"), "{\"pageNo\":2}")).andExpect(status().isNoContent());
         call(kim, json(post("/api/suggestions/" + onP1 + "/accept"), "{\"version\":1}")).andExpect(status().isUnprocessableEntity());
