@@ -107,18 +107,23 @@ export default function ProjectDetailPage() {
 
   useEffect(() => {
     // approved items the current rules no longer find applicable; no derivation yet → 404, nothing to show
-    latestDerivation(Number(id)).then((d) => setRuleWarnings(d?.warnings ?? []), () => setRuleWarnings([])); // 204: never derived
+    let stale = false;
+    latestDerivation(Number(id)).then((d) => { if (!stale) setRuleWarnings(d?.warnings ?? []); }, () => { if (!stale) setRuleWarnings([]); }); // 204: never derived
+    return () => { stale = true; };
   }, [id]);
 
   useEffect(() => {
+    let stale = false; // switching projects fast: ignore the previous project's late answer
     setError(null);
     Promise.all([api<Project>(`/api/projects/${id}`), api<PermitItem[]>(`/api/projects/${id}/permits`)]).then(
       ([p, list]) => {
+        if (stale) return;
         setProject(p);
         setPermits(list);
       },
-      (e: Error) => setError(e.message),
+      (e: Error) => { if (!stale) setError(e.message); },
     );
+    return () => { stale = true; };
   }, [id, reloads]);
 
   const stats = useMemo(() => {
