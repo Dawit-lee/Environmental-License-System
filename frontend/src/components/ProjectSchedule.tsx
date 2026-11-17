@@ -69,6 +69,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
     (!filter.discipline || String(i.disciplineId ?? 0) === filter.discipline)
     && (!filter.owner || String(i.ownerUserId ?? 0) === filter.owner)
     && (!filter.delayedOnly || i.status === 'DELAYED')), [schedule, filter]);
+  const overdue = schedule?.items.filter((i) => i.status === 'DELAYED').length ?? 0;
   const dated = visible.filter((i) => i.endDate);
   const submission = schedule?.base === 'SUBMISSION' ? schedule.anchors.find((a) => a.anchor === 'SUBMISSION')?.date ?? null : null;
 
@@ -125,7 +126,9 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
             {schedule.baselineNo ? `기준 ${schedule.baselineNo}차` : <>기준 미확정<Help k="unbaselined" /></>}
             {schedule.progress && <> · 예정 {schedule.progress.planned}% / 진행 {schedule.progress.actual}%
               {schedule.progress.weightTotal !== 100 && <span className="text-[#991B1B]"> (보할 합 {schedule.progress.weightTotal})</span>}</>}
-            {' · '}항목 {schedule.items.length}건 · <span className={schedule.delayCount ? 'text-[#991B1B]' : ''}>지연 {schedule.delayCount}건</span>
+            {' · '}항목 {schedule.items.length}건
+            {' · '}<span className={overdue ? 'text-[#991B1B]' : ''}>기한 경과 {overdue}건</span><Help k="overdue" />
+            {schedule.baselineNo > 0 && <>{' · '}<span className={schedule.delayCount ? 'text-[#991B1B]' : ''}>일정 지연 {schedule.delayCount}건</span><Help k="slip" /></>}
           </p>
         )}
         {view !== 'deadlines' && schedule && (
@@ -140,7 +143,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
         )}
       </div>
 
-      {view === 'delays' && <DelayTable key={loads} projectId={projectId} />}
+      {view === 'delays' && <DelayTable key={loads} projectId={projectId} baselined={!!schedule?.baselineNo} />}
 
       {view === 'deadlines' && <CalendarPage projectId={projectId} />}
       {view === 'print' && schedule && (
@@ -184,7 +187,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
             <label className="flex items-center gap-1.5 text-xs text-gray-600">
               <input type="checkbox" checked={filter.delayedOnly}
                 onChange={(e) => setFilter({ ...filter, delayedOnly: e.target.checked })} />
-              지연만
+              기한 경과만
             </label>
             <div className="ml-auto flex items-center gap-2">
               <div className="inline-flex overflow-hidden rounded-lg border border-[#E5E3DC] bg-white">
@@ -290,7 +293,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
         <div className="flex items-start justify-between gap-4 border-b border-[#E5E3DC] px-6 py-4">
           <div className="min-w-0">
             <p className="truncate text-xs text-gray-500">
-              {item ? `${STATUS_LABEL[item.status]}${item.delayDays > 0 ? ` · 지연 ${item.delayDays}일` : ''}` : '새 항목'}
+              {item ? `${STATUS_LABEL[item.status]}${item.delayDays > 0 ? ` ${item.delayDays}일` : ''}` : '새 항목'}
               {item?.baselineEnd && ` · 원래 ${item.baselineEnd} → 지금 ${item.endDate ?? '미정'}`}
               {!!item?.slipDays && item.slipDays > 0 && <span className="text-[#991B1B]"> (+{item.slipDays}일)</span>}
             </p>

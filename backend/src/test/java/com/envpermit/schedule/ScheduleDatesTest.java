@@ -102,7 +102,7 @@ class ScheduleDatesTest {
             "2027-04-27, 2027-04-13, 2027-04-25, 2027-05-01, 12", // done: frozen at the actual end
             "2027-04-13, 2027-04-13, 2027-04-10, 2027-05-01, 0",  // done early
             "2027-04-10, 2027-04-13, none,       2027-04-11, 0",  // ahead of the baseline
-            "2026-01-02, none,       none,       2026-01-05, 3",  // no baseline: against the current end
+            "2026-01-02, none,       none,       2026-01-05, 0",  // no baseline yet: 기한 경과, not 일정 지연
             "2026-01-05, none,       none,       2026-01-05, 0",  // due today
             "none,       none,       none,       2026-01-05, 0",  // no dates
     })

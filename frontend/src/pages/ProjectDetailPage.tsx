@@ -183,8 +183,10 @@ export default function ProjectDetailPage() {
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
               <dt className="text-gray-400">시설용량</dt>
               <dd className="text-gray-700">{project.capacity ?? '—'} {project.capacityUnit}</dd>
-              <dt className="text-gray-400">착공예정일</dt>
+              <dt className="text-gray-400">착수일</dt>
               <dd className="text-gray-700">{project.startDate ?? '—'}</dd>
+              <dt className="text-gray-400">착공예정일</dt>
+              <dd className="text-gray-700">{project.constructionStartDate ?? '—'}</dd>
               <dt className="text-gray-400">준공예정일</dt>
               <dd className="text-gray-700">{project.expectedEndDate ?? '—'}</dd>
               <dt className="text-gray-400">부서/팀</dt>

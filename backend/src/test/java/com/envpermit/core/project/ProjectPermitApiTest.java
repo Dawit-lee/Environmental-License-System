@@ -1,5 +1,6 @@
 package com.envpermit.core.project;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -10,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.envpermit.core.company.Company;
 import com.envpermit.core.company.CompanyRepository;
+import com.envpermit.core.permit.PermitStatusJob;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
 import com.envpermit.support.IntegrationTest;
@@ -32,6 +34,7 @@ class ProjectPermitApiTest extends IntegrationTest {
     @Autowired UserRepository users;
     @Autowired CompanyRepository companies;
     @Autowired PasswordEncoder encoder;
+    @Autowired PermitStatusJob statusJob;
 
     String kim; // company A, creates projects
     String lee; // company A
@@ -147,16 +150,53 @@ class ProjectPermitApiTest extends IntegrationTest {
         call(kim, json(put(url), permitJson("IN_PROGRESS"))).andExpect(status().isOk());
         call(kim, json(put(url), permitJson("IN_PROGRESS"))).andExpect(status().isOk()); // no status change
         clock.advance(Duration.ofMinutes(10));
-        call(kim, json(put(url), permitJson("COMPLETED"))).andExpect(status().isOk());
+        // 취득완료로 골라도 만료일이 D-10이라 규칙상 만료임박
+        call(kim, json(put(url), permitJson("COMPLETED"))).andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("NEAR_EXPIRY"));
 
         call(kim, get(url + "/history")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(3))
                 .andExpect(jsonPath("$[0].fromStatus").value("IN_PROGRESS"))
-                .andExpect(jsonPath("$[0].toStatus").value("COMPLETED"))
+                .andExpect(jsonPath("$[0].toStatus").value("NEAR_EXPIRY"))
                 .andExpect(jsonPath("$[0].changedBy").value("김에이"))
                 .andExpect(jsonPath("$[0].changedAt").value("2026-01-05T00:20:00Z"))
                 .andExpect(jsonPath("$[2].fromStatus").doesNotExist())
                 .andExpect(jsonPath("$[2].toStatus").value("NOT_APPLIED"));
+    }
+
+    @Test
+    void status_follows_dates_and_daily_refresh_records_an_automatic_change() throws Exception {
+        long id = createProject(kim);
+        long permit = createPermit(kim, id, "NOT_APPLIED");
+        String url = "/api/projects/" + id + "/permits/" + permit;
+        // 신청일 오늘 → 진행중; 취득일 + 만료 2026-03-01(D-55) → 취득완료
+        call(kim, json(put(url), permitJson("NOT_APPLIED", "2026-01-05", null, "2026-03-01")))
+                .andExpect(jsonPath("$.status").value("IN_PROGRESS"));
+        call(kim, json(put(url), permitJson("IN_PROGRESS", "2026-01-05", "2026-01-05", "2026-03-01")))
+                .andExpect(jsonPath("$.status").value("COMPLETED"))
+                .andExpect(jsonPath("$.acquisitionDate").value("2026-01-05"));
+
+        clock.advance(Duration.ofDays(30)); // 2026-02-04: D-25
+        kim = login("kim@a.com"); // the old token expired with the clock
+        assertThat(statusJob.refreshAll()).isEqualTo(1);
+        assertThat(statusJob.refreshAll()).isZero();
+        call(kim, get(url)).andExpect(jsonPath("$.status").value("NEAR_EXPIRY"));
+        call(kim, get(url + "/history")).andExpect(jsonPath("$.length()").value(4))
+                .andExpect(jsonPath("$[0].toStatus").value("NEAR_EXPIRY"))
+                .andExpect(jsonPath("$[0].changedBy").doesNotExist());
+    }
+
+    @Test
+    void only_members_can_change_permit_status() throws Exception {
+        long id = createProject(kim);
+        long permit = createPermit(kim, id, "NOT_APPLIED");
+        String url = "/api/projects/" + id + "/permits/" + permit;
+        // lee: same company, not a member
+        call(lee, json(put(url), permitJson("IN_PROGRESS"))).andExpect(status().isForbidden());
+        call(kim, json(post("/api/projects/" + id + "/members"), "{\"userId\":" + leeId + "}"))
+                .andExpect(status().isCreated());
+        call(lee, json(put(url), permitJson("IN_PROGRESS"))).andExpect(status().isOk());
+        call(kim, get(url + "/history")).andExpect(jsonPath("$[0].changedBy").value("이에이"));
     }
 
     @Test
@@ -184,6 +224,17 @@ class ProjectPermitApiTest extends IntegrationTest {
     private long createPermit(String token, long projectId, String status) throws Exception {
         return id(call(token, json(post("/api/projects/" + projectId + "/permits"), permitJson(status)))
                 .andExpect(status().isCreated()));
+    }
+
+    private static String permitJson(String status, String applied, String acquired, String expiry) {
+        return """
+                {"name":"건축허가","category":"CONSTRUCTION","status":"%s","applicationDate":%s,
+                 "acquisitionDate":%s,"expiryDate":%s}"""
+                .formatted(status, q(applied), q(acquired), q(expiry));
+    }
+
+    private static String q(String date) {
+        return date == null ? "null" : "\"" + date + "\"";
     }
 
     private static String permitJson(String status) {

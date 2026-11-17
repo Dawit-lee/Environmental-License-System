@@ -67,7 +67,8 @@ public class PermitItem {
         return p;
     }
 
-    void apply(PermitController.PermitRequest r) {
+    /** status: {@link PermitStatusRule} from the dates, the chosen status only where the dates can't decide. */
+    void apply(PermitController.PermitRequest r, LocalDate today) {
         name = r.name().trim();
         category = r.category();
         regulation = r.regulation();
@@ -79,12 +80,20 @@ public class PermitItem {
         applicationDate = r.applicationDate();
         acquisitionDate = r.acquisitionDate();
         expiryDate = r.expiryDate();
-        status = r.status();
+        status = PermitStatusRule.derive(this, r.status(), today);
         nextAction = r.nextAction();
         nextActionUrl = r.nextActionUrl();
         progressNote = r.progressNote();
         expectedCompletion = r.expectedCompletion();
         issueNote = r.issueNote();
+    }
+
+    /** Re-derives the status for today (daily refresh); returns true if it changed. */
+    boolean refreshStatus(LocalDate today) {
+        Status next = PermitStatusRule.derive(this, status, today);
+        boolean changed = next != status;
+        status = next;
+        return changed;
     }
 
     public Long getId() { return id; }

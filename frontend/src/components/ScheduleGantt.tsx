@@ -122,7 +122,7 @@ const COLUMNS = [
   { id: 'text', header: '항목', flexgrow: 1 },
   { id: 'owner', header: '담당', width: 72 },
   { id: 'endText', header: '종료', width: 72, align: 'center' as const },
-  { id: 'delayDays', header: '지연', width: 56, align: 'right' as const, cell: DelayCell },
+  { id: 'delayDays', header: '경과', width: 56, align: 'right' as const, cell: DelayCell },
 ];
 
 /**

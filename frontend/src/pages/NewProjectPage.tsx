@@ -101,7 +101,8 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
   const [capacity, setCapacity] = useState('');
   const [startDate, setStartDate] = useState('');
   const [expectedEndDate, setExpectedEndDate] = useState('');
-  const [savedDates, setSavedDates] = useState({ start: '', end: '' }); // to preview the schedule move on save
+  const [constructionStartDate, setConstructionStartDate] = useState(''); // 착공예정일, not 착수일 (H2)
+  const [savedDates, setSavedDates] = useState({ start: '', end: '', construction: '' }); // to preview the schedule move on save
   const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
   const [saved, setSaved] = useState(false);
   const [depts, setDepts] = useState<Department[]>([]);
@@ -140,7 +141,8 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setCapacity(p.capacity == null ? '' : String(p.capacity));
       setStartDate(p.startDate ?? '');
       setExpectedEndDate(p.expectedEndDate ?? '');
-      setSavedDates({ start: p.startDate ?? '', end: p.expectedEndDate ?? '' });
+      setConstructionStartDate(p.constructionStartDate ?? '');
+      setSavedDates({ start: p.startDate ?? '', end: p.expectedEndDate ?? '', construction: p.constructionStartDate ?? '' });
       setStatus(p.status);
       setTeamId(p.teamId);
       setPmUserId(p.pmUserId);
@@ -198,7 +200,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     project_kind: projectKind,
     ...(projectKind === 'EXPANSION' ? { existing_capacity_tpd: Number(existingCapacity) } : {}),
     ...(wasteTypes.length ? { waste_types: wasteTypes } : {}),
-    ...(startDate ? { construction_start: startDate } : {}),
+    ...(constructionStartDate ? { construction_start: constructionStartDate } : {}),
   });
 
   const reload = async (pid: number) => {
@@ -247,9 +249,10 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     if (why) act(() => rejectSuggestion(s, why));
   };
 
-  /** 착수일·완료일 move the schedule's relative items (설계 §2.3): show how many before saving. */
+  /** 착수일·완료일·착공예정일 move the schedule's relative items (설계 §2.3): show how many before saving. */
   const confirmScheduleMove = async (pid: number) => {
-    const changes = ([['KICKOFF', savedDates.start, startDate], ['COMPLETION', savedDates.end, expectedEndDate]] as const)
+    const changes = ([['KICKOFF', savedDates.start, startDate], ['COMPLETION', savedDates.end, expectedEndDate],
+      ['CONSTRUCTION_START', savedDates.construction, constructionStartDate]] as const)
       .filter(([, from, to]) => to && to !== from);
     const previews = await Promise.all(changes.map(([a, , to]) => setAnchor(pid, a, to, true)));
     const moved = previews.filter((p) => p.count > 0);
@@ -270,6 +273,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
         capacityUnit: '톤/일',
         startDate: startDate || null,
         expectedEndDate: expectedEndDate || null,
+        constructionStartDate: constructionStartDate || null,
         status,
         teamId,
         pmUserId,
@@ -280,7 +284,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
         (await api<{ id: number }>('/api/projects', { method: 'POST', body })).id;
       if (projectId && !(await confirmScheduleMove(pid))) return;
       if (projectId) await api(`/api/projects/${pid}`, { method: 'PUT', body });
-      setSavedDates({ start: startDate, end: expectedEndDate });
+      setSavedDates({ start: startDate, end: expectedEndDate, construction: constructionStartDate });
       setProjectId(pid);
       onSaved?.();
       if (!derivation) return setSaved(true);
@@ -473,8 +477,14 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 </Field>
               )}
 
-              <Field label="착공예정일">
+              <Field label="착수일">
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} />
+                <p className="mt-1 text-xs text-gray-500">설계를 시작하는 날입니다. 일정의 착수일 기준이 됩니다.</p>
+              </Field>
+
+              <Field label="착공예정일">
+                <input type="date" value={constructionStartDate} onChange={(e) => setConstructionStartDate(e.target.value)} className={input} />
+                <p className="mt-1 text-xs text-gray-500">공사를 시작하는 날입니다. 인허가 판정과 일정의 착공일 기준에 씁니다.</p>
               </Field>
 
               {editId && (

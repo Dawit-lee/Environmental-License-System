@@ -1,5 +1,6 @@
 package com.envpermit.operation;
 
+import com.envpermit.core.permit.PermitStatusRule;
 import java.time.LocalDate;
 import java.util.Collection;
 
@@ -44,7 +45,8 @@ final class ComplianceRate {
             if (open && t.kind().equals("CORRECTIVE")) {
                 openCorrective++;
             }
-            if (open && t.dueDate().isAfter(today) && !t.dueDate().isAfter(today.plusDays(30))) {
+            // 기한 임박 = D-day ~ D-30 (PermitStatusRule.DUE_SOON_DAYS); before 2026-11-17 it skipped tasks due today
+            if (open && !t.dueDate().isBefore(today) && !t.dueDate().isAfter(today.plusDays(PermitStatusRule.DUE_SOON_DAYS))) {
                 dueSoon++;
             }
         }

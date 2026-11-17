@@ -31,8 +31,11 @@ export interface Project {
   location: string;
   capacity: number | null;
   capacityUnit: string | null;
+  /** 착수일 (설계 시작, 일정 KICKOFF) */
   startDate: string | null;
   expectedEndDate: string | null;
+  /** 착공예정일 (공사 시작, 일정 CONSTRUCTION_START) */
+  constructionStartDate: string | null;
   status: ProjectStatus;
   permitCount: number;
   acquiredCount: number;
@@ -96,7 +99,7 @@ export interface PermitHistory {
   id: number;
   fromStatus: PermitStatus | null; // null = created
   toStatus: PermitStatus;
-  changedBy: string;
+  changedBy: string | null; // null = 날짜에 따른 자동 변경
   changedAt: string;
 }
 
