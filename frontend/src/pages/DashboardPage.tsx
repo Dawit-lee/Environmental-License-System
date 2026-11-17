@@ -10,6 +10,7 @@ import {
 } from '../components/dashboard';
 import { CompanyCompliance } from '../components/Compliance';
 import { DelayedByDiscipline, WeekEvents } from '../components/ScheduleWidgets';
+import { GettingStarted } from '../components/Onboarding';
 
 // ---------------------------------------------------------------------------
 // DashboardPage — portfolio-wide overview: summary cards, near-expiry table,
@@ -21,6 +22,7 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [permits, setPermits] = useState<PermitItem[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false); // the checklist waits for real counts, so it does not flash every step open
   const [reviewOpen, setReviewOpen] = useState(0); // AI suggestions + revisions awaiting review
   const [lawNew, setLawNew] = useState(0); // law amendments not yet reviewed
   useEffect(() => {
@@ -30,6 +32,7 @@ export default function DashboardPage() {
         const lists = await Promise.all(ps.map((p) => api<PermitItem[]>(`/api/projects/${p.id}/permits`)));
         setProjects(ps);
         setPermits(lists.flat());
+        setLoaded(true);
         const sugg = await Promise.all(ps.map((p) => api<{ kind: string; status: string }[]>(`/api/projects/${p.id}/suggestions`)));
         // same rows the review queue shows: obligations and version-diff revisions
         setReviewOpen(sugg.flat().filter((x) => (x.kind === 'OBLIGATION' || x.kind === 'OBLIGATION_REVISION') && isOpen(x)).length);
@@ -60,6 +63,8 @@ export default function DashboardPage() {
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold text-[#1F4E79]">대시보드</h1>
         {loadError && <p className="mt-2 text-sm text-[#991B1B]">{loadError}</p>}
+
+        {!loadError && loaded && <GettingStarted projects={projects} permits={permits} />}
 
         {/* Summary cards */}
         <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
