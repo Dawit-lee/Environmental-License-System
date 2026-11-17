@@ -19,6 +19,7 @@ import jakarta.validation.constraints.Size;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,6 +30,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -56,10 +58,12 @@ class SignupController {
     private final Notifier notifier;
     private final Clock clock;
     private final String baseUrl;
+    private final TransactionTemplate tx;
 
     SignupController(CompanyRepository companies, UserRepository users, JoinRequestRepository requests,
                      PasswordEncoder encoder, TokenService tokens, Mailer mailer, Notifier notifier, Clock clock,
-                     @Value("${app.base-url}") String baseUrl) {
+                     @Value("${app.base-url}") String baseUrl, TransactionTemplate tx) {
+        this.tx = tx;
         this.companies = companies;
         this.users = users;
         this.requests = requests;
@@ -108,8 +112,12 @@ class SignupController {
     }
 
     @PostMapping("/api/auth/join")
-    @Transactional
     ResponseEntity<Message> join(@Valid @RequestBody Join req, HttpServletRequest http) {
+        tx.execute(s -> saveJoin(req, http)).forEach(this::send); // M3: SMTP after commit, not inside the tx
+        return ResponseEntity.accepted().body(new Message("가입 신청을 보냈습니다. 회사 관리자가 승인하면 로그인할 수 있습니다."));
+    }
+
+    private List<Mail> saveJoin(Join req, HttpServletRequest http) {
         Instant now = clock.instant();
         Company company = company(req.code());
         String ip = http.getRemoteAddr(); // the real client behind the tunnel (server.forward-headers-strategy)
@@ -126,15 +134,16 @@ class SignupController {
         requests.save(new JoinRequest(company.getId(), email, name, encoder.encode(req.password()), ip, now));
 
         String who = "%s(%s)".formatted(name, email);
+        List<Mail> mails = new ArrayList<>();
         for (User admin : users.findByCompanyIdAndRole(company.getId(), User.Role.ADMIN)) {
             notifier.notify(admin.getId(), who + " 님이 가입을 신청했습니다.", "/join-requests");
-            send(admin.getEmail(), "[인허가 관리] 가입 요청: " + who, """
+            mails.add(new Mail(admin.getEmail(), "[인허가 관리] 가입 요청: " + who, """
                     %s 님이 %s에 가입을 신청했습니다.
                     승인하거나 거절해 주세요 (14일 안에 처리하지 않으면 만료됩니다):
                     %s/join-requests
-                    """.formatted(who, company.getName(), baseUrl));
+                    """.formatted(who, company.getName(), baseUrl)));
         }
-        return ResponseEntity.accepted().body(new Message("가입 신청을 보냈습니다. 회사 관리자가 승인하면 로그인할 수 있습니다."));
+        return mails;
     }
 
     /** Open requests of the caller's company. Company admins only. */
@@ -148,28 +157,32 @@ class SignupController {
     }
 
     @PostMapping("/api/join-requests/{id}/approve")
-    @Transactional
     ResponseEntity<Void> approve(@AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
-        JoinRequest r = open(jwt, id);
-        requireFreeEmail(r.getEmail());
-        users.save(new User(r.getEmail(), r.getPasswordHash(), r.getName(), User.Role.USER, r.getCompanyId()));
-        r.decide(Status.APPROVED, null, userId(jwt), clock.instant());
-        send(r.getEmail(), "[인허가 관리] 가입이 승인되었습니다", """
-                %s 님, 가입이 승인되었습니다. 신청한 이메일과 비밀번호로 로그인하세요.
-                %s/login
-                """.formatted(r.getName(), baseUrl));
+        send(tx.execute(s -> {
+            JoinRequest r = open(jwt, id);
+            requireFreeEmail(r.getEmail());
+            users.save(new User(r.getEmail(), r.getPasswordHash(), r.getName(), User.Role.USER, r.getCompanyId()));
+            r.decide(Status.APPROVED, null, userId(jwt), clock.instant());
+            requests.save(r);
+            return new Mail(r.getEmail(), "[인허가 관리] 가입이 승인되었습니다", """
+                    %s 님, 가입이 승인되었습니다. 신청한 이메일과 비밀번호로 로그인하세요.
+                    %s/login
+                    """.formatted(r.getName(), baseUrl));
+        }));
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/api/join-requests/{id}/reject")
-    @Transactional
     ResponseEntity<Void> reject(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
                                 @Valid @RequestBody(required = false) Reject req) {
-        JoinRequest r = open(jwt, id);
         String reason = req == null || req.reason() == null || req.reason().isBlank() ? null : req.reason().trim();
-        r.decide(Status.REJECTED, reason, userId(jwt), clock.instant());
-        send(r.getEmail(), "[인허가 관리] 가입 신청이 거절되었습니다", "%s 님의 가입 신청이 거절되었습니다.%s\n"
-                .formatted(r.getName(), reason == null ? "" : "\n사유: " + reason));
+        send(tx.execute(s -> {
+            JoinRequest r = open(jwt, id);
+            r.decide(Status.REJECTED, reason, userId(jwt), clock.instant());
+            requests.save(r);
+            return new Mail(r.getEmail(), "[인허가 관리] 가입 신청이 거절되었습니다", "%s 님의 가입 신청이 거절되었습니다.%s\n"
+                    .formatted(r.getName(), reason == null ? "" : "\n사유: " + reason));
+        }));
         return ResponseEntity.noContent().build();
     }
 
@@ -207,12 +220,15 @@ class SignupController {
         return email.trim().toLowerCase();
     }
 
-    /** A mail failure must not undo the signup step; the in-app notice / screen still shows it. */
-    private void send(String to, String subject, String body) {
+    private record Mail(String to, String subject, String body) {
+    }
+
+    /** Sent after the commit; a mail failure must not undo the signup step (the in-app notice / screen still shows it). */
+    private void send(Mail m) {
         try {
-            mailer.send(to, subject, body);
+            mailer.send(m.to(), m.subject(), m.body());
         } catch (RuntimeException e) {
-            log.warn("mail to {} failed: {}", to, subject, e);
+            log.warn("mail to {} failed: {}", m.to(), m.subject(), e);
         }
     }
 }

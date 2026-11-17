@@ -32,16 +32,12 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import javax.imageio.ImageIO;
-import org.apache.pdfbox.Loader;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.rendering.PDFRenderer;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -91,13 +87,18 @@ public class Extraction {
     private final TransactionTemplate tx;
     private final Clock clock;
     private final Duration staleAfter;
+    private final int dailyLimit;
+    private final PageImages pageImages;
 
     Extraction(ProjectAccess access, ProjectRepository projects, CompanyRepository companies,
                PermitItemRepository permits, DocumentRepository documents, DocumentStorage storage,
                AiRunRepository runs, Review review, RevisionDiff revisions, ScheduleSuggestions scheduleSuggestions,
                ExtractionInputPreparer preparer, LlmClient llm,
                ObjectMapper json, Validator validator, TransactionTemplate tx, Clock clock,
-               @Value("${app.extraction.stale-after}") Duration staleAfter) {
+               @Value("${app.extraction.stale-after}") Duration staleAfter,
+               @Value("${app.extraction.daily-limit}") int dailyLimit, PageImages pageImages) {
+        this.pageImages = pageImages;
+        this.dailyLimit = dailyLimit;
         this.access = access;
         this.projects = projects;
         this.companies = companies;
@@ -169,12 +170,18 @@ public class Extraction {
         return extractable(projectId, doc);
     }
 
-    /** Company AI setting on (403) and a PDF (422). */
+    /** Company AI setting on (403), under the company's daily run limit (429, M4) and a PDF (422). */
     private Document extractable(long projectId, Document doc) {
         Project project = projects.findById(projectId).orElseThrow();
         if (!companies.findById(project.getCompanyId()).orElseThrow().isAiExtractionEnabled()) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "회사 설정에서 AI 추출이 꺼져 있습니다. 회사 마스터가 켤 수 있습니다.");
+        }
+        Instant todayStart = LocalDate.now(clock).atStartOfDay(clock.getZone()).toInstant();
+        if (runs.countByCompanyIdAndStartedAtGreaterThanEqualAndPreparerNot(project.getCompanyId(), todayStart,
+                AiRun.MANUAL) >= dailyLimit) {
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "오늘 회사의 AI 추출 한도(%d건)를 다 썼습니다. 내일 다시 시도해 주세요.".formatted(dailyLimit));
         }
         if (!PDF.equals(doc.getContentType())) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "PDF 문서만 AI 추출할 수 있습니다.");
@@ -212,6 +219,12 @@ public class Extraction {
         long companyId = projects.findById(projectId).orElseThrow().getCompanyId();
         return runs.save(AiRun.start(companyId, projectId, kind, inputRef, llm.model(), ObligationPrompt.VERSION,
                 preparer.name(), userId(jwt), clock.instant()).provider(llm.provider().name()));
+    }
+
+    /** The worker queue was full (M4): the run never starts. */
+    public void rejectQueued(long runId) {
+        tx.executeWithoutResult(s -> runs.findById(runId).ifPresent(r ->
+                r.finish("대기열이 가득 차 시작하지 못했습니다.", null, null, null, clock.instant())));
     }
 
     /** The slow part. Never throws: every outcome ends as SUCCEEDED or FAILED on the run. */
@@ -424,18 +437,7 @@ public class Extraction {
         JsonNode ref = review.runOf(suggestionId, jwt).getInputRef();
         Document doc = documents.findById(ref == null ? -1 : ref.path("document_id").asLong())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "원문 문서가 없습니다."));
-        // shortcut: renders on every request, no cache; add one if viewers get slow on big scans
-        try (InputStream in = storage.open(doc.getStorageKey());
-             PDDocument pdf = Loader.loadPDF(in.readAllBytes());
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            if (pageNo < 1 || pageNo > pdf.getNumberOfPages()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "페이지가 없습니다.");
-            }
-            ImageIO.write(new PDFRenderer(pdf).renderImageWithDPI(pageNo - 1, 110), "png", out);
-            return out.toByteArray();
-        } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "PDF를 읽을 수 없습니다.");
-        }
+        return pageImages.render(doc.getStorageKey(), pageNo);
     }
 
     /** After a restart nothing is working on RUNNING rows any more (design §3.9). */

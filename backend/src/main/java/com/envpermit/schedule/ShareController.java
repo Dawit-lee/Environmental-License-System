@@ -47,6 +47,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 class ShareController {
 
+    static final int ICS_PAST_MONTHS = 6;
+
     static final int DEFAULT_DAYS = 90;
     static final int MAX_DAYS = 365;
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -188,9 +190,11 @@ class ShareController {
     @GetMapping("/api/me/calendar.ics")
     ResponseEntity<String> myCalendar(@RequestParam(required = false) String token) {
         List<Long> user = token == null ? List.of()
-                : jdbc.queryForList("SELECT user_id FROM user_calendar_token WHERE token_hash = ?", Long.class, hash(token));
+                : jdbc.queryForList("SELECT t.user_id FROM user_calendar_token t JOIN users u ON u.id = t.user_id "
+                        + "WHERE t.token_hash = ? AND u.disabled_at IS NULL", Long.class, hash(token)); // M2: not for disabled users
         if (user.isEmpty()) return ResponseEntity.notFound().build();
         long uid = user.get(0);
+        LocalDate since = LocalDate.now(clock).minusMonths(ICS_PAST_MONTHS); // L7: recent past only
         List<Ics.Entry> entries = new java.util.ArrayList<>(jdbc.query("""
                 SELECT e.id, p.name, e.title, e.starts_at, e.ends_at, e.all_day, e.location, d.name
                 FROM project_event e
@@ -198,21 +202,22 @@ class ShareController {
                 JOIN project_member m ON m.project_id = e.project_id AND m.user_id = a.user_id
                 JOIN project p ON p.id = e.project_id
                 LEFT JOIN discipline d ON d.id = e.discipline_id
+                WHERE e.ends_at >= ?
                 ORDER BY e.starts_at, e.id""",
                 (rs, n) -> new Ics.Entry("event-" + rs.getLong(1) + "@envpermit", "[" + rs.getString(2) + "] " + rs.getString(3),
                         rs.getObject(4, LocalDateTime.class), rs.getObject(5, LocalDateTime.class), rs.getBoolean(6),
-                        rs.getString(7), details(rs.getString(8), null)), uid));
+                        rs.getString(7), details(rs.getString(8), null)), uid, since.atStartOfDay()));
         entries.addAll(jdbc.query("""
                 SELECT i.id, p.name, i.title, i.end_date, d.name, i.partner_name
                 FROM schedule_item i
                 JOIN project_member m ON m.project_id = i.project_id AND m.user_id = i.owner_user_id
                 JOIN project p ON p.id = i.project_id
                 LEFT JOIN discipline d ON d.id = i.discipline_id
-                WHERE i.owner_user_id = ? AND i.kind = 'MILESTONE' AND i.deleted_at IS NULL AND i.end_date IS NOT NULL
+                WHERE i.owner_user_id = ? AND i.kind = 'MILESTONE' AND i.deleted_at IS NULL AND i.end_date >= ?
                 ORDER BY i.end_date, i.id""",
                 (rs, n) -> new Ics.Entry("item-" + rs.getLong(1) + "@envpermit", "[" + rs.getString(2) + "] " + rs.getString(3),
                         rs.getObject(4, LocalDate.class).atStartOfDay(), rs.getObject(4, LocalDate.class).atStartOfDay(),
-                        true, null, details(rs.getString(5), rs.getString(6))), uid));
+                        true, null, details(rs.getString(5), rs.getString(6))), uid, since));
         return calendar(Ics.calendar("내 설계 일정", clock.instant(), entries));
     }
 

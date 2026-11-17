@@ -15,7 +15,7 @@ import SharePage from './pages/SharePage';
 import GuidePage from './pages/GuidePage';
 import { setOnboardingDismissed } from './components/Onboarding';
 import NotificationBell from './components/NotificationBell';
-import type { Session } from './api/auth';
+import { logout, type Session } from './api/auth';
 import { isMaster } from './api/client';
 
 // ---------------------------------------------------------------------------
@@ -55,6 +55,7 @@ export default function PermitApp() {
   };
 
   const handleLogout = () => {
+    if (session) logout(session.accessToken);
     localStorage.removeItem(STORAGE_KEY);
     setSession(null);
   };

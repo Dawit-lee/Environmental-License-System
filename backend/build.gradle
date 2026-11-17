@@ -24,7 +24,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
     implementation 'org.springframework.boot:spring-boot-starter-oauth2-resource-server'
-    implementation platform('software.amazon.awssdk:bom:2.31.0')
+    implementation platform('software.amazon.awssdk:bom:2.57.8')
     implementation 'software.amazon.awssdk:s3'
     implementation 'org.flywaydb:flyway-core'
     implementation 'com.anthropic:anthropic-java:3.2.0'

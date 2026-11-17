@@ -19,6 +19,8 @@ public interface AiRunRepository extends JpaRepository<AiRun, Long> {
             + "AND kind IN ('OBLIGATION', 'OBLIGATION_REVISION') AND status <> 'FAILED')", nativeQuery = true)
     boolean extractedBefore(long projectId, String sha256);
 
+    long countByCompanyIdAndStartedAtGreaterThanEqualAndPreparerNot(long companyId, Instant from, String preparer);
+
     /** Orphans of a restart: RUNNING since before {@code before}. */
     @Transactional
     @Modifying

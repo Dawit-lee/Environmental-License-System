@@ -137,6 +137,25 @@ class ExtractionApiTest extends IntegrationTest {
     // --- extraction ---------------------------------------------------------------------------------------
 
     @Test
+    void the_company_daily_limit_answers_429_until_the_next_kst_day(
+            @org.springframework.beans.factory.annotation.Value("${app.extraction.daily-limit}") int limit) throws Exception { // M4
+        enable();
+        llm.answer("obligations-ok.json");
+        for (int i = 0; i < limit; i++) { // failed runs count (the API was paid for); manual-entry runs don't
+            jdbc.update("INSERT INTO ai_run (company_id, project_id, kind, preparer, status, started_at) "
+                    + "VALUES (?, ?, 'OBLIGATION', ?, 'FAILED', ?)", companyId, projectId,
+                    i == 0 ? "MANUAL" : "CLAUDE_PDF_DIRECT", java.sql.Timestamp.from(START));
+        }
+        extract(kim).andExpect(status().isAccepted()); // limit - 1 counted so far
+
+        extract(kim, true).andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.message").value("오늘 회사의 AI 추출 한도(%d건)를 다 썼습니다. 내일 다시 시도해 주세요.".formatted(limit)));
+
+        clock.advance(Duration.ofHours(15)); // 2026-01-06 00:00 KST
+        extract(login("kim@a.com"), true).andExpect(status().isAccepted());
+    }
+
+    @Test
     void text_pdf_becomes_pending_suggestions_with_keys_and_quote_checks_mismatch_first() throws Exception {
         enable();
         llm.answer("obligations-ok.json");
@@ -449,6 +468,10 @@ class ExtractionApiTest extends IntegrationTest {
 
     private ResultActions extract(String token) throws Exception {
         return call(token, post(path(docId)));
+    }
+
+    private ResultActions extract(String token, boolean confirmDuplicate) throws Exception {
+        return call(token, json(post(path(docId)), "{\"confirmDuplicate\":" + confirmDuplicate + "}"));
     }
 
     private long upload(String name, byte[] bytes) throws Exception {

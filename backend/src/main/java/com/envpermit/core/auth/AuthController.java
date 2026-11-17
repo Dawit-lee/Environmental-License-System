@@ -16,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -72,6 +73,9 @@ public class AuthController {
         }
         Optional<User> user = users.findByEmail(email)
                 .filter(u -> passwordEncoder.matches(req.password(), u.getPasswordHash()));
+        if (user.isPresent() && user.get().isDisabled()) {
+            return error("비활성화된 계정입니다. 회사 관리자에게 문의해 주세요.");
+        }
         if (user.isPresent()) {
             throttle.succeeded(email, ip);
             return ResponseEntity.ok(new LoginResponse(tokens.issue(user.get()), user.get()));
@@ -99,6 +103,16 @@ public class AuthController {
         } catch (JwtException e) {
             return BAD_REFRESH;
         }
+    }
+
+    /** Logs out every device of the caller: all their access and refresh tokens stop working. */
+    @PostMapping("/api/auth/logout")
+    @Transactional
+    ResponseEntity<Void> logout(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt != null) {
+            users.findById(Long.parseLong(jwt.getSubject())).ifPresent(User::revokeTokens);
+        }
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/api/me")

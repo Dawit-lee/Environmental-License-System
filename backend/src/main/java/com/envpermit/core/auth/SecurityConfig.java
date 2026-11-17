@@ -14,8 +14,14 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
@@ -69,17 +75,29 @@ public class SecurityConfig {
 
     /** Validates access tokens on protected endpoints. */
     @Bean
-    JwtDecoder jwtDecoder(SecretKey key, Clock clock) {
-        return decoder(key, clock, TokenService.ACCESS);
+    JwtDecoder jwtDecoder(SecretKey key, Clock clock, JdbcTemplate jdbc) {
+        return decoder(key, clock, TokenService.ACCESS, jdbc);
     }
 
-    static NimbusJwtDecoder decoder(SecretKey key, Clock clock, String type) {
+    /** Signature, expiry, token type, and (M2) the user still exists, is not disabled and has not revoked this token version. */
+    static NimbusJwtDecoder decoder(SecretKey key, Clock clock, String type, JdbcTemplate jdbc) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withSecretKey(key).macAlgorithm(MacAlgorithm.HS256).build();
         JwtTimestampValidator timestamps = new JwtTimestampValidator();
         timestamps.setClock(clock);
         decoder.setJwtValidator(new DelegatingOAuth2TokenValidator<>(
-                timestamps, new JwtClaimValidator<String>("typ", type::equals)));
+                timestamps, new JwtClaimValidator<String>("typ", type::equals), active(jdbc)));
         return decoder;
+    }
+
+    // one PK lookup per request; cheap at this scale and makes logout/disable take effect at once
+    private static OAuth2TokenValidator<Jwt> active(JdbcTemplate jdbc) {
+        OAuth2Error revoked = new OAuth2Error(OAuth2ErrorCodes.INVALID_TOKEN, "토큰이 폐기되었습니다.", null);
+        return jwt -> {
+            long version = jwt.getClaim("ver") instanceof Number n ? n.longValue() : 0;
+            Boolean ok = jdbc.query("SELECT disabled_at IS NULL AND token_version = ? FROM users WHERE id = ?",
+                    rs -> rs.next() && rs.getBoolean(1), version, Long.parseLong(jwt.getSubject()));
+            return Boolean.TRUE.equals(ok) ? OAuth2TokenValidatorResult.success() : OAuth2TokenValidatorResult.failure(revoked);
+        };
     }
 
     @Bean

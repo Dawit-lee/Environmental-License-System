@@ -30,6 +30,14 @@ public class Org {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "소속 회사가 없습니다."));
     }
 
+    /** Company master (role read from the DB, not the token, so a demotion takes effect at once) → their company id. */
+    public long masterCompanyOf(Jwt jwt) {
+        User u = users.findById(Long.parseLong(jwt.getSubject()))
+                .filter(x -> x.getRole() == User.Role.ADMIN && x.getCompanyId() != null)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "회사 마스터만 변경할 수 있습니다."));
+        return u.getCompanyId();
+    }
+
     public Map<Long, Team> teams(long companyId) {
         Map<Long, Team> byId = new HashMap<>();
         jdbc.query("SELECT t.id, t.name, d.name AS dept FROM team t JOIN department d ON d.id = t.department_id "

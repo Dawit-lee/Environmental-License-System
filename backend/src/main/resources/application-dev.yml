@@ -1,6 +1,8 @@
 # dev profile: also runs db/dev (seeds the local dev user)
 spring:
   flyway:
+    # parallel branches merge migrations out of version order (e.g. V210 after V220); dev only (L2)
+    out-of-order: true
     locations: classpath:db/migration,classpath:db/dev
     placeholders:
       # Seed login password, hashed by pgcrypto at seed time. Set DEV_SEED_PASSWORD for any shared or public run (README).
