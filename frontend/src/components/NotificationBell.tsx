@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { getNotifications, markAllRead, markRead, type AppNotification } from '../api/notifications';
 import { getNewLawImpactCount } from '../api/lawImpacts';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
+import { useEscape } from './useEscape';
 
 /** D-day counted now, not when the notice was made (yesterday's D-1 is today's D-DAY). */
 function dueLabel(n: AppNotification): { text: string; days: number } | null {
@@ -17,6 +18,7 @@ export default function NotificationBell() {
   const [lawNew, setLawNew] = useState(0); // NEW law impacts on projects I am 책임자 of
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const bell = useRef<HTMLButtonElement>(null);
   const navigate = useNavigate();
 
   const load = () => {
@@ -38,6 +40,8 @@ export default function NotificationBell() {
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
+  useEscape(() => { setOpen(false); bell.current?.focus(); }, open);
+
   const unread = items.filter((n) => !n.readAt).length + lawNew;
 
   const openItem = async (n: AppNotification) => {
@@ -49,6 +53,7 @@ export default function NotificationBell() {
   return (
     <div ref={ref} className="relative">
       <button
+        ref={bell}
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-label={`알림 ${unread}건 읽지 않음`}
@@ -106,7 +111,9 @@ export default function NotificationBell() {
                       </span>
                     )}
                     {/* the server writes "기한 경과 · …"; the label above already says it */}
-                    <span className="block break-words">{n.message.replace(/^기한 경과 · /, '')}</span>
+                    <span className="block break-words">
+                      {!n.readAt && <><span aria-hidden className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-brand align-middle" /><span className="sr-only">읽지 않음 · </span></>}
+                      {n.message.replace(/^기한 경과 · /, '')}</span>
                   </button>
                 </li>
               ); })}
