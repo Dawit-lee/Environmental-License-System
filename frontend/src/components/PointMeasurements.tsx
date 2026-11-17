@@ -14,7 +14,7 @@ import { getTask, type Task } from '../api/tasks';
 export type Level = 'NORMAL' | 'NEAR' | 'EXCEEDED' | 'NO_LIMIT';
 export const LEVEL: Record<Level, string> = { NORMAL: '정상', NEAR: '근접', EXCEEDED: '초과', NO_LIMIT: '한도 없음' };
 /** Only 초과 is coloured; the other levels are plain text. */
-export const levelClass = (l: Level) => (l === 'EXCEEDED' ? 'font-semibold text-[#991B1B]' : 'text-gray-800');
+export const levelClass = (l: Level) => (l === 'EXCEEDED' ? 'font-semibold text-danger' : 'text-gray-800');
 
 /** Same rule as the server. toPrecision drops binary noise (0.1 × 0.8 = 0.08000000000000002) so the line matches the server's decimals. */
 export function judge(value: number, limit: number | null, warnRatio: number, belowDetection: boolean, lower: number | null = null): Level {
@@ -46,9 +46,9 @@ interface Measurement {
 
 const RECENT = 20;
 const today = () => new Date().toLocaleDateString('sv-SE');
-const INPUT = 'rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
-const BTN = 'rounded-lg border border-[#E5E3DC] px-3 py-1 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
-const PRIMARY = 'rounded-lg bg-[#1F4E79] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#173a5c] disabled:opacity-40';
+const INPUT = 'rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const BTN = 'rounded-lg border border-line px-3 py-1 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
+const PRIMARY = 'rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
 
 /** rev: reload the list when it changes (a paste was saved). onChanged: a value was saved or deleted here. */
 export default function PointMeasurements({ projectId, point, limits, rev, onChanged }: {
@@ -127,18 +127,18 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
 
   return (
     <>
-      <h2 className="mt-8 text-lg font-bold text-[#1F4E79]">측정값 입력 · {point.name}</h2>
+      <h2 className="mt-8 text-lg font-bold text-brand">측정값 입력 · {point.name}</h2>
       {taskId && task && (
-        <p className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-[#F8F7F2] px-3 py-2 text-sm text-gray-700">
+        <p className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-paper px-3 py-2 text-sm text-gray-700">
           <span className="min-w-0 truncate" title={task.title}>
             {linkTask ? `업무 "${task.title}" (기한 ${task.dueDate})에 연결해 저장합니다.` : `업무 "${task.title}"은 이미 닫혀 연결하지 않습니다.`}
           </span>
-          <Link to={`/projects/${projectId}/obligations`} className="shrink-0 text-[#1F4E79] hover:underline">의무사항 탭으로</Link>
+          <Link to={`/projects/${projectId}/obligations`} className="shrink-0 text-brand hover:underline">의무사항 탭으로</Link>
           <button type="button" className={BTN} onClick={() => setParams({}, { replace: true })}>연결 해제</button>
         </p>
       )}
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
-      {saved && <p role="status" className="mt-3 rounded-lg bg-[#F8F7F2] px-3 py-2 text-sm text-gray-700">{saved}</p>}
+      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {saved && <p role="status" className="mt-3 rounded-lg bg-paper px-3 py-2 text-sm text-gray-700">{saved}</p>}
 
       <form onSubmit={save} className="mt-3">
         <div className="flex flex-wrap items-end gap-3">
@@ -149,9 +149,9 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
             측정일에 유효한 한도 항목이 행으로 나옵니다.{point.medium === 'AIR' ? ' 대기 농도는 표준산소농도 보정 후 값을 넣습니다.' : ''}
           </p>
         </div>
-        <div className="mt-3 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+        <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
           <table className="w-full min-w-[820px] whitespace-nowrap text-left text-sm">
-            <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+            <thead className="bg-paper text-xs text-gray-500">
               <tr>
                 <th className="px-4 py-3 font-medium">항목</th>
                 <th className="px-4 py-3 text-right font-medium">한도</th>
@@ -162,7 +162,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
                 <th className="px-4 py-3 font-medium">판정</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#E5E3DC]">
+            <tbody className="divide-y divide-line">
               {rows.map((l) => {
                 const en = entries[l.pollutant] ?? { value: '', nd: false };
                 const value = en.value.trim() === '' ? null : Number(en.value);
@@ -178,7 +178,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
                         onChange={(e) => set({ value: e.target.value })} className={`${INPUT} w-32 py-1 text-right tabular-nums`} />
                     </td>
                     <td className="px-4 py-2">
-                      <input type="checkbox" checked={en.nd} aria-label={`${l.pollutantName} 불검출`} className="accent-[#1F4E79]"
+                      <input type="checkbox" checked={en.nd} aria-label={`${l.pollutantName} 불검출`} className="accent-brand"
                         onChange={(e) => set({ nd: e.target.checked })} />
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums text-gray-600">{value === null || en.nd ? '—' : percent(value, l.limitValue, l.limitLower)}</td>
@@ -203,9 +203,9 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
       <h3 className="mt-8 text-sm font-semibold text-gray-800">
         최근 측정 {recent.length > RECENT ? `(최근 ${RECENT}건 / 전체 ${recent.length}건)` : `(${recent.length})`}
       </h3>
-      <div className="mt-2 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+      <div className="mt-2 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
         <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-gray-500">
             <tr>
               <th className="px-4 py-3 font-medium">측정일</th>
               <th className="px-4 py-3 font-medium">항목</th>
@@ -218,7 +218,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
               <th className="px-4 py-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#E5E3DC]">
+          <tbody className="divide-y divide-line">
             {/* shortcut: the whole history is fetched and cut here; periods are in 측정 추이 below */}
             {recent.slice(0, RECENT).map((m) => (
               <tr key={m.id}>

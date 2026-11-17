@@ -7,7 +7,7 @@ import { usePrompt } from './PromptDialog';
 // discipline is hidden from new schedule items but stays on existing ones.
 // ---------------------------------------------------------------------------
 
-const btn = 'rounded-lg border border-[#E5E3DC] px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-[#F8F7F2] disabled:opacity-30';
+const btn = 'rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-paper disabled:opacity-30';
 
 export default function DisciplineSettings() {
   const [ask, promptUi] = usePrompt();
@@ -40,10 +40,10 @@ export default function DisciplineSettings() {
     <section className="mt-6">
       {promptUi}
       <p className="text-sm text-gray-500">프로젝트 일정의 분야 목록입니다. 비활성 분야는 새 항목에서만 숨고, 기존 항목에는 그대로 보입니다.</p>
-      {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
-      <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+      {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
         <table className="w-full whitespace-nowrap text-left text-sm">
-          <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-gray-500">
             <tr>
               <th className="w-24 px-4 py-3 font-medium">순서</th>
               <th className="px-4 py-3 font-medium">분야</th>
@@ -51,7 +51,7 @@ export default function DisciplineSettings() {
               <th className="w-48 px-4 py-3 font-medium" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#E5E3DC]">
+          <tbody className="divide-y divide-line">
             {list.map((d, i) => (
               <tr key={d.id}>
                 <td className="px-4 py-2">
@@ -79,8 +79,8 @@ export default function DisciplineSettings() {
         if (name.trim()) run(() => createDiscipline(name.trim())).then(() => setName(''));
       }}>
         <input aria-label="새 분야 이름" placeholder="새 분야 이름" maxLength={100} value={name} onChange={(e) => setName(e.target.value)}
-          className="rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-sm outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20" />
-        <button type="submit" className="rounded-lg bg-[#1F4E79] px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-[#173a5c]">분야 추가</button>
+          className="rounded-lg border border-line px-3 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
+        <button type="submit" className="rounded-lg bg-brand px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-brand-hover">분야 추가</button>
       </form>
     </section>
   );

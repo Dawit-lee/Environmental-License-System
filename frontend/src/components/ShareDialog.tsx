@@ -11,7 +11,7 @@ import { Alert, Modal, Section, Summary, btn, primary, segBtn } from './Schedule
 
 const EXPIRY = [30, 90, 180];
 const when = (s: string | null) => (s ? new Date(s).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
-const pill = (on: boolean) => `rounded-full border px-3 py-1 text-xs ${on ? 'border-[#1F4E79] bg-[#EAF0F6] font-medium text-[#1F4E79]' : 'border-[#E5E3DC] bg-white text-gray-600 hover:border-[#B9C6D3]'}`;
+const pill = (on: boolean) => `rounded-full border px-3 py-1 text-xs ${on ? 'border-brand bg-[#EAF0F6] font-medium text-brand' : 'border-line bg-white text-gray-600 hover:border-[#B9C6D3]'}`;
 
 export default function ShareDialog({ projectId, disciplines, onClose }: {
   projectId: number; disciplines: Discipline[]; onClose: () => void;
@@ -81,13 +81,13 @@ export default function ShareDialog({ projectId, disciplines, onClose }: {
       <Alert error={error} />
 
       {created && (
-        <div className="space-y-2.5 rounded-lg border border-[#1F4E79] p-3.5 text-sm">
-          <p className="font-semibold text-[#1F4E79]">링크를 만들었습니다. 이 주소는 지금만 보이니 복사해 두세요.</p>
+        <div className="space-y-2.5 rounded-lg border border-brand p-3.5 text-sm">
+          <p className="font-semibold text-brand">링크를 만들었습니다. 이 주소는 지금만 보이니 복사해 두세요.</p>
           {[['웹 보기', absolute(created.path)], ['달력 구독', webcal(created.icsPath)]].map(([label, url]) => (
             <div key={label} className="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-2">
               <span className="text-xs text-gray-500">{label}</span>
               <input readOnly value={url} aria-label={`${label} 주소`} onFocus={(e) => e.target.select()}
-                className="min-w-0 rounded-lg border border-[#E5E3DC] px-2 py-1 font-mono text-xs" />
+                className="min-w-0 rounded-lg border border-line px-2 py-1 font-mono text-xs" />
               <button type="button" className={btn} onClick={() => copy(url)}>{copied === url ? '복사됨' : '복사'}</button>
             </div>
           ))}
@@ -114,14 +114,14 @@ export default function ShareDialog({ projectId, disciplines, onClose }: {
             </label>
             <div className="flex flex-wrap items-center gap-3">
               <span className="w-14 shrink-0 text-gray-500">만료</span>
-              <div className="inline-flex overflow-hidden rounded-lg border border-[#E5E3DC] bg-white">
+              <div className="inline-flex overflow-hidden rounded-lg border border-line bg-white">
                 {EXPIRY.map((n) => <button key={n} type="button" aria-pressed={days === n} className={segBtn(days === n)} onClick={() => setDays(n)}>{n}일</button>)}
               </div>
               <span className="text-xs tabular-nums text-gray-400">{format(addDays(new Date(), days), 'yy.MM.dd')}까지</span>
             </div>
           </div>
         </Section>
-        <div className="space-y-1.5 self-start rounded-lg bg-[#F8F7F2] px-3.5 py-3 text-xs leading-relaxed">
+        <div className="space-y-1.5 self-start rounded-lg bg-paper px-3.5 py-3 text-xs leading-relaxed">
           <div className="grid grid-cols-[56px_minmax(0,1fr)] gap-2"><span className="text-gray-500">보임</span><span className="text-gray-700">제목 · 날짜 · 장소 · 분야 · 협력사명</span></div>
           <div className="grid grid-cols-[56px_minmax(0,1fr)] gap-2"><span className="text-gray-500">안 보임</span><span className="text-gray-700">담당자 · 지연 사유 · 메모 · 체크리스트 · 상대 기관 · 인허가 기한</span></div>
           <div className="grid grid-cols-[56px_minmax(0,1fr)] gap-2"><span className="text-gray-500">범위</span>
@@ -130,13 +130,13 @@ export default function ShareDialog({ projectId, disciplines, onClose }: {
       </div>
 
       <Section title="만든 링크" hint={`${using}개 사용 중`}>
-        <div className="overflow-x-auto rounded-lg border border-[#E5E3DC]">
+        <div className="overflow-x-auto rounded-lg border border-line">
           <table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+            <thead className="bg-paper text-xs text-gray-500">
               <tr><th className="px-3 py-2 font-medium">분야</th><th className="px-3 py-2 font-medium">이벤트</th><th className="px-3 py-2 font-medium">만든 사람</th>
                 <th className="px-3 py-2 font-medium">만료</th><th className="px-3 py-2 font-medium">마지막 접근</th><th className="px-3 py-2" /></tr>
             </thead>
-            <tbody className="divide-y divide-[#F0EEE8]">
+            <tbody className="divide-y divide-line-soft">
               {links.map((l) => (
                 <tr key={l.id} className={`${l.active ? '' : 'text-gray-400'} ${created?.link.id === l.id ? 'bg-[#EAF0F6]' : ''}`}>
                   <td className="max-w-[220px] truncate px-3 py-2" title={names(l.disciplineIds)}>{names(l.disciplineIds)}</td>
@@ -148,8 +148,8 @@ export default function ShareDialog({ projectId, disciplines, onClose }: {
                     {!l.active ? (l.revokedAt ? '폐기됨' : '만료됨')
                       : confirming === l.id ? (
                         <span className="inline-flex items-center gap-2">
-                          <span className="text-xs text-[#991B1B]">받은 사람이 더는 못 봅니다</span>
-                          <button type="button" className="rounded-lg bg-[#991B1B] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#7f1616]" onClick={() => revoke(l.id)}>폐기</button>
+                          <span className="text-xs text-danger">받은 사람이 더는 못 봅니다</span>
+                          <button type="button" className="rounded-lg bg-danger px-3 py-1.5 text-xs font-semibold text-white hover:bg-danger-hover" onClick={() => revoke(l.id)}>폐기</button>
                           <button type="button" className={btn} onClick={() => setConfirming(null)}>취소</button>
                         </span>
                       ) : <button type="button" className={btn} onClick={() => setConfirming(l.id)}>폐기</button>}

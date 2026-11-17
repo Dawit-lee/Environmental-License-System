@@ -24,8 +24,8 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 };
 
 const STATUS_BADGE: Record<ProjectStatus, string> = {
-  IN_PROGRESS: 'text-[#1F4E79]',
-  COMPLETED: 'text-[#0F6E56]',
+  IN_PROGRESS: 'text-brand',
+  COMPLETED: 'text-ok',
   ON_HOLD: 'text-gray-600',
 };
 
@@ -124,18 +124,18 @@ export default function ProjectListPage() {
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, asc: s.key === key ? !s.asc : true }));
 
   const selectClasses =
-    'rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
+    'rounded-lg border border-line bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
   return (
-    <div className="min-h-full bg-[#F8F7F2]">
+    <div className="min-h-full bg-paper">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-[#1F4E79]">프로젝트 목록</h1>
+          <h1 className="text-2xl font-bold text-brand">프로젝트 목록</h1>
           <button
             type="button"
             onClick={() => navigate('/projects/new')}
-            className="rounded-lg bg-[#1F4E79] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40"
+            className="rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
           >
             + 새 프로젝트
           </button>
@@ -148,7 +148,7 @@ export default function ProjectListPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="프로젝트명 또는 위치 검색"
-            className="min-w-[220px] flex-1 rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20"
+            className="min-w-[220px] flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
           />
           <select aria-label="부서/팀" value={scope ?? 'ME'} onChange={(e) => setScope(e.target.value)} className={selectClasses}>
             <option value="ME">내 프로젝트</option>
@@ -188,25 +188,25 @@ export default function ProjectListPage() {
         </div>
 
         {error ? (
-          <p className="mt-16 text-center text-sm text-[#991B1B]">{error}</p>
+          <p className="mt-16 text-center text-sm text-danger">{error}</p>
         ) : projects === null ? (
           <p className="mt-16 text-center text-sm text-gray-400">불러오는 중…</p>
         ) : projects.length === 0 ? (
           <div className="mt-16 flex flex-col items-center justify-center text-center">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#E5E3DC] text-4xl">📁</div>
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-line text-4xl">📁</div>
             <p className="mt-4 text-sm text-gray-500">등록된 프로젝트가 없습니다</p>
             <button
               type="button"
               onClick={() => navigate('/projects/new')}
-              className="mt-4 rounded-lg bg-[#1F4E79] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40"
+              className="mt-4 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
             >
               첫 프로젝트 추가하기
             </button>
           </div>
         ) : (
-          <div className="mt-6 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+          <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
             <table className="w-full min-w-[640px] whitespace-nowrap xl:min-w-[1080px] text-left text-sm">
-              <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+              <thead className="bg-paper text-xs text-gray-500">
                 <tr>
                   {COLUMNS.map((c) => (
                     <th
@@ -216,7 +216,7 @@ export default function ProjectListPage() {
                     >
                       <button type="button" onClick={() => toggleSort(c.key)} className="inline-flex items-center gap-1 hover:text-gray-800">
                         {c.label}
-                        <span aria-hidden className={sort.key === c.key ? 'text-[#1F4E79]' : 'text-gray-300'}>
+                        <span aria-hidden className={sort.key === c.key ? 'text-brand' : 'text-gray-300'}>
                           {sort.key === c.key && !sort.asc ? '▼' : '▲'}
                         </span>
                       </button>
@@ -224,21 +224,21 @@ export default function ProjectListPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DC]">
+              <tbody className="divide-y divide-line">
                 {rows.map((p) => {
                   const progress = Math.round(progressOf(p) * 100);
                   return (
                     <tr
                       key={p.id}
                       onClick={() => navigate(`/projects/${p.id}`)}
-                      className="cursor-pointer transition hover:bg-[#F8F7F2]"
+                      className="cursor-pointer transition hover:bg-paper"
                     >
                       <td className="max-w-[220px] px-4 py-3 xl:max-w-[260px]">
                         <Link
                           to={`/projects/${p.id}`}
                           onClick={(e) => e.stopPropagation()}
                           title={p.name}
-                          className="block truncate font-medium text-gray-800 hover:text-[#1F4E79] hover:underline"
+                          className="block truncate font-medium text-gray-800 hover:text-brand hover:underline"
                         >
                           {p.name}
                         </Link>
@@ -258,13 +258,13 @@ export default function ProjectListPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2" title={`${progress}%`}>
-                          <div className="h-2 w-24 overflow-hidden rounded-full bg-[#E5E3DC]">
-                            <div className="h-full rounded-full bg-[#0F6E56]" style={{ width: `${progress}%` }} />
+                          <div className="h-2 w-24 overflow-hidden rounded-full bg-line">
+                            <div className="h-full rounded-full bg-ok" style={{ width: `${progress}%` }} />
                           </div>
                           <span className="text-xs text-gray-500">{p.acquiredCount}/{p.permitCount}</span>
                         </div>
                       </td>
-                      <td className={`px-4 py-3 text-right ${p.nearExpiryCount ? 'font-semibold text-[#991B1B]' : 'text-gray-400'}`}>
+                      <td className={`px-4 py-3 text-right ${p.nearExpiryCount ? 'font-semibold text-danger' : 'text-gray-400'}`}>
                         {p.nearExpiryCount || '—'}
                       </td>
                       <Cell text={p.location} max={`max-w-[240px] ${WIDE}`} muted />

@@ -108,7 +108,7 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-gray-500">프로젝트의 모든 문서입니다. 허가증의 의무 추출·버전 비교는 인허가 이름을 눌러 상세에서 합니다.</p>
         <button type="button" disabled={drafting || permits.length === 0} onClick={() => setDrafting(true)}
-          className="shrink-0 rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40">
+          className="shrink-0 rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40">
           이행 보고서 초안
         </button>
       </div>
@@ -117,24 +117,24 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
           initial={{ permitId: Number(params.get('report')) || null, from: params.get('from'), to: params.get('to') }}
           onClose={() => { setDrafting(false); setParams({}, { replace: true }); }} />
       )}
-      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-[#E5E3DC] bg-white px-4 py-3 text-sm">
+      <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-white px-4 py-3 text-sm">
         <span className="text-gray-600">인허가 항목 없이 프로젝트 문서로 올리기</span>
         <select aria-label="문서 종류" value={docType} onChange={(e) => setDocType(e.target.value as DocType)}
-          className="rounded-lg border border-[#E5E3DC] px-2 py-1 text-sm">
+          className="rounded-lg border border-line px-2 py-1 text-sm">
           {Object.entries(DOC_TYPE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
         <input ref={fileInput} type="file" accept=".pdf,.jpg,.jpeg,.png,.xlsx" className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) upload(f); }} />
         <button type="button" disabled={busy} onClick={() => fileInput.current?.click()}
-          className="rounded-lg bg-[#1F4E79] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#173a5c] disabled:opacity-40">
+          className="rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover disabled:opacity-40">
           {busy ? '올리는 중…' : '문서 올리기'}
         </button>
         {!aiOn && <span className="text-xs text-gray-400">회사 설정에서 AI 추출이 꺼져 있어 [일정 추출]을 쓸 수 없습니다.</span>}
       </div>
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
-      <div className="mt-4 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
         <table className="w-full min-w-[980px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-gray-500">
             <tr>
               <th className="px-4 py-3 font-medium">파일</th>
               <th className="px-4 py-3 font-medium">종류</th>
@@ -147,16 +147,16 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
               <th className="px-4 py-3 font-medium">일정</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#E5E3DC]">
+          <tbody className="divide-y divide-line">
             {docs.map((d) => {
               const permit = d.permitItemId != null ? permitById.get(d.permitItemId) : undefined;
               const run = runs[d.id];
               const extractable = d.docType != null && EXTRACTABLE.includes(d.docType) && d.contentType === 'application/pdf';
               return (
-                <tr key={d.id} className="hover:bg-[#F8F7F2]">
+                <tr key={d.id} className="hover:bg-paper">
                   <td className="max-w-[300px] px-4 py-2.5">
                     <button type="button" onClick={() => download(d)} title={`${d.fileName} 내려받기`}
-                      className="block max-w-full truncate text-left font-medium text-gray-800 hover:text-[#1F4E79] hover:underline">
+                      className="block max-w-full truncate text-left font-medium text-gray-800 hover:text-brand hover:underline">
                       {d.fileName}
                     </button>
                   </td>
@@ -164,7 +164,7 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
                   <td className="max-w-[220px] px-4 py-2.5">
                     {permit ? (
                       <button type="button" onClick={() => onOpenPermit(permit)} title={permit.name}
-                        className="block max-w-full truncate text-[#1F4E79] hover:underline">{permit.name}</button>
+                        className="block max-w-full truncate text-brand hover:underline">{permit.name}</button>
                     ) : '—'}
                   </td>
                   <td className="px-4 py-2.5 text-gray-600">
@@ -176,12 +176,12 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
                   <td className="px-4 py-2.5 text-right text-gray-500">{kb(d.size)}</td>
                   <td className="px-4 py-2.5 text-xs">
                     {run?.status === 'RUNNING' ? <span className="text-gray-500">추출 중…</span>
-                      : run?.status === 'FAILED' ? <span className="text-[#991B1B]" title={run.errorMessage ?? undefined}>실패</span>
-                      : run?.status === 'SUCCEEDED' ? <Link to={`/projects/${projectId}/review`} className="text-[#1F4E79] hover:underline">AI 검토에서 확인</Link>
+                      : run?.status === 'FAILED' ? <span className="text-danger" title={run.errorMessage ?? undefined}>실패</span>
+                      : run?.status === 'SUCCEEDED' ? <Link to={`/projects/${projectId}/review`} className="text-brand hover:underline">AI 검토에서 확인</Link>
                       : extractable ? (
                         <button type="button" disabled={!aiOn} onClick={() => extract(d)}
                           title={aiOn ? HELP.extract.text : '회사 설정에서 AI 추출이 꺼져 있습니다'}
-                          className="rounded-md border border-[#E5E3DC] px-2 py-1 font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40">
+                          className="rounded-md border border-line px-2 py-1 font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40">
                           일정 추출
                         </button>
                       ) : <span className="text-gray-300">—</span>}

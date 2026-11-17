@@ -1,4 +1,4 @@
-/* SVAR Gantt (Willow) themed from the app's tokens (styles/theme.css) and its brand navy #1F4E79. */
+/* SVAR Gantt (Willow) themed from the app's tokens (styles/theme.css) and --color-* design tokens. */
 .schedule-gantt .wx-willow-theme {
   --wx-font-family: inherit;
   --wx-font-size: 13px;
@@ -7,16 +7,16 @@
   --wx-background: var(--card);
   --wx-background-alt: var(--muted);
   --wx-border-color: var(--border);
-  --wx-color-primary: #1f4e79;
-  --wx-color-danger: #991b1b;
-  --wx-gantt-task-color: #1f4e79;
-  --wx-gantt-task-fill-color: #173a5c;
-  --wx-gantt-task-border-color: #173a5c;
+  --wx-color-primary: var(--color-brand);
+  --wx-color-danger: var(--color-danger);
+  --wx-gantt-task-color: var(--color-brand);
+  --wx-gantt-task-fill-color: var(--color-brand-hover);
+  --wx-gantt-task-border-color: var(--color-brand-hover);
   --wx-gantt-task-font-color: #ffffff;
   --wx-gantt-summary-color: #9ca3af;
   --wx-gantt-summary-fill-color: #6b7280;
   --wx-gantt-summary-border-color: #6b7280;
-  --wx-gantt-milestone-color: #1f4e79;
+  --wx-gantt-milestone-color: var(--color-brand);
   --wx-gantt-link-color: #6b7280;
   --wx-gantt-select-color: rgba(31, 78, 121, 0.08);
   --wx-gantt-bar-border-radius: 4px;
@@ -40,7 +40,7 @@
   bottom: 0;
   left: calc((var(--today-day) + 0.5) / var(--today-len) * 100%);
   width: 2px;
-  background: #991b1b;
+  background: var(--color-danger);
   pointer-events: none;
 }
 
@@ -51,15 +51,15 @@
   height: 100%;
   background: rgba(107, 114, 128, 0.08);
 }
-.schedule-gantt .wx-scale .schedule-weekend { color: #991b1b; }
+.schedule-gantt .wx-scale .schedule-weekend { color: var(--color-danger); }
 
 /* 이벤트 row (design-schedule/04): an invisible bar, one dot per event */
 .schedule-gantt .wx-bar.events { background: transparent; border: none; box-shadow: none; overflow: visible; }
 .schedule-gantt .schedule-event-dot {
   position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
-  border-radius: 9999px; background: #1F4E79; border: 2px solid #fff;
+  border-radius: 9999px; background: var(--color-brand); border: 2px solid #fff;
 }
-.schedule-gantt .schedule-event-dot.trip { background: #0F6E56; }
+.schedule-gantt .schedule-event-dot.trip { background: var(--color-ok); }
 /* bar content (taskTemplate): title inside a task bar, beside a milestone; "+N일" right of the bar */
 .schedule-gantt .schedule-bar-text {
   overflow: hidden;
@@ -82,5 +82,5 @@
   pointer-events: none;
 }
 .schedule-gantt .schedule-slip {
-  color: #991b1b;
+  color: var(--color-danger);
 }

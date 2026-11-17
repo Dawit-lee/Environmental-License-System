@@ -66,19 +66,19 @@ export default function DashboardPage() {
   const total = permits.length;
 
   return (
-    <div className="min-h-full bg-[#F8F7F2]">
+    <div className="min-h-full bg-paper">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-bold text-[#1F4E79]">대시보드</h1>
-        {loadError && <p className="mt-2 text-sm text-[#991B1B]">{loadError}</p>}
+        <h1 className="text-2xl font-bold text-brand">대시보드</h1>
+        {loadError && <p className="mt-2 text-sm text-danger">{loadError}</p>}
 
         {!loadError && loaded && <GettingStarted projects={projects} permits={permits} />}
 
         {/* Summary cards */}
         <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <SummaryCard label="내 프로젝트" value={projects.length} tone="text-[#1F4E79]" />
+          <SummaryCard label="내 프로젝트" value={projects.length} tone="text-brand" />
           <SummaryCard label="내 프로젝트 인허가" value={total} tone="text-gray-800" />
-          <SummaryCard label={<>기한 임박<Help k="dueSoon" /></>} value={nearExpiry.length} tone="text-[#B45309]" />
-          <SummaryCard label="미신청" value={permits.filter((p) => p.status === 'NOT_APPLIED').length} tone="text-[#991B1B]" />
+          <SummaryCard label={<>기한 임박<Help k="dueSoon" /></>} value={nearExpiry.length} tone="text-warn" />
+          <SummaryCard label="미신청" value={permits.filter((p) => p.status === 'NOT_APPLIED').length} tone="text-danger" />
         </div>
 
         {/* 규제 대응 현황 (F4); the stage is the same rough one the project page shows */}
@@ -94,11 +94,11 @@ export default function DashboardPage() {
         </div>
 
         {/* Near-expiry table — full width so each row stays on one line */}
-        <section className="mt-6 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+        <section className="mt-6 rounded-xl border border-line bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">기한 임박 (D-{DUE_SOON_DAYS} 이내)<Help k="dueSoon" /></h2>
             <div className="mt-3 overflow-x-auto">
               <table className="w-full min-w-[480px] whitespace-nowrap text-left text-sm">
-                <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
+                <thead className="bg-paper text-xs uppercase text-gray-500">
                   <tr>
                     <th className="px-3 py-2.5 font-medium">프로젝트명</th>
                     <th className="px-3 py-2.5 font-medium">항목</th>
@@ -106,17 +106,17 @@ export default function DashboardPage() {
                     <th className="px-3 py-2.5 font-medium">D-day</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E5E3DC]">
+                <tbody className="divide-y divide-line">
                   {error && (
-                    <tr><td colSpan={4} className="px-3 py-6 text-center text-[#991B1B]">{error}</td></tr>
+                    <tr><td colSpan={4} className="px-3 py-6 text-center text-danger">{error}</td></tr>
                   )}
                   {!error && nearExpiry.length === 0 && (
                     <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">{DUE_SOON_DAYS}일 안에 다가오는 기한이 없습니다.</td></tr>
                   )}
                   {nearExpiry.map((row) => (
-                    <tr key={row.id} className="transition hover:bg-[#F8F7F2]">
+                    <tr key={row.id} className="transition hover:bg-paper">
                       <td className="px-3 py-2.5">
-                        <Link to={deadlineLink(row)} className="text-gray-700 transition hover:text-[#1F4E79] hover:underline">
+                        <Link to={deadlineLink(row)} className="text-gray-700 transition hover:text-brand hover:underline">
                           {row.projectName}
                         </Link>
                       </td>
@@ -131,13 +131,13 @@ export default function DashboardPage() {
           </section>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+          <section className="lg:col-span-2 rounded-xl border border-line bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">프로젝트별 인허가 진행</h2>
             <ProjectStatusBars projects={projects} permits={permits} />
           </section>
-          <section className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+          <section className="rounded-xl border border-line bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">처리 대기</h2>
-            <ul className="mt-3 divide-y divide-[#E5E3DC]">
+            <ul className="mt-3 divide-y divide-line">
               <PendingRow to="/inbox?kind=REVIEW" label="허가조건 검토 대기" value={reviewOpen} />
               <PendingRow to="/inbox?kind=LAW" label="법령 개정 확인 필요" value={lawNew} />
               <PendingRow to="/inbox?kind=SITE" label="현장 반영 대기" value={siteOpen} />
@@ -146,12 +146,12 @@ export default function DashboardPage() {
         </div>
 
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+          <section className="lg:col-span-2 rounded-xl border border-line bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">향후 90일 기한 (주별)</h2>
             <DeadlineTimeline deadlines={deadlines} />
           </section>
           {/* Donut */}
-          <section className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+          <section className="rounded-xl border border-line bg-white p-5 shadow-sm">
             <h2 className="text-lg font-semibold text-gray-900">인허가 상태 분포</h2>
             <StatusDonut permits={permits} />
           </section>
@@ -160,7 +160,7 @@ export default function DashboardPage() {
 
         {/* Recent activity */}
         <div className="mt-6">
-          <section className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+          <section className="rounded-xl border border-line bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">최근 활동</h2>
           <ActivityList activity={activity} />
           </section>
@@ -174,7 +174,7 @@ export default function DashboardPage() {
 
 function SummaryCard({ label, value, tone }: { label: ReactNode; value: number; tone: string }) {
   return (
-    <div className="rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm transition hover:shadow-md">
+    <div className="rounded-xl border border-line bg-white p-5 shadow-sm transition hover:shadow-md">
       <div className={`text-3xl font-bold ${tone}`}>{value}</div>
       <div className="mt-1 truncate text-sm text-gray-500" title={typeof label === 'string' ? label : undefined}>{label}</div>
     </div>
@@ -200,7 +200,7 @@ function ProjectStatusBars({ projects, permits }: { projects: Project[]; permits
           const done = mine.filter((x) => x.status === 'COMPLETED').length;
           return (
             <li key={p.id} className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-3 text-sm">
-              <Link to={`/projects/${p.id}/permits`} className="truncate text-gray-700 hover:text-[#1F4E79] hover:underline" title={p.name}>
+              <Link to={`/projects/${p.id}/permits`} className="truncate text-gray-700 hover:text-brand hover:underline" title={p.name}>
                 {p.name}
               </Link>
               <div className="flex h-3 gap-0.5 overflow-hidden rounded bg-[#F3F2EC]">

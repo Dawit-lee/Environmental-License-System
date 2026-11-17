@@ -29,7 +29,7 @@ function DateList({ items }: { items: Map<string, SharedItem[]> }) {
             {rows.map((r, n) => (
               <li key={n} className="flex items-baseline justify-between gap-3 py-1.5">
                 <span className="min-w-0 truncate" title={r.title}>
-                  {r.kind === 'MILESTONE' && <span aria-hidden className="text-[#1F4E79]">◆ </span>}
+                  {r.kind === 'MILESTONE' && <span aria-hidden className="text-brand">◆ </span>}
                   {r.title}{r.partnerName && <span className="text-gray-500"> ({r.partnerName})</span>}
                 </span>
                 <span className="shrink-0 text-xs text-gray-600">
@@ -56,9 +56,9 @@ export default function ReadOnlySchedule({ title, subtitle, items, events }: {
   }
 
   return (
-    <div className="print-area space-y-5 rounded-xl border border-[#E5E3DC] bg-white p-5">
+    <div className="print-area space-y-5 rounded-xl border border-line bg-white p-5">
       <div>
-        <h1 className="text-xl font-bold text-[#1F4E79]">{title}</h1>
+        <h1 className="text-xl font-bold text-brand">{title}</h1>
         {subtitle && <p className="mt-1 text-xs text-gray-500">{subtitle}</p>}
       </div>
       {items.length > 0 && days.length > 0 && <div className="hidden sm:block print:block"><Bars items={groups} from={new Date(Math.min(...days.map(Number)))}
@@ -69,12 +69,12 @@ export default function ReadOnlySchedule({ title, subtitle, items, events }: {
         <section>
           <h2 className="mb-2 text-sm font-semibold text-gray-900">이벤트</h2>
           <table className="w-full text-left text-sm">
-            <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+            <thead className="bg-paper text-xs text-gray-500">
               <tr><th className="px-2 py-1.5">일시</th><th className="px-2 py-1.5">제목</th><th className={`px-2 py-1.5 ${WIDE}`}>장소</th><th className={`px-2 py-1.5 ${WIDE}`}>분야</th></tr>
             </thead>
             <tbody>
               {events.map((e, n) => (
-                <tr key={n} className="border-t border-[#E5E3DC]">
+                <tr key={n} className="border-t border-line">
                   <td className="whitespace-nowrap px-2 py-1.5">{when(e)}</td>
                   <td className="px-2 py-1.5">{e.title}</td>
                   <td className={`px-2 py-1.5 ${WIDE}`}>{e.location ?? ''}</td>
@@ -95,11 +95,11 @@ function Bars({ items, from, to }: { items: Map<string, SharedItem[]>; from: Dat
   const months = eachMonthOfInterval({ start: from, end: addDays(to, -1) });
   return (
     <div className="text-xs">
-      <div className="flex border-b border-[#E5E3DC] pb-1 text-gray-500">
+      <div className="flex border-b border-line pb-1 text-gray-500">
         <div className="w-56 shrink-0">항목 (협력사)</div>
         <div className="relative h-4 flex-1">
           {months.map((m) => (
-            <span key={m.toISOString()} className="absolute border-l border-[#E5E3DC] pl-1"
+            <span key={m.toISOString()} className="absolute border-l border-line pl-1"
               style={{ left: m < from ? '0%' : pct(m) }}>{format(m, 'yy.M')}</span>
           ))}
         </div>
@@ -118,11 +118,11 @@ function Bars({ items, from, to }: { items: Map<string, SharedItem[]>; from: Dat
                 <div className="relative h-4 flex-1">
                   {r.kind === 'MILESTONE'
                     ? differenceInCalendarDays(start, from) / span > 0.85 // near the right edge: date on the left, so it stays on the line
-                      ? <span className="absolute -translate-x-full whitespace-nowrap text-[#1F4E79]" style={{ left: `calc(${pct(start)} + 0.5em)` }}
+                      ? <span className="absolute -translate-x-full whitespace-nowrap text-brand" style={{ left: `calc(${pct(start)} + 0.5em)` }}
                           title={r.endDate}><span className="text-gray-600">{r.endDate.slice(5).replace('-', '/')}</span> ◆</span>
-                      : <span className="absolute -translate-x-1/2 whitespace-nowrap text-[#1F4E79]" style={{ left: pct(start) }}
+                      : <span className="absolute -translate-x-1/2 whitespace-nowrap text-brand" style={{ left: pct(start) }}
                           title={r.endDate}>◆ <span className="text-gray-600">{r.endDate.slice(5).replace('-', '/')}</span></span>
-                    : <span className="absolute top-1 h-2 rounded bg-[#1F4E79] print:[print-color-adjust:exact]"
+                    : <span className="absolute top-1 h-2 rounded bg-brand print:[print-color-adjust:exact]"
                         style={{ left: pct(start), width: `max(2px, calc(${pct(end)} - ${pct(start)}))` }}
                         title={`${r.startDate} ~ ${r.endDate}`} />}
                 </div>

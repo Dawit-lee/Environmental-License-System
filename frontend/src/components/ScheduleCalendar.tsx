@@ -19,8 +19,8 @@ export type CalendarEntry =
   | { type: 'milestone'; milestone: CalendarMilestone }
   | { type: 'deadline'; deadline: CalendarDeadline };
 
-const TRIP = '#0F6E56';
-const EVENT = '#1F4E79';
+const TRIP = 'var(--color-ok)';
+const EVENT = 'var(--color-brand)';
 
 /** FullCalendar's all-day end is exclusive; ours is the last day. */
 export function toCalendarEvents(data: CalendarData, opts: { showDeadlines: boolean; showProject: boolean }): EventInput[] {
@@ -58,7 +58,7 @@ export function toCalendarEvents(data: CalendarData, opts: { showDeadlines: bool
       start: d.dueDate,
       allDay: true,
       display: 'list-item',
-      color: '#B45309',
+      color: 'var(--color-warn)',
       extendedProps: { entry: { type: 'deadline', deadline: d } satisfies CalendarEntry },
     })),
   ];
@@ -73,7 +73,7 @@ export default function ScheduleCalendar({ data, showDeadlines, showProject, onR
   onOpen: (entry: CalendarEntry) => void;
 }) {
   return (
-    <div className="schedule-calendar rounded-xl border border-[#E5E3DC] bg-white p-4">
+    <div className="schedule-calendar rounded-xl border border-line bg-white p-4">
       <FullCalendar
         plugins={[dayGridPlugin, listPlugin]}
         locale={koLocale}
