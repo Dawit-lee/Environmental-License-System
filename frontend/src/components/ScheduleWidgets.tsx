@@ -26,7 +26,7 @@ export function WeekEvents() {
         <Link to="/calendar" className="text-xs text-[#1F4E79] hover:underline">회사 달력</Link>
       </div>
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[560px] table-fixed whitespace-nowrap text-left text-sm">
+        <table className={`w-full ${events?.length ? 'min-w-[560px]' : ''} table-fixed whitespace-nowrap text-left text-sm`}>
           <thead className="bg-[#F8F7F2] text-xs text-gray-500">
             <tr>
               <th className="w-40 px-3 py-2.5 font-medium">일시</th>

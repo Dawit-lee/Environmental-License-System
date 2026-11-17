@@ -233,7 +233,7 @@ export default function ProjectListPage() {
                       onClick={() => navigate(`/projects/${p.id}`)}
                       className="cursor-pointer transition hover:bg-[#F8F7F2]"
                     >
-                      <td className="max-w-[260px] px-4 py-3">
+                      <td className="max-w-[220px] px-4 py-3 xl:max-w-[260px]">
                         <Link
                           to={`/projects/${p.id}`}
                           onClick={(e) => e.stopPropagation()}

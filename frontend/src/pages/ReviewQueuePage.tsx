@@ -159,7 +159,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             {!fixedId && <p className="text-xs font-semibold tracking-wide text-gray-500">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>}
-            <h1 className="mt-1 flex items-center text-2xl font-bold text-[#1F4E79]">의무사항 검토<Help k="review" /></h1>
+            <h1 className="mt-1 flex items-center text-2xl font-bold text-[#1F4E79]">AI 검토<Help k="review" /></h1>
             <p className="mt-1 max-w-2xl text-sm text-gray-500">
               검토 중인 조건은 승인 전까지 인허가 대장과 기한 알림에 들어가지 않습니다. 원문과 다른 항목이 맨 위에 옵니다.
             </p>

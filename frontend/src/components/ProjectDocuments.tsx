@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router';
 import { api, apiBlob } from '../api/client';
 import { getAiProvider, getCompany, getRun, startScheduleExtraction, type AiRun } from '../api/extraction';
 import ComplianceReportDraft from './ComplianceReportDraft';
-import { EmptyState, HELP, primaryBtn } from './Onboarding';
+import { EmptyState, HELP } from './Onboarding';
 import type { DocType, PermitDocument, PermitItem } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -192,9 +192,7 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
           </tbody>
         </table>
         {docs.length === 0 && (
-          <EmptyState bare text="공고문·과업내용서를 올리면 [일정 추출]로 날짜 후보를 받아 일정에 넣습니다. 허가증은 인허가 상세에서 올립니다.">
-            <button type="button" disabled={busy} onClick={() => fileInput.current?.click()} className={primaryBtn}>문서 올리기</button>
-          </EmptyState>
+          <EmptyState bare text="위 [문서 올리기]로 공고문·과업내용서를 올리면 [일정 추출]로 날짜 후보를 받아 일정에 넣습니다. 허가증은 인허가 상세에서 올립니다." />
         )}
       </div>
     </div>

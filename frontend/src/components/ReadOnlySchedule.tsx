@@ -24,7 +24,7 @@ function DateList({ items }: { items: Map<string, SharedItem[]> }) {
     <div className="space-y-3 text-sm sm:hidden print:hidden">
       {[...items.entries()].map(([group, rows]) => (
         <section key={group}>
-          <h2 className="font-semibold text-gray-800">{group}</h2>
+          <h2 className="text-sm font-semibold text-gray-800">{group}</h2>
           <ul className="divide-y divide-[#F1EFE8]">
             {rows.map((r, n) => (
               <li key={n} className="flex items-baseline justify-between gap-3 py-1.5">

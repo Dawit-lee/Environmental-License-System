@@ -15,6 +15,7 @@ import ProjectDocuments from '../components/ProjectDocuments';
 import ProjectOperations from '../components/ProjectOperations';
 import ProjectModules from '../components/ProjectModules';
 import ProjectMembers from '../components/ProjectMembers';
+import ProjectDelete from '../components/ProjectDelete';
 import { EmptyState, Tip, primaryBtn } from '../components/Onboarding';
 
 // ---------------------------------------------------------------------------
@@ -107,6 +108,7 @@ export default function ProjectDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [ruleWarnings, setRuleWarnings] = useState<DerivationWarning[]>([]);
   const [reloads, setReloads] = useState(0); // 설정 saves → refresh the header
+  const [reporting, setReporting] = useState(false); // the report takes ~2 s to build
 
   useEffect(() => {
     // approved items the current rules no longer find applicable; no derivation yet → 404, nothing to show
@@ -259,6 +261,7 @@ export default function ProjectDetailPage() {
               <NewProjectPage key={id} projectId={project.id} onSaved={() => setReloads((n) => n + 1)} />
               <ProjectModules project={project} onSaved={() => setReloads((n) => n + 1)} />
               <ProjectMembers key={`m${id}`} projectId={project.id} />
+              <ProjectDelete project={project} />
             </>
           )}
           {!tabs.some((t) => t.key === tab) && <Navigate to={`/projects/${id}/overview`} replace />}
@@ -282,10 +285,14 @@ export default function ProjectDetailPage() {
           <div className="flex items-center gap-2">
           <Tip k="report"><button
             type="button"
-            onClick={() => downloadReport(project.id).catch((e: Error) => window.alert(e.message))}
-            className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20"
+            disabled={reporting}
+            onClick={() => {
+              setReporting(true);
+              downloadReport(project.id).catch((e: Error) => window.alert(e.message)).finally(() => setReporting(false));
+            }}
+            className="rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20 disabled:opacity-60"
           >
-            진행 현황 보고 ⬇
+            {reporting ? '만드는 중…' : '진행 현황 보고 ⬇'}
           </button></Tip>
           <select
             value={statusFilter}

@@ -50,7 +50,7 @@ export default function OrgPage() {
 
   return (
     <div className="min-h-full bg-[#F8F7F2]">
-      <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       {promptUi}
         <h1 className="text-2xl font-bold text-[#1F4E79]">조직 관리</h1>
         <nav className="mt-4 flex gap-1 border-b border-[#E5E3DC]">

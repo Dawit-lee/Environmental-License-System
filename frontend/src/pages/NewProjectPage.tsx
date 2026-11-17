@@ -155,6 +155,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
   const [extra, setExtra] = useState<Attributes>({});
   const [result, setResult] = useState<DerivationResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState(''); // what the slow save → derive → list is doing now
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<'ALL' | RuleCategory>('ALL');
   const [showNotApplicable, setShowNotApplicable] = useState(false);
@@ -216,8 +217,10 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
 
   // the server applies the re-run policy: unchanged suggestions stay, changed ones are replaced
   const run = async (pid: number, attrs: Attributes) => {
+    setPhase('규칙으로 판정 중…');
     await saveAttributes(pid, attrs);
     setResult(await derive(pid));
+    setPhase('검토 목록 불러오는 중…');
     await reload(pid);
   };
 
@@ -273,6 +276,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
 
   const handleNext = async (derivation = true) => {
     setBusy(true);
+    setPhase('저장 중…');
     setError(null);
     setSaved(false);
     try {
@@ -305,6 +309,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setError((e as Error).message);
     } finally {
       setBusy(false);
+      setPhase('');
     }
   };
 
@@ -320,6 +325,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setError((e as Error).message);
     } finally {
       setBusy(false);
+      setPhase('');
     }
   };
 
@@ -437,6 +443,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleWaste(waste.value)}
+                          aria-label={waste.label}
                           className="h-4 w-4 accent-[#1F4E79]"
                         />
                         {waste.label}
@@ -455,6 +462,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                         name="projectKind"
                         checked={projectKind === k}
                         onChange={() => setProjectKind(k)}
+                        aria-label={k === 'NEW' ? '신설' : '증설'}
                         className="h-4 w-4 accent-[#1F4E79]"
                       />
                       {k === 'NEW' ? '신설' : '증설'}
@@ -468,7 +476,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="0" className={input} />
                   <span className="shrink-0 text-sm text-gray-500">톤/일</span>
                 </div>
-                <p className="mt-1 text-xs text-[#B45309]">100톤/일 이상 시 설치승인 대상</p>
+                <p className={`mt-1 text-xs ${Number(capacity) >= 100 ? 'text-[#B45309]' : 'text-gray-500'}`}>100톤/일 이상 시 설치승인 대상</p>
               </Field>
 
               {projectKind === 'EXPANSION' && (
@@ -552,7 +560,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 onClick={() => handleNext()}
                 className="rounded-lg bg-[#1F4E79] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {busy ? '처리 중…' : editId ? '저장 후 인허가 다시 도출 →' : '다음: 인허가 자동 도출 →'}
+                {busy ? phase || '처리 중…' : editId ? '저장 후 인허가 다시 도출 →' : '다음: 인허가 자동 도출 →'}
               </button>
             </div>
           </section>
@@ -572,6 +580,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 ruleset-v{result?.rulesetVersion} · {result && new Date(result.ranAt).toLocaleString('ko-KR')}
               </p>
             </div>
+            {busy && phase && <p role="status" className="mt-2 text-sm text-[#1F4E79]">{phase}</p>}
             {!!result?.errors && (
               <p className="mt-2 text-sm text-[#991B1B]">규칙 오류 {result.errors}건 — 해당 규칙은 판정하지 못했습니다.</p>
             )}
