@@ -37,21 +37,25 @@ public final class ScheduleEval {
 
     private static final ObjectMapper JSON = Jackson2ObjectMapperBuilder.json().build();
     static final String PAGE_BREAK = "---page---";
+    private static int calls, inTokens, outTokens; // LLM cost, per extractor run
 
-    record Doc(String name, String docType, List<String> pages, Set<String> gold) {
+    /** gold: one line per expected item, alternatives split by "|" (a rule or its resolved date); traps: "!" lines. */
+    record Doc(String name, String docType, List<String> pages, Set<String> gold, Set<String> traps) {
     }
 
-    record Score(int gold, int predicted, int hits) {
+    /** hits: gold items found; correct: found keys that match some gold item; trapped: found keys that are traps. */
+    record Score(int gold, int predicted, int hits, int correct, int trapped) {
         double recall() {
             return gold == 0 ? Double.NaN : (double) hits / gold;
         }
 
         double precision() {
-            return predicted == 0 ? Double.NaN : (double) hits / predicted;
+            return predicted == 0 ? Double.NaN : (double) correct / predicted;
         }
 
         Score plus(Score o) {
-            return new Score(gold + o.gold, predicted + o.predicted, hits + o.hits);
+            return new Score(gold + o.gold, predicted + o.predicted, hits + o.hits, correct + o.correct,
+                    trapped + o.trapped);
         }
     }
 
@@ -62,24 +66,30 @@ public final class ScheduleEval {
         Path dir = Path.of(args.length > 0 ? args[0] : "src/test/resources/schedule-eval");
         List<String> extractors = List.of((args.length > 1 ? args[1] : "rule").split(","));
         List<Doc> docs = load(dir);
-        System.out.println("| 문서 | 추출기 | 정답 | 추출 | 맞음 | 재현율 | 정밀도 | 놓침 | 오검출 |\n|---|---|---|---|---|---|---|---|---|");
+        System.out.println("| 문서 | 추출기 | 정답 | 추출 | 맞음 | 재현율 | 정밀도 | 함정 | 놓침 | 오검출 |\n|---|---|---|---|---|---|---|---|---|---|");
         for (String ex : extractors) {
             LlmClient llm = ex.equals("rule") ? null : ExtractionEval.clients(ex).stream().findFirst().orElse(null);
             if (!ex.equals("rule") && llm == null) continue;
-            Score total = new Score(0, 0, 0);
+            Score total = new Score(0, 0, 0, 0, 0);
+            calls = inTokens = outTokens = 0;
             for (Doc d : docs) {
                 Set<String> found = keys(llm == null ? rules(d) : llm(llm, d));
-                Score s = score(d.gold(), found);
+                Score s = score(d.gold(), d.traps(), found);
                 total = total.plus(s);
-                Set<String> missed = new TreeSet<>(d.gold());
-                missed.removeAll(found);
+                Set<String> missed = new TreeSet<>(d.gold().stream()
+                        .filter(g -> alts(g).stream().noneMatch(found::contains)).toList());
                 Set<String> extra = new TreeSet<>(found);
-                extra.removeAll(d.gold());
-                System.out.printf("| %s | %s | %d | %d | %d | %s | %s | %s | %s |%n", d.name(), ex, s.gold(), s.predicted(),
-                        s.hits(), pct(s.recall()), pct(s.precision()), String.join(" ", missed), String.join(" ", extra));
+                d.gold().forEach(g -> extra.removeAll(alts(g)));
+                System.out.printf("| %s | %s | %d | %d | %d | %s | %s | %d | %s | %s |%n", d.name(), ex, s.gold(),
+                        s.predicted(), s.hits(), pct(s.recall()), pct(s.precision()), s.trapped(),
+                        String.join(" ", missed), String.join(" ", extra));
             }
-            System.out.printf("| **전체 %d건** | %s | %d | %d | %d | **%s** | **%s** | | |%n", docs.size(), ex, total.gold(),
-                    total.predicted(), total.hits(), pct(total.recall()), pct(total.precision()));
+            System.out.printf("| **전체 %d건** | %s | %d | %d | %d | **%s** | **%s** | %d | | |%n", docs.size(), ex,
+                    total.gold(), total.predicted(), total.hits(), pct(total.recall()), pct(total.precision()),
+                    total.trapped());
+            if (llm != null) {
+                System.out.printf("%s: API 호출 %d회, 입력 %d·출력 %d 토큰%n", ex, calls, inTokens, outTokens);
+            }
         }
     }
 
@@ -93,18 +103,26 @@ public final class ScheduleEval {
                 String first = text.lines().findFirst().orElse("");
                 String type = first.startsWith("# docType:") ? first.substring(10).trim() : "TASK_SPEC";
                 List<String> pages = List.of(text.substring(first.length()).split("\\R" + PAGE_BREAK + "\\R"));
-                Set<String> gold = new LinkedHashSet<>(Files.readAllLines(answers).stream().skip(1).map(String::trim)
-                        .filter(s -> !s.isEmpty()).toList());
-                docs.add(new Doc(txt.getFileName().toString().replaceFirst("\\.txt$", ""), type, pages, gold));
+                List<String> lines = Files.readAllLines(answers).stream().skip(1).map(String::trim)
+                        .filter(s -> !s.isEmpty()).toList();
+                Set<String> gold = new LinkedHashSet<>(lines.stream().filter(s -> !s.startsWith("!")).toList());
+                Set<String> traps = new LinkedHashSet<>(lines.stream().filter(s -> s.startsWith("!"))
+                        .map(s -> s.substring(1)).toList());
+                docs.add(new Doc(txt.getFileName().toString().replaceFirst("\\.txt$", ""), type, pages, gold, traps));
             }
         }
         return docs;
     }
 
-    static Score score(Set<String> gold, Set<String> found) {
-        Set<String> hits = new LinkedHashSet<>(found);
-        hits.retainAll(gold);
-        return new Score(gold.size(), found.size(), hits.size());
+    static Score score(Set<String> gold, Set<String> traps, Set<String> found) {
+        int hits = (int) gold.stream().filter(g -> alts(g).stream().anyMatch(found::contains)).count();
+        int correct = (int) found.stream().filter(f -> gold.stream().anyMatch(g -> alts(g).contains(f))).count();
+        int trapped = (int) found.stream().filter(traps::contains).count();
+        return new Score(gold.size(), found.size(), hits, correct, trapped);
+    }
+
+    private static List<String> alts(String gold) {
+        return List.of(gold.split("\\|"));
     }
 
     /** "When" keys of rows: event/milestone date, task start and end, base-date rule, recurring interval. */
@@ -139,6 +157,9 @@ public final class ScheduleEval {
                 String raw = llm.send(SchedulePrompt.SYSTEM, new PreparedInput.Text(text.toString()),
                         SchedulePrompt.instruction(d.docType()), SchedulePrompt.SCHEMA);
                 JsonNode res = JSON.readTree(raw);
+                calls++;
+                inTokens += llm.provider().inputTokens(res);
+                outTokens += llm.provider().outputTokens(res);
                 return Extraction.scheduleRows(JSON, llm.provider().text(res), pageTexts, d.name());
             } catch (Exception e) {
                 if (attempt >= Extraction.ATTEMPTS) {
