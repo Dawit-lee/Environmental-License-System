@@ -161,7 +161,8 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
                     <td className="px-3 py-2.5"><Badge {...LEVEL[i.level]} /></td>
                     {/* 개정 구분·공포일 are in the detail panel; the list keeps 시행일 in view */}
                     <td className="max-w-[240px] px-3 py-2.5">
-                      <span className="block truncate font-medium text-gray-800" title={`${i.lawName} · ${i.revisionType} · 공포 ${i.promulgatedOn ?? '-'}`}>{i.lawName}</span>
+                      <button type="button" className="block max-w-full truncate text-left font-medium text-gray-800"
+                        title={`${i.lawName} · ${i.revisionType} · 공포 ${i.promulgatedOn ?? '-'}`}>{i.lawName}</button>
                     </td>
                     <td className="px-3 py-2.5 text-gray-700">
                       {i.permitName}

@@ -3,6 +3,7 @@ import {
   ANCHOR_LABEL, ANCHORS, applyTemplate, getDelays, getTemplates, pasteItems, setAnchor, setBase,
   type Anchor, type AnchorChange, type DelayRow, type PasteResult, type Schedule, type Template,
 } from '../api/schedule';
+import { useEscape } from './useEscape';
 
 // ---------------------------------------------------------------------------
 // ScheduleTools — the 일정 tab's design-schedule/03 pieces: base dates (with the move preview), 지연 현황,
@@ -16,6 +17,7 @@ const head = 'px-3 py-2 font-medium';
 const md = (d: string | null) => (d ? d.slice(2).replaceAll('-', '.') : '미정');
 
 export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+  useEscape(onClose);
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10">
       <div role="dialog" aria-modal="true" aria-label={title}

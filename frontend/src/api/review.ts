@@ -49,7 +49,7 @@ export interface SuggestionEvent {
   data: { page_no?: number } | null;
 }
 
-export const effective = (s: Suggestion) => s.editedPayload ?? s.payload;
+export const effective = <P,>(s: { payload: P; editedPayload: P | null }) => s.editedPayload ?? s.payload;
 
 const post = <T>(path: string, body: unknown) => api<T>(path, { method: 'POST', body: JSON.stringify(body) });
 
