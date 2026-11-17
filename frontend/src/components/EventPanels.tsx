@@ -6,6 +6,7 @@ import {
 } from '../api/events';
 import type { Discipline } from '../api/schedule';
 import type { CalendarEntry } from './ScheduleCalendar';
+import { useEscape } from './useEscape';
 
 // ---------------------------------------------------------------------------
 // EventPanels — right-side panels for the calendars: EntryDetail (read-only, any calendar entry) and EventForm
@@ -25,6 +26,7 @@ const SUBKINDS: Partial<Record<EventKind, string[]>> = {
 function Drawer({ label, sub, title, onClose, children }: {
   label: string; sub: string; title: string; onClose: () => void; children: ReactNode;
 }) {
+  useEscape(onClose);
   return (
     <div className="fixed inset-0 z-50">
       <div onClick={onClose} className="absolute inset-0 bg-black/40" />

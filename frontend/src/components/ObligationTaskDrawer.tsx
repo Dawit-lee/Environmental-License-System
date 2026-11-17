@@ -10,6 +10,7 @@ import {
 import type { PermitDocument, PermitItem } from '../types';
 import { monthsBefore } from './ComplianceReportDraft';
 import { LEVEL, levelClass } from './PointMeasurements';
+import { useEscape } from './useEscape';
 
 /** Default report period of a 보고·제출 task: one cycle back from its due date (same months as the server's Frequency). */
 const CYCLE_MONTHS: Partial<Record<Obligation['frequency'], number>> = { MONTHLY: 1, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
@@ -48,6 +49,7 @@ function eventText(e: TaskEvent, name: (id: unknown) => string): string {
 export default function ObligationTaskDrawer({ projectId, obligation, corrective, permit, onClose, onChanged }: {
   projectId: number; obligation?: Obligation; corrective?: Task; permit: PermitItem | undefined; onClose: () => void; onChanged: () => void;
 }) {
+  useEscape(onClose);
   const permitItemId = obligation?.permitItemId ?? corrective?.permitItemId ?? null;
   const [reason, setReason] = useState('');
   const [cycles, setCycles] = useState<Task[]>([]);
@@ -337,7 +339,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
                     {[...cycles].reverse().map((c) => (
                       <tr key={c.id} onClick={() => run(async () => setDetail(await getTask(c.id)), false)}
                         className={`cursor-pointer hover:bg-[#F8F7F2] ${c.id === task.id ? 'bg-[#F8F7F2] font-medium' : ''}`}>
-                        <td className="py-1.5">{c.dueDate}</td>
+                        <td className="py-1.5"><button type="button">{c.dueDate}</button></td>
                         <td className={`py-1.5 ${isOverdue(c) ? 'text-[#991B1B]' : ''}`}>{taskStatusLabel(c)}</td>
                         <td className="py-1.5 text-gray-600">{c.doneAt ? day(c.doneAt) : '—'}</td>
                         <td className="py-1.5 text-gray-600" title="증빙 문서 + 측정값">{c.evidenceCount + c.measurementCount}</td>
