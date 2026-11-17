@@ -20,4 +20,14 @@
 .schedule-calendar .fc .fc-button { font-size: 0.75rem; padding: 0.3rem 0.65rem; box-shadow: none; }
 .schedule-calendar .fc .fc-button-primary:not(:disabled).fc-button-active { color: #fff; }
 .schedule-calendar .fc .fc-event { cursor: pointer; }
-.schedule-calendar .fc .fc-daygrid-event { white-space: nowrap; }
+.schedule-calendar .fc .fc-daygrid-event { white-space: normal; align-items: flex-start; }
+/* long names wrap to two lines in a day cell instead of being cut at one; the "+N" popover shows them whole */
+.schedule-calendar .fc .fc-daygrid-event .fc-event-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.schedule-calendar .fc .fc-popover .fc-daygrid-event .fc-event-title { -webkit-line-clamp: unset; }
+.schedule-calendar .fc .fc-daygrid-dot-event .fc-daygrid-event-dot { margin-top: 0.4em; }

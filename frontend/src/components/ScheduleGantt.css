@@ -44,6 +44,15 @@
   pointer-events: none;
 }
 
+/* 일 scale: weekends shaded (classes from highlightTime) */
+.schedule-gantt .wx-gantt-holidays .schedule-weekend {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(107, 114, 128, 0.08);
+}
+.schedule-gantt .wx-scale .schedule-weekend { color: #991b1b; }
+
 /* 이벤트 row (design-schedule/04): an invisible bar, one dot per event */
 .schedule-gantt .wx-bar.events { background: transparent; border: none; box-shadow: none; overflow: visible; }
 .schedule-gantt .schedule-event-dot {
