@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.time.Instant;
 import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -19,7 +20,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Issues HS256 access/refresh JWTs. The "typ" claim keeps one from being used as the other.
- * shortcut: refresh tokens are stateless (no revocation/rotation store); add a DB table if logout-everywhere is needed.
+ * Revocation is per user: logout and disabling bump users.token_version ("ver" claim), which kills every token of that user.
+ * shortcut: no per-device refresh token store or rotation-reuse detection; add a refresh_token table (jti) if single-device logout is needed.
  */
 @Service
 public class TokenService {
@@ -33,11 +35,11 @@ public class TokenService {
     private final Duration accessTtl;
     private final Duration refreshTtl;
 
-    public TokenService(SecretKey key, Clock clock,
+    public TokenService(SecretKey key, Clock clock, JdbcTemplate jdbc,
                         @Value("${app.jwt.access-ttl}") Duration accessTtl,
                         @Value("${app.jwt.refresh-ttl}") Duration refreshTtl) {
         this.encoder = new NimbusJwtEncoder(new ImmutableSecret<>(key));
-        this.refreshDecoder = SecurityConfig.decoder(key, clock, REFRESH);
+        this.refreshDecoder = SecurityConfig.decoder(key, clock, REFRESH, jdbc);
         this.clock = clock;
         this.accessTtl = accessTtl;
         this.refreshTtl = refreshTtl;
@@ -63,6 +65,7 @@ public class TokenService {
                 .expiresAt(now.plus(ttl))
                 .claim("typ", type)
                 .claim("role", user.getRole().name())
+                .claim("ver", user.getTokenVersion())
                 .build();
         return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
                 .getTokenValue();

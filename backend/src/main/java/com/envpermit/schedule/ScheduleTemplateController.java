@@ -115,10 +115,8 @@ class ScheduleTemplateController {
         jdbc.update("DELETE FROM schedule_template_item WHERE id = ?", id);
     }
 
-    private static void master(Jwt jwt) {
-        if (!"ADMIN".equals(jwt.getClaimAsString("role"))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회사 마스터만 변경할 수 있습니다.");
-        }
+    private void master(Jwt jwt) {
+        org.masterCompanyOf(jwt);
     }
 
     /** 404 unless the item is in this company's template. */

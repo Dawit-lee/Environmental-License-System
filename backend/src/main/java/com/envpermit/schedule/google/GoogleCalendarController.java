@@ -20,6 +20,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -47,8 +48,11 @@ class GoogleCalendarController {
     private final GoogleSettings settings;
     private final CalendarPublisher google;
     private final Clock clock;
+    private final TransactionTemplate tx;
 
-    GoogleCalendarController(JdbcTemplate jdbc, GoogleSettings settings, CalendarPublisher google, Clock clock) {
+    GoogleCalendarController(JdbcTemplate jdbc, GoogleSettings settings, CalendarPublisher google, Clock clock,
+                             TransactionTemplate tx) {
+        this.tx = tx;
         this.jdbc = jdbc;
         this.settings = settings;
         this.google = google;
@@ -107,8 +111,7 @@ class GoogleCalendarController {
     }
 
     /** Google → here. Bad or used state = 400. Then back to the 회사 달력 page with ?google=connected|denied|failed. */
-    @GetMapping("/api/me/google-calendar/callback")
-    @Transactional
+    @GetMapping("/api/me/google-calendar/callback") // M3: no tx around the Google calls; the state DELETE commits on its own
     ResponseEntity<Void> callback(@RequestParam(required = false) String code, @RequestParam String state,
                                   @RequestParam(required = false) String error) {
         requireFeature();
@@ -125,19 +128,23 @@ class GoogleCalendarController {
         try {
             String refresh = google.exchangeCode(code);
             String calendarId = google.createCalendar(refresh, CALENDAR_NAME);
-            jdbc.update("""
-                    INSERT INTO user_google_link (user_id, encrypted_refresh_token, calendar_id, connected_at)
-                    VALUES (?, ?, ?, ?)
-                    ON CONFLICT (user_id) DO UPDATE SET encrypted_refresh_token = EXCLUDED.encrypted_refresh_token,
-                        calendar_id = EXCLUDED.calendar_id, connected_at = EXCLUDED.connected_at, last_error = NULL""",
-                    uid, settings.encrypt(refresh), calendarId, Timestamp.from(clock.instant()));
-            jdbc.update("DELETE FROM calendar_sync_link WHERE user_id = ?", uid); // a new calendar starts empty
-            enqueueAll(uid);
+            tx.executeWithoutResult(s -> link(uid, refresh, calendarId));
             return back("connected");
         } catch (RuntimeException e) {
             log.warn("Google calendar connect failed for user {}: {}", uid, e.toString());
             return back("failed");
         }
+    }
+
+    private void link(long uid, String refresh, String calendarId) {
+        jdbc.update("""
+                INSERT INTO user_google_link (user_id, encrypted_refresh_token, calendar_id, connected_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (user_id) DO UPDATE SET encrypted_refresh_token = EXCLUDED.encrypted_refresh_token,
+                    calendar_id = EXCLUDED.calendar_id, connected_at = EXCLUDED.connected_at, last_error = NULL""",
+                uid, settings.encrypt(refresh), calendarId, Timestamp.from(clock.instant()));
+        jdbc.update("DELETE FROM calendar_sync_link WHERE user_id = ?", uid); // a new calendar starts empty
+        enqueueAll(uid);
     }
 
     @PutMapping("/api/me/google-calendar")

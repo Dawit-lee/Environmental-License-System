@@ -23,3 +23,8 @@ export async function login(email: string, password: string): Promise<Session> {
   }
   return body as Session;
 }
+
+/** Revokes the user's tokens on the server (all devices). Best effort: the local session is cleared either way. */
+export function logout(accessToken: string): void {
+  fetch('/api/auth/logout', { method: 'POST', headers: { Authorization: `Bearer ${accessToken}` } }).catch(() => {});
+}

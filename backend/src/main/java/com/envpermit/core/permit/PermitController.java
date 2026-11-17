@@ -73,7 +73,7 @@ public class PermitController {
                          @Size(max = 300) String issueNote) {
     }
 
-    record PermitView(long id, long projectId, String name, PermitItem.Category category, String regulation,
+    public record PermitView(long id, long projectId, String name, PermitItem.Category category, String regulation,
                       String regulationUrl, String authority, String authorityUrl, String reason,
                       String approvalDate, LocalDate applicationDate, LocalDate acquisitionDate,
                       LocalDate expiryDate, PermitItem.Status status, String nextAction, String nextActionUrl,
@@ -150,6 +150,11 @@ public class PermitController {
     private PermitItem find(long projectId, long id) {
         return permits.findByIdAndProjectId(id, projectId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    /** Permits of several projects in one query, for the dashboard summary. Callers check access. */
+    public List<PermitView> viewsOf(java.util.Collection<Long> projectIds) {
+        return projectIds.isEmpty() ? List.of() : permits.findByProjectIdInOrderById(projectIds).stream().map(this::view).toList();
     }
 
     private PermitView view(PermitItem p) {

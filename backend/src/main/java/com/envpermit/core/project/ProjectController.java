@@ -256,7 +256,7 @@ public class ProjectController {
         org.requireUser(companyId, req.emUserId());
     }
 
-    private List<ProjectView> views(List<Project> list, long userId) {
+    List<ProjectView> views(List<Project> list, long userId) {
         if (list.isEmpty()) {
             return List.of();
         }

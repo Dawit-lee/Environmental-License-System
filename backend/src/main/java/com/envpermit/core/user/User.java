@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
 
 @Entity
 @Table(name = "users")
@@ -27,6 +28,8 @@ public class User {
 
     private Long companyId;
     private Long teamId;
+    private Instant disabledAt;
+    private int tokenVersion; // in every JWT as "ver"; bumping it revokes the user's tokens
 
     protected User() {
     }
@@ -50,6 +53,20 @@ public class User {
     public Role getRole() { return role; }
     public Long getCompanyId() { return companyId; }
     public Long getTeamId() { return teamId; }
+
+    public Instant getDisabledAt() { return disabledAt; }
+    public boolean isDisabled() { return disabledAt != null; }
+    public int getTokenVersion() { return tokenVersion; }
+
+    /** Logout everywhere: tokens issued so far stop working. */
+    public void revokeTokens() {
+        tokenVersion++;
+    }
+
+    public void setDisabled(boolean disabled, Instant now) {
+        disabledAt = disabled ? now : null;
+        revokeTokens();
+    }
 
     public void setTeamId(Long teamId) {
         this.teamId = teamId;

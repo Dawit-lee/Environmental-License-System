@@ -117,11 +117,13 @@ public class Review {
     /** Riskiest first (design §4.1): quote_check MISMATCH → UNVERIFIABLE → VERIFIED → none, then oldest first. */
     public List<AiSuggestion> list(long projectId, Jwt jwt, Long runId, Status status) {
         access.member(projectId, jwt);
-        return suggestions.findByProjectIdOrderById(projectId).stream()
-                .filter(s -> runId == null || runId.equals(s.getRunId()))
-                .filter(s -> status == null || status == s.getStatus())
-                .sorted(Comparator.comparingInt(Review::risk))
-                .toList();
+        // M9: run and status filters in SQL (project_id/status and run_id indexes); risk order needs the payload, so Java
+        List<AiSuggestion> rows = runId != null && status != null
+                ? suggestions.findByProjectIdAndRunIdAndStatusOrderById(projectId, runId, status)
+                : runId != null ? suggestions.findByProjectIdAndRunIdOrderById(projectId, runId)
+                : status != null ? suggestions.findByProjectIdAndStatusOrderById(projectId, status)
+                : suggestions.findByProjectIdOrderById(projectId);
+        return rows.stream().sorted(Comparator.comparingInt(Review::risk)).toList();
     }
 
     private static int risk(AiSuggestion s) {

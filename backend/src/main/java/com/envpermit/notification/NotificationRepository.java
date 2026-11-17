@@ -10,9 +10,6 @@ import org.springframework.data.jpa.repository.Query;
 
 interface NotificationRepository extends JpaRepository<Notification, Long> {
 
-    boolean existsByDeadlineEventIdAndDueDateAndOffsetDaysAndUserId(long eventId, LocalDate dueDate, int offsetDays,
-                                                                    long userId);
-
     // shortcut: newest 50 only, no paging; add paging when a "see all" page exists
     List<Notification> findTop50ByUserIdOrderByCreatedAtDescDueDateAscIdDesc(long userId);
 

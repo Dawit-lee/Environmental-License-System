@@ -4,7 +4,9 @@ import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import java.time.Clock;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,11 +39,13 @@ public class OrgController {
     private final JdbcTemplate jdbc;
     private final UserRepository users;
     private final Org org;
+    private final Clock clock;
 
-    public OrgController(JdbcTemplate jdbc, UserRepository users, Org org) {
+    public OrgController(JdbcTemplate jdbc, UserRepository users, Org org, Clock clock) {
         this.jdbc = jdbc;
         this.users = users;
         this.org = org;
+        this.clock = clock;
     }
 
     record NameRequest(@NotBlank @Size(max = 100) String name) {
@@ -53,7 +57,13 @@ public class OrgController {
     record DepartmentView(long id, String name, List<TeamView> teams) {
     }
 
-    record UserView(long id, String name, String email, Long teamId) {
+    record UserView(long id, String name, String email, Long teamId, boolean disabled) {
+        static UserView of(User u) {
+            return new UserView(u.getId(), u.getName(), u.getEmail(), u.getTeamId(), u.isDisabled());
+        }
+    }
+
+    record DisableRequest(@NotNull Boolean disabled) {
     }
 
     record TeamAssignment(Long teamId) {
@@ -133,7 +143,7 @@ public class OrgController {
     @GetMapping("/api/company/users")
     List<UserView> companyUsers(@AuthenticationPrincipal Jwt jwt) {
         return users.findByCompanyIdOrderByName(org.companyOf(jwt)).stream()
-                .map(u -> new UserView(u.getId(), u.getName(), u.getEmail(), u.getTeamId())).toList();
+                .map(UserView::of).toList();
     }
 
     @PutMapping("/api/company/users/{id}/team")
@@ -144,14 +154,27 @@ public class OrgController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         org.requireTeam(companyId, req.teamId());
         u.setTeamId(req.teamId());
-        return new UserView(u.getId(), u.getName(), u.getEmail(), u.getTeamId());
+        return UserView.of(u);
+    }
+
+    /** M2: a disabled user can't log in and all their tokens stop working at once. Re-enabling lets them log in again. */
+    @PutMapping("/api/company/users/{id}/disabled")
+    @Transactional
+    UserView setDisabled(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @Valid @RequestBody DisableRequest req) {
+        long companyId = master(jwt);
+        if (id == Long.parseLong(jwt.getSubject())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "자기 계정은 비활성화할 수 없습니다.");
+        }
+        User u = users.findById(id).filter(x -> Long.valueOf(companyId).equals(x.getCompanyId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (u.isDisabled() != req.disabled()) {
+            u.setDisabled(req.disabled(), clock.instant());
+        }
+        return UserView.of(u);
     }
 
     private long master(Jwt jwt) {
-        if (!"ADMIN".equals(jwt.getClaimAsString("role"))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회사 마스터만 변경할 수 있습니다.");
-        }
-        return org.companyOf(jwt);
+        return org.masterCompanyOf(jwt);
     }
 
     private static void found(Integer rows) {

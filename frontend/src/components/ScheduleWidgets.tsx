@@ -54,29 +54,22 @@ export function WeekEvents() {
   );
 }
 
-/**
- * Delayed schedule items across my projects, counted per discipline.
- * shortcut: one schedule call per project (like the rest of the dashboard); add a summary endpoint if projects grow.
- */
-export function DelayedByDiscipline({ projectIds }: { projectIds: number[] }) {
-  const [counts, setCounts] = useState<[string, number][] | null>(null);
-  useEffect(() => {
-    Promise.all(projectIds.map((id) => getSchedule(id).then((s) => s.items, () => [] as ScheduleItem[]))).then((lists) => {
-      const by = new Map<string, number>();
-      lists.flat().filter((i) => i.status === 'DELAYED')
-        .forEach((i) => by.set(i.disciplineName ?? '공통', (by.get(i.disciplineName ?? '공통') ?? 0) + 1));
-      setCounts([...by.entries()].sort((a, b) => b[1] - a[1]));
-    });
-  }, [projectIds.join(',')]);
+export interface DelayedCount {
+  discipline: string;
+  count: number;
+}
+
+/** Delayed schedule items across my projects, counted per discipline (from GET /api/dashboard; null while loading). */
+export function DelayedByDiscipline({ counts }: { counts: DelayedCount[] | null }) {
   return (
     <section className={card}>
       <h2 className="text-lg font-semibold text-gray-900">기한 경과 일정 (분야별)<Help k="overdue" align="right" /></h2>
       <ul className="mt-3 divide-y divide-[#E5E3DC] text-sm">
         {counts?.length === 0 && <li className="py-3 text-gray-400">기한이 지난 일정 항목이 없습니다.</li>}
-        {counts?.map(([name, n]) => (
-          <li key={name} className="flex justify-between py-2.5">
-            <span className="truncate text-gray-700">{name}</span>
-            <span className="text-[#991B1B]">{n}건</span>
+        {counts?.map(({ discipline, count }) => (
+          <li key={discipline} className="flex justify-between py-2.5">
+            <span className="truncate text-gray-700">{discipline}</span>
+            <span className="text-[#991B1B]">{count}건</span>
           </li>
         ))}
       </ul>

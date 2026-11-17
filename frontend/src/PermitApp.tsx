@@ -6,7 +6,7 @@ import SharePage from './pages/SharePage';
 import { setOnboardingDismissed } from './components/Onboarding';
 import NotificationBell from './components/NotificationBell';
 import { RouteBoundary } from './components/ErrorBoundary';
-import type { Session } from './api/auth';
+import { logout, type Session } from './api/auth';
 import { isMaster } from './api/client';
 
 // routed screens load on demand to keep the first chunk small
@@ -74,6 +74,7 @@ export default function PermitApp() {
   };
 
   const handleLogout = () => {
+    if (session) logout(session.accessToken);
     localStorage.removeItem(STORAGE_KEY);
     setSession(null);
   };

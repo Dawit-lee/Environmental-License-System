@@ -1,5 +1,6 @@
 package com.envpermit.core.company;
 
+import com.envpermit.core.org.Org;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
 import jakarta.validation.Valid;
@@ -30,11 +31,13 @@ public class CompanyController {
     private final UserRepository users;
 
     private final Clock clock;
+    private final Org org;
 
-    public CompanyController(CompanyRepository companies, UserRepository users, Clock clock) {
+    public CompanyController(CompanyRepository companies, UserRepository users, Clock clock, Org org) {
         this.companies = companies;
         this.users = users;
         this.clock = clock;
+        this.org = org;
     }
 
     record CompanyView(long id, String name, boolean aiExtractionEnabled, Long aiExtractionChangedBy,
@@ -105,10 +108,8 @@ public class CompanyController {
         return new InviteCode(c.getInviteCode());
     }
 
-    private static void requireMaster(Jwt jwt) {
-        if (!"ADMIN".equals(jwt.getClaimAsString("role"))) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "회사 마스터만 변경할 수 있습니다.");
-        }
+    private void requireMaster(Jwt jwt) {
+        org.masterCompanyOf(jwt);
     }
 
     private Company myCompany(Jwt jwt) {

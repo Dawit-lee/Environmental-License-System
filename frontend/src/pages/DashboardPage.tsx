@@ -6,10 +6,10 @@ import { getDeadlines, ymd, type Deadline } from '../api/notifications';
 import { openSiteImplementationCount } from '../api/revisions';
 import { getNewLawImpactCount } from '../api/lawImpacts';
 import {
-  ActivityList, DeadlineTimeline, PendingRow, STAGES, STATUSES, StatusDonut, dDayClasses, deadlineLink, isOpen, lifecycleStage, recentActivity,
+  ActivityList, DeadlineTimeline, PendingRow, STAGES, STATUSES, StatusDonut, dDayClasses, deadlineLink, lifecycleStage, recentActivity,
 } from '../components/dashboard';
 import { CompanyCompliance } from '../components/Compliance';
-import { DelayedByDiscipline, WeekEvents } from '../components/ScheduleWidgets';
+import { DelayedByDiscipline, WeekEvents, type DelayedCount } from '../components/ScheduleWidgets';
 import { GettingStarted, Help } from '../components/Onboarding';
 import { DUE_SOON_DAYS, isDueSoon } from '../terms';
 
@@ -19,6 +19,13 @@ import { DUE_SOON_DAYS, isDueSoon } from '../terms';
 // status donut (pure CSS conic-gradient) and recent activity.
 // ---------------------------------------------------------------------------
 
+interface DashboardSummary {
+  projects: Project[];
+  permits: PermitItem[];
+  reviewOpen: number;
+  delayedByDiscipline: DelayedCount[];
+}
+
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [permits, setPermits] = useState<PermitItem[]>([]);
@@ -26,17 +33,16 @@ export default function DashboardPage() {
   const [loaded, setLoaded] = useState(false); // the checklist waits for real counts, so it does not flash every step open
   const [reviewOpen, setReviewOpen] = useState(0); // AI suggestions + revisions awaiting review
   const [lawNew, setLawNew] = useState(0); // law amendments not yet reviewed
+  const [delayed, setDelayed] = useState<DelayedCount[] | null>(null);
   useEffect(() => {
-    // shortcut: one permits call per project; add a summary endpoint if project counts grow large.
-    api<Project[]>('/api/projects')
-      .then(async (ps) => {
-        const lists = await Promise.all(ps.map((p) => api<PermitItem[]>(`/api/projects/${p.id}/permits`)));
-        setProjects(ps);
-        setPermits(lists.flat());
+    // one summary call instead of permits/suggestions/schedule per project
+    api<DashboardSummary>('/api/dashboard')
+      .then((d) => {
+        setProjects(d.projects);
+        setPermits(d.permits);
+        setReviewOpen(d.reviewOpen);
+        setDelayed(d.delayedByDiscipline);
         setLoaded(true);
-        const sugg = await Promise.all(ps.map((p) => api<{ kind: string; status: string }[]>(`/api/projects/${p.id}/suggestions`)));
-        // same rows the review queue shows: obligations and version-diff revisions
-        setReviewOpen(sugg.flat().filter((x) => (x.kind === 'OBLIGATION' || x.kind === 'OBLIGATION_REVISION') && isOpen(x)).length);
       })
       .catch((e: Error) => setLoadError(e.message));
   }, []);
@@ -84,7 +90,7 @@ export default function DashboardPage() {
         {/* 설계 일정 (design-schedule/04) */}
         <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2"><WeekEvents /></div>
-          <DelayedByDiscipline projectIds={projects.map((p) => p.id)} />
+          <DelayedByDiscipline counts={delayed} />
         </div>
 
         {/* Near-expiry table — full width so each row stays on one line */}

@@ -125,6 +125,35 @@ class AuthApiTest extends IntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void logout_revokes_access_and_refresh_tokens_of_every_session() throws Exception { // M2
+        ResultActions first = login("kim@example.com", "correct-pw");
+        String access = token(first, "accessToken");
+        String refresh = token(first, "refreshToken");
+        String otherDevice = token(login("kim@example.com", "correct-pw"), "accessToken");
+
+        mvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + access))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/me").header("Authorization", "Bearer " + access)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/me").header("Authorization", "Bearer " + otherDevice)).andExpect(status().isUnauthorized());
+        refresh(refresh).andExpect(status().isUnauthorized());
+        String fresh = token(login("kim@example.com", "correct-pw").andExpect(status().isOk()), "accessToken");
+        mvc.perform(get("/api/me").header("Authorization", "Bearer " + fresh)).andExpect(status().isOk());
+    }
+
+    @Test
+    void logout_without_a_token_is_a_no_op() throws Exception {
+        mvc.perform(post("/api/auth/logout")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void tokens_of_a_deleted_user_are_rejected() throws Exception {
+        String access = token(login("kim@example.com", "correct-pw"), "accessToken");
+        jdbc.update("DELETE FROM users");
+        mvc.perform(get("/api/me").header("Authorization", "Bearer " + access)).andExpect(status().isUnauthorized());
+    }
+
     private ResultActions login(String email, String password) throws Exception {
         return mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"email\":\"%s\",\"password\":\"%s\"}".formatted(email, password)));

@@ -1,14 +1,19 @@
 package com.envpermit.notification;
 
+import com.envpermit.core.JobLock;
+import java.time.Duration;
+
 import com.envpermit.core.project.Project;
-import com.envpermit.core.project.ProjectMember;
-import com.envpermit.core.project.ProjectMemberRepository;
 import com.envpermit.core.project.ProjectRepository;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.sql.Timestamp;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,19 +49,19 @@ public class NotificationJob {
     private final DeadlineEventRepository events;
     private final NotificationRepository notifications;
     private final ProjectRepository projects;
-    private final ProjectMemberRepository members;
     private final UserRepository users;
     private final Mailer mailer;
     private final Clock clock;
     private final JdbcTemplate jdbc;
+    private final JobLock lock;
 
     NotificationJob(DeadlineEventRepository events, NotificationRepository notifications, ProjectRepository projects,
-                    ProjectMemberRepository members, UserRepository users, Mailer mailer, Clock clock, JdbcTemplate jdbc) {
+                    UserRepository users, Mailer mailer, Clock clock, JdbcTemplate jdbc, JobLock lock) {
+        this.lock = lock;
         this.jdbc = jdbc;
         this.events = events;
         this.notifications = notifications;
         this.projects = projects;
-        this.members = members;
         this.users = users;
         this.mailer = mailer;
         this.clock = clock;
@@ -76,8 +81,10 @@ public class NotificationJob {
 
     @Scheduled(cron = "0 0 7 * * *", zone = "Asia/Seoul")
     void daily() {
-        createDueNotifications();
-        sendDigests();
+        lock.run("notification-daily", Duration.ofHours(1), Duration.ofMinutes(10), () -> {
+            createDueNotifications();
+            sendDigests();
+        });
     }
 
     public void createDueNotifications() {
@@ -93,6 +100,7 @@ public class NotificationJob {
                 && byId.containsKey(e.getProjectId()) && !byId.get(e.getProjectId()).isOperationsEnabled();
         due.removeIf(off);
         overdue.removeIf(off);
+        Map<Long, List<Long>> membersByProject = members(byId.keySet()); // M8: one query, not one per deadline
         for (DeadlineEvent e : due) {
             Integer offset = crossedOffset(e.getKind(), ChronoUnit.DAYS.between(today, e.getDueDate()));
             if (offset == null) continue; // e.g. a schedule item at D-20
@@ -100,12 +108,12 @@ public class NotificationJob {
             if (Deadlines.PROJECT_EVENT.equals(e.getKind())) {
                 notify(e, offset, message, link(e, null), eventRecipients(e.getTargetId(), offset));
             } else {
-                remind(e, offset, message, link(e, "/projects/" + e.getProjectId()));
+                remind(e, offset, message, link(e, "/projects/" + e.getProjectId()), membersByProject);
             }
         }
         for (DeadlineEvent e : overdue) { // once: only on the day after, and the unique key stops a rerun
             String message = "기한 경과 · %s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
-            remind(e, OVERDUE, message, link(e, "/projects/" + e.getProjectId() + "/obligations"));
+            remind(e, OVERDUE, message, link(e, "/projects/" + e.getProjectId() + "/obligations"), membersByProject);
             if (SCHEDULE_ITEM.equals(e.getKind())) { // a late predecessor holds up its successors: tell their owners
                 String held = "선행 지연 · %s · %s (%s)".formatted(projectNames.get(e.getProjectId()), e.getTitle(), e.getDueDate());
                 notify(e, OVERDUE, held, link(e, null), jdbc.queryForList("""
@@ -138,17 +146,28 @@ public class NotificationJob {
     }
 
     /** To the assignee, or to every project member when nobody is assigned; never twice for the same due date and offset. */
-    private void remind(DeadlineEvent e, int offset, String message, String link) {
+    private void remind(DeadlineEvent e, int offset, String message, String link, Map<Long, List<Long>> membersByProject) {
         notify(e, offset, message, link, e.getAssigneeId() != null ? List.of(e.getAssigneeId())
-                : members.findByIdProjectIdOrderByIdUserId(e.getProjectId()).stream().map(ProjectMember::getUserId).toList());
+                : membersByProject.getOrDefault(e.getProjectId(), List.of()));
     }
 
+    private Map<Long, List<Long>> members(Collection<Long> projectIds) {
+        Map<Long, List<Long>> m = new HashMap<>();
+        jdbc.query("SELECT project_id, user_id FROM project_member WHERE project_id = ANY(?) ORDER BY project_id, user_id",
+                rs -> {
+                    m.computeIfAbsent(rs.getLong(1), k -> new ArrayList<>()).add(rs.getLong(2));
+                }, (Object) projectIds.toArray(Long[]::new));
+        return m;
+    }
+
+    /** One batch per deadline; the unique key (event, due date, offset, user) makes a rerun a no-op. */
     private void notify(DeadlineEvent e, int offset, String message, String link, List<Long> recipients) {
-        for (long userId : recipients) {
-            if (!notifications.existsByDeadlineEventIdAndDueDateAndOffsetDaysAndUserId(e.getId(), e.getDueDate(), offset, userId)) {
-                notifications.save(new Notification(userId, e, offset, message, link, clock.instant()));
-            }
-        }
+        Timestamp now = Timestamp.from(clock.instant());
+        jdbc.batchUpdate("""
+                INSERT INTO notification (user_id, deadline_event_id, due_date, offset_days, message, link, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING""",
+                recipients.stream().distinct().map(u -> new Object[] {u, e.getId(), e.getDueDate(), offset, message, link, now})
+                        .toList());
     }
 
     public void sendDigests() {
@@ -159,8 +178,14 @@ public class NotificationJob {
                 .collect(Collectors.toMap(User::getId, Function.identity()));
         String today = LocalDate.now(clock).toString();
         byUser.forEach((userId, list) -> {
+            User to = recipients.get(userId);
+            if (to == null || to.isDisabled()) { // L8: no mail, and don't retry it every day
+                list.forEach(n -> n.markEmailed(clock.instant()));
+                notifications.saveAll(list);
+                return;
+            }
             try {
-                mailer.send(recipients.get(userId).getEmail(),
+                mailer.send(to.getEmail(),
                         "[인허가 관리] 기한 알림 %d건 (%s)".formatted(list.size(), today), digest(list));
                 list.forEach(n -> n.markEmailed(clock.instant()));
                 notifications.saveAll(list);

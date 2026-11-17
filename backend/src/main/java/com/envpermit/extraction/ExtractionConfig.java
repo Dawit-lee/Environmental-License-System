@@ -1,8 +1,10 @@
 package com.envpermit.extraction;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -13,10 +15,13 @@ class ExtractionConfig {
 
     static final String EXECUTOR = "extractionExecutor";
 
-    /** Extraction runs off the request thread. Two at a time keeps API spend and memory (PDF bytes) bounded. */
+    /**
+     * Extraction runs off the request thread. Two at a time keeps API spend and memory (PDF bytes) bounded;
+     * a bounded queue (M4) rejects the rest, which the controller answers with 429.
+     */
     @Bean(name = EXECUTOR, destroyMethod = "shutdown")
-    ExecutorService extractionExecutor() {
-        return Executors.newFixedThreadPool(2);
+    ExecutorService extractionExecutor(@Value("${app.extraction.queue-capacity}") int queueCapacity) {
+        return new ThreadPoolExecutor(2, 2, 0, TimeUnit.MILLISECONDS, new ArrayBlockingQueue<>(queueCapacity));
     }
 
     /** One provider per server (EXTRACTION_PROVIDER, else whichever key is set). Keys come only from env vars. */

@@ -1,11 +1,13 @@
 package com.envpermit.schedule.google;
 
+import com.envpermit.core.JobLock;
+import java.time.Duration;
+
 import com.envpermit.notification.Notifier;
 import com.envpermit.schedule.google.CalendarPublisher.GoogleEvent;
 import com.envpermit.schedule.google.CalendarPublisher.Ref;
 import java.sql.Timestamp;
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -37,8 +39,11 @@ public class GoogleCalendarSync {
     private final Notifier notifier;
     private final Clock clock;
 
+    private final JobLock lock;
+
     GoogleCalendarSync(JdbcTemplate jdbc, GoogleSettings settings, CalendarPublisher google, Notifier notifier,
-                       Clock clock) {
+                       Clock clock, JobLock lock) {
+        this.lock = lock;
         this.jdbc = jdbc;
         this.settings = settings;
         this.google = google;
@@ -53,7 +58,7 @@ public class GoogleCalendarSync {
 
     @Scheduled(fixedDelay = 60_000, initialDelay = 60_000)
     public void run() {
-        if (settings.enabled()) runOnce();
+        if (settings.enabled()) lock.run("google-calendar-sync", Duration.ofMinutes(10), Duration.ZERO, this::runOnce);
     }
 
     /** One pass over the due rows. Public for tests (scheduling is off there). */
