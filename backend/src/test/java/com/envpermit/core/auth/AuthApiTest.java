@@ -2,6 +2,7 @@ package com.envpermit.core.auth;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,8 +49,45 @@ class AuthApiTest extends IntegrationTest {
     }
 
     @Test
-    void protected_api_without_token_is_401() throws Exception {
-        mvc.perform(get("/api/me")).andExpect(status().isUnauthorized());
+    void protected_api_without_token_is_401_with_json_body() throws Exception {
+        mvc.perform(get("/api/me")).andExpect(status().isUnauthorized())
+                .andExpect(header().exists("WWW-Authenticate"))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").value("로그인이 필요합니다."));
+    }
+
+    @Test
+    void five_failures_lock_the_account_for_that_ip_for_15_minutes() throws Exception { // H4
+        for (int i = 0; i < LoginThrottle.MAX_FAILURES; i++) {
+            login("kim@example.com", "wrong").andExpect(status().isUnauthorized());
+        }
+        login("kim@example.com", "correct-pw").andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_REQUESTS"));
+        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"kim@example.com\",\"password\":\"correct-pw\"}")
+                        .with(r -> {
+                            r.setRemoteAddr("10.0.0.9");
+                            return r;
+                        }))
+                .andExpect(status().isOk()); // another IP is not locked out
+        clock.advance(LoginThrottle.LOCK.minusSeconds(1));
+        login("kim@example.com", "correct-pw").andExpect(status().isTooManyRequests());
+        clock.advance(Duration.ofSeconds(1));
+        login("kim@example.com", "correct-pw").andExpect(status().isOk());
+    }
+
+    @Test
+    void failures_older_than_the_window_do_not_count_and_success_clears_them() throws Exception {
+        for (int i = 0; i < LoginThrottle.MAX_FAILURES - 1; i++) {
+            login("kim@example.com", "wrong");
+        }
+        clock.advance(LoginThrottle.WINDOW);
+        login("kim@example.com", "wrong");
+        login("kim@example.com", "correct-pw").andExpect(status().isOk()); // 1 failure in the new window
+        for (int i = 0; i < LoginThrottle.MAX_FAILURES - 1; i++) {
+            login("kim@example.com", "wrong");
+        }
+        login("kim@example.com", "correct-pw").andExpect(status().isOk()); // the success above reset the count
     }
 
     @Test

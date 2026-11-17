@@ -2,3 +2,7 @@
 spring:
   flyway:
     locations: classpath:db/migration,classpath:db/dev
+    placeholders:
+      # Seed login password, hashed by pgcrypto at seed time. Set DEV_SEED_PASSWORD for any shared or public run (README).
+      # Only applies when a seed user row is first created; existing passwords are never touched. No single quotes.
+      dev_seed_password: ${DEV_SEED_PASSWORD:dev1234!}

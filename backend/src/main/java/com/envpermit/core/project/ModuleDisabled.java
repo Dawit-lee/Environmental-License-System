@@ -1,6 +1,8 @@
 package com.envpermit.core.project;
 
 import java.util.Map;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -14,6 +16,7 @@ public class ModuleDisabled extends RuntimeException {
     }
 
     @RestControllerAdvice
+    @Order(Ordered.HIGHEST_PRECEDENCE) // before the catch-all in core.ApiErrors
     static class Handler {
         @ExceptionHandler(ModuleDisabled.class)
         ResponseEntity<Map<String, String>> handle(ModuleDisabled e) {

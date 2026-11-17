@@ -136,8 +136,13 @@ public class ProjectController {
     @Transactional
     ProjectView update(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
                        @Valid @RequestBody ProjectRequest req) {
-        access.member(id, jwt);
+        ProjectMember me = access.member(id, jwt);
         Project p = projects.findById(id).orElseThrow();
+        // PM·EM carry share-link and module powers, so only a project admin may reassign them (M1)
+        if (!me.isAdmin() && !(Objects.equals(p.getTeamId(), req.teamId()) && Objects.equals(p.getPmUserId(), req.pmUserId())
+                && Objects.equals(p.getEmUserId(), req.emUserId()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "팀·PM·EM은 프로젝트 어드민만 바꿀 수 있습니다.");
+        }
         checkOrg(p.getCompanyId(), req);
         LocalDate oldStart = p.getStartDate();
         LocalDate oldEnd = p.getExpectedEndDate();
@@ -167,10 +172,9 @@ public class ProjectController {
     @PatchMapping("/api/projects/{id}/modules")
     @Transactional
     ProjectView modules(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @Valid @RequestBody ModulesRequest req) {
-        access.viewer(id, jwt); // other company / unknown project → 403
+        boolean admin = access.member(id, jwt).isAdmin(); // PM·EM powers need membership too (M1)
         Project p = projects.findById(id).orElseThrow();
         long me = userId(jwt);
-        boolean admin = members.findById(new ProjectMember.Key(id, me)).map(ProjectMember::isAdmin).orElse(false);
         if (!admin && !Objects.equals(p.getPmUserId(), me) && !Objects.equals(p.getEmUserId(), me)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "프로젝트 어드민·PM·EM만 모듈을 켜고 끌 수 있습니다.");
         }

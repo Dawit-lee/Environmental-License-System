@@ -243,7 +243,8 @@ public class Extraction {
                                     ObligationPrompt.SCHEMA);
                 } catch (RuntimeException e) {
                     log.warn("LLM call failed (run {}, attempt {})", runId, attempt, e);
-                    error = "AI 서비스 호출에 실패했습니다: " + e.getMessage();
+                    // our clients throw IllegalStateException with a curated message; SDK/transport text stays in the log (M10)
+                    error = "AI 서비스 호출에 실패했습니다" + (e instanceof IllegalStateException ? ": " + e.getMessage() : ".");
                     continue;
                 }
                 rawKey = "companies/" + run.getCompanyId() + "/ai-runs/" + runId + "/response-" + attempt + ".json";

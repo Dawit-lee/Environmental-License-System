@@ -200,9 +200,10 @@ class ReviewApiTest extends IntegrationTest {
         doThrow(new IllegalStateException("boom")).when(deadlines)
                 .register(eq("OBLIGATION"), anyLong(), anyLong(), any(), any(), any());
 
-        // unhandled → 500 in the app; MockMvc rethrows it
-        assertThatThrownBy(() -> call(kim, json(post("/api/suggestions/" + id + "/accept"),
-                "{\"firstDueDate\":\"2026-03-31\",\"version\":0}"))).hasRootCauseMessage("boom");
+        // unhandled → the global handler answers 500 with a fixed message, never "boom"
+        call(kim, json(post("/api/suggestions/" + id + "/accept"), "{\"firstDueDate\":\"2026-03-31\",\"version\":0}"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.code").value("INTERNAL_SERVER_ERROR"));
 
         call(kim, get("/api/projects/" + projectId + "/suggestions"))
                 .andExpect(jsonPath("$[0].status").value("PENDING"))
