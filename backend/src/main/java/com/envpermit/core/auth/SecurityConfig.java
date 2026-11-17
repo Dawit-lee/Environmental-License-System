@@ -1,5 +1,6 @@
 package com.envpermit.core.auth;
 
+import com.envpermit.core.ApiErrors;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import javax.crypto.SecretKey;
@@ -8,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -18,13 +20,28 @@ import org.springframework.security.oauth2.jwt.JwtClaimValidator;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
+import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
 
 @Configuration
 public class SecurityConfig {
 
     @Bean
     SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        // same {code, message} body as core.ApiErrors; the bearer handlers keep the WWW-Authenticate header
+        BearerTokenAuthenticationEntryPoint bearer = new BearerTokenAuthenticationEntryPoint();
+        AuthenticationEntryPoint unauthorized = (req, res, ex) -> {
+            bearer.commence(req, res, ex);
+            ApiErrors.write(res, HttpStatus.UNAUTHORIZED, "로그인이 필요합니다.");
+        };
+        BearerTokenAccessDeniedHandler denied = new BearerTokenAccessDeniedHandler();
+        AccessDeniedHandler forbidden = (req, res, ex) -> {
+            denied.handle(req, res, ex);
+            ApiErrors.write(res, HttpStatus.FORBIDDEN, "권한이 없습니다.");
+        };
         return http
                 .csrf(c -> c.disable()) // stateless bearer tokens, no cookies
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -35,7 +52,9 @@ public class SecurityConfig {
                         // Google redirects the browser here without our token; the one-time state names the user
                         .requestMatchers("/api/me/google-calendar/callback").permitAll()
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(o -> o.jwt(j -> {}))
+                .exceptionHandling(e -> e.authenticationEntryPoint(unauthorized).accessDeniedHandler(forbidden))
+                .oauth2ResourceServer(o -> o.jwt(j -> {}).authenticationEntryPoint(unauthorized)
+                        .accessDeniedHandler(forbidden))
                 .build();
     }
 

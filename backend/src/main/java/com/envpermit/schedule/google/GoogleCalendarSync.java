@@ -15,6 +15,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * Every minute: drains {@code calendar_sync_outbox} (written by the V345 triggers) through {@link CalendarPublisher}.
@@ -145,9 +146,11 @@ public class GoogleCalendarSync {
     }
 
     private void failed(Row r, RuntimeException e, Instant now) {
-        String message = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+        log.warn("Google sync failed (user {}, {} {})", r.userId(), r.kind(), r.sourceId(), e);
+        // users see a status or our own message, never Google's raw response body (M10)
+        String message = e instanceof RestClientResponseException h ? "Google " + h.getStatusCode().value()
+                : e instanceof IllegalStateException && e.getMessage() != null ? e.getMessage() : "Google 연결 오류";
         message = message.length() > 400 ? message.substring(0, 400) : message;
-        log.warn("Google sync failed (user {}, {} {}): {}", r.userId(), r.kind(), r.sourceId(), message);
         Instant since = r.failingSince() == null ? now : r.failingSince();
         if (Duration.between(since, now).compareTo(GIVE_UP_AFTER) >= 0) {
             jdbc.update("DELETE FROM calendar_sync_outbox WHERE id = ?", r.id());

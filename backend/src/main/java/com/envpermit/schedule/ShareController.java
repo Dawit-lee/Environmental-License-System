@@ -276,13 +276,12 @@ class ShareController {
                 }, pid, id, id);
     }
 
-    /** 프로젝트 PM·EM, or a project admin member. Anyone else (incl. other companies) 403. */
+    /** A project member who is the PM, the EM or a project admin. Anyone else (incl. other companies) 403. */
     private void manager(long pid, Jwt jwt) {
-        long uid = userId(jwt);
         if (!jdbc.queryForObject("""
-                SELECT EXISTS (SELECT 1 FROM project p WHERE p.id = ? AND (p.pm_user_id = ? OR p.em_user_id = ?
-                    OR EXISTS (SELECT 1 FROM project_member m WHERE m.project_id = p.id AND m.user_id = ? AND m.is_admin)))""",
-                Boolean.class, pid, uid, uid, uid)) {
+                SELECT EXISTS (SELECT 1 FROM project p JOIN project_member m ON m.project_id = p.id AND m.user_id = ?
+                    WHERE p.id = ? AND (m.is_admin OR p.pm_user_id = m.user_id OR p.em_user_id = m.user_id))""",
+                Boolean.class, userId(jwt), pid)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "프로젝트 PM·EM·관리자만 공유 링크를 관리할 수 있습니다.");
         }
     }

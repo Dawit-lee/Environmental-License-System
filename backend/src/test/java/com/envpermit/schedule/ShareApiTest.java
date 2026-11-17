@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -113,6 +114,33 @@ class ShareApiTest extends IntegrationTest {
         call(yoon, json(post(links(projectA)), "{}")).andExpect(status().isCreated()); // EM
         call(yoon, get(links(projectA))).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
         call(yoon, get(links(projectB))).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void a_pm_who_is_not_a_project_member_has_no_link_powers() throws Exception { // M1
+        jdbc.update("UPDATE project SET pm_user_id = (SELECT id FROM users WHERE email = 'cho@a.com') WHERE id = ?", projectA);
+        call(cho, get(links(projectA))).andExpect(status().isForbidden());
+        call(cho, json(post(links(projectA)), "{}")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void only_project_admins_reassign_team_pm_and_em() throws Exception { // M1
+        long team = jdbc.queryForObject("SELECT team_id FROM project WHERE id = ?", Long.class, projectA);
+        String body = """
+                {"name":"%s","facilityType":"SEWAGE","location":"가온시","teamId":%d,"pmUserId":%d,"emUserId":%d}""";
+        call(lee, json(put("/api/projects/" + projectA), body.formatted("가온시 하수처리장 턴키", team, leeId, yoonId)))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("팀·PM·EM은 프로젝트 어드민만 바꿀 수 있습니다."));
+        call(lee, json(put("/api/projects/" + projectA), body.formatted("가온시 하수처리장 턴키", team, kimId, leeId)))
+                .andExpect(status().isForbidden());
+        call(lee, json(put("/api/projects/" + projectA), body.formatted("새 이름", team, kimId, yoonId)))
+                .andExpect(status().isOk()); // other fields stay open to members
+        call(kim, json(put("/api/projects/" + projectA), body.formatted("새 이름", team, leeId, yoonId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.pmUserId").value(leeId));
+        call(lee, json(patch("/api/projects/" + projectA + "/modules"), "{\"operations\":true}")).andExpect(status().isOk());
+        call(cho, json(patch("/api/projects/" + projectA + "/modules"), "{\"operations\":true}"))
+                .andExpect(status().isForbidden()); // not a member
     }
 
     @Test
@@ -257,7 +285,8 @@ class ShareApiTest extends IntegrationTest {
         for (int i = 0; i < ShareRequestFilter.FAILED_LIMIT_PER_MINUTE; i++) {
             mvc.perform(get("/share/" + ShareController.newToken())).andExpect(status().isNotFound());
         }
-        mvc.perform(get("/share/" + ShareController.newToken())).andExpect(status().isTooManyRequests());
+        mvc.perform(get("/share/" + ShareController.newToken())).andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_REQUESTS"));
         mvc.perform(get("/api/me/calendar.ics").param("token", "guess")).andExpect(status().isTooManyRequests());
         mvc.perform(get("/share/" + token)).andExpect(status().isTooManyRequests()); // the guessing IP is blocked
         mvc.perform(get("/share/" + token).with(r -> {

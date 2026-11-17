@@ -27,7 +27,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 /**
  * design-schedule/01: the 운영 module is opt-in per project. kim created the project (admin), lee is a plain member,
- * choi is the PM without being a member, park belongs to another company. Today is 2026-01-05.
+ * choi is the PM without being a member (no PM powers until added), park belongs to another company. Today is 2026-01-05.
  */
 class OperationsModuleApiTest extends IntegrationTest {
 
@@ -87,7 +87,9 @@ class OperationsModuleApiTest extends IntegrationTest {
         modules(park, true).andExpect(status().isForbidden());
         call(kim, json(patch("/api/projects/" + projectId + "/modules"), "{}")).andExpect(status().isBadRequest());
 
-        modules(choi, true).andExpect(status().isOk()).andExpect(jsonPath("$.operationsEnabled").value(true)); // PM, not a member
+        modules(choi, true).andExpect(status().isForbidden()); // PM, but not a member (M1)
+        jdbc.update("INSERT INTO project_member (project_id, user_id) SELECT ?, id FROM users WHERE email = 'choi@a.com'", projectId);
+        modules(choi, true).andExpect(status().isOk()).andExpect(jsonPath("$.operationsEnabled").value(true)); // member PM
         modules(kim, true).andExpect(status().isOk()); // no change, no log row
         modules(kim, false).andExpect(status().isOk()).andExpect(jsonPath("$.operationsEnabled").value(false));
 

@@ -1,5 +1,6 @@
 package com.envpermit.schedule.google;
 
+import com.envpermit.core.HttpTimeouts;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -20,7 +21,7 @@ class GoogleCalendarClient implements CalendarPublisher {
     private static final String CAL = "https://www.googleapis.com/calendar/v3/calendars";
     private static final String ZONE = "Asia/Seoul";
 
-    private final RestClient http = RestClient.create();
+    private final RestClient http = HttpTimeouts.restClient();
     private final GoogleSettings settings;
 
     GoogleCalendarClient(GoogleSettings settings) {
