@@ -41,7 +41,7 @@ dependencies {
 }
 
 tasks.named('test') {
-    useJUnitPlatform()
+    useJUnitPlatform { excludeTags 'measurement' }
     // golden cases live outside the repo (docs/golden-accuracy.md), so Gradle cannot see them change
     outputs.upToDateWhen { !System.getenv('GOLDEN_DIR') }
 }
@@ -51,6 +51,16 @@ tasks.named('test') {
 tasks.register('extractionEval', JavaExec) {
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'com.envpermit.extraction.ExtractionEval'
+}
+
+// Measurements behind docs/measurements/ (synthetic data, real PostgreSQL). Slow, so never part of test/CI.
+// ./gradlew measure [--tests '*QuoteCheckMeasurement']  → build/measurements/results.txt
+tasks.register('measure', Test) {
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'measurement' }
+    outputs.upToDateWhen { false }
+    testLogging.showStandardStreams = true
 }
 
 // ./gradlew scheduleEval --args="[dir] [rule,claude,gemini,openai]"  (design-schedule/07; default: fictional set, rule only)

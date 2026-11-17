@@ -23,6 +23,16 @@ set -a; source ../.env; set +a        # ANTHROPIC_API_KEY / GEMINI_API_KEY / OPE
 
 앱과 같은 경로를 탑니다: `ClaudePdfDirectPreparer` → `LlmClient.send`(`ObligationPrompt`) → `Provider`의 본문·토큰 읽기 → `Extraction.parse`(스키마 검증), 실패 시 1회 재시도. DB·S3·검토 큐는 거치지 않습니다.
 
+## 정답표 없이 한 문서 추출 (채점표 만들기)
+
+```bash
+./gradlew extractionEval --args="extract <in.pdf> <out-dir> [claude|gemini|openai]"
+```
+
+- 제공자를 주지 않으면 앱과 같은 규칙(`EXTRACTION_PROVIDER`, 없으면 키가 있는 첫 제공자)으로 고릅니다.
+- 앱과 같은 원문 대조(`QuoteChecker`)를 돌려, 항목마다 `VERIFIED`(원문 확인됨) / `MISMATCH`(불일치) / `UNVERIFIABLE`(글자층 없음)을 붙입니다.
+- `<out-dir>/extract.csv`에 사람이 채점할 표(빈 "사용자 판정" 열 포함)를, `extract.md`에 문서별 건수·시간·토큰·비용을 덧붙입니다. 출력 폴더는 저장소 밖에 둡니다.
+
 ## 정답표 형식 (`X.answers.csv`, UTF-8)
 
 | 열 | 내용 |
