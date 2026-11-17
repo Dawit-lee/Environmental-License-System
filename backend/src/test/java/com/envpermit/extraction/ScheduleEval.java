@@ -37,6 +37,7 @@ public final class ScheduleEval {
 
     private static final ObjectMapper JSON = Jackson2ObjectMapperBuilder.json().build();
     static final String PAGE_BREAK = "---page---";
+    private static int calls, inTokens, outTokens; // LLM cost, per extractor run
 
     /** gold: one line per expected item, alternatives split by "|" (a rule or its resolved date); traps: "!" lines. */
     record Doc(String name, String docType, List<String> pages, Set<String> gold, Set<String> traps) {
@@ -70,6 +71,7 @@ public final class ScheduleEval {
             LlmClient llm = ex.equals("rule") ? null : ExtractionEval.clients(ex).stream().findFirst().orElse(null);
             if (!ex.equals("rule") && llm == null) continue;
             Score total = new Score(0, 0, 0, 0, 0);
+            calls = inTokens = outTokens = 0;
             for (Doc d : docs) {
                 Set<String> found = keys(llm == null ? rules(d) : llm(llm, d));
                 Score s = score(d.gold(), d.traps(), found);
@@ -85,6 +87,9 @@ public final class ScheduleEval {
             System.out.printf("| **전체 %d건** | %s | %d | %d | %d | **%s** | **%s** | %d | | |%n", docs.size(), ex,
                     total.gold(), total.predicted(), total.hits(), pct(total.recall()), pct(total.precision()),
                     total.trapped());
+            if (llm != null) {
+                System.out.printf("%s: API 호출 %d회, 입력 %d·출력 %d 토큰%n", ex, calls, inTokens, outTokens);
+            }
         }
     }
 
@@ -152,6 +157,9 @@ public final class ScheduleEval {
                 String raw = llm.send(SchedulePrompt.SYSTEM, new PreparedInput.Text(text.toString()),
                         SchedulePrompt.instruction(d.docType()), SchedulePrompt.SCHEMA);
                 JsonNode res = JSON.readTree(raw);
+                calls++;
+                inTokens += llm.provider().inputTokens(res);
+                outTokens += llm.provider().outputTokens(res);
                 return Extraction.scheduleRows(JSON, llm.provider().text(res), pageTexts, d.name());
             } catch (Exception e) {
                 if (attempt >= Extraction.ATTEMPTS) {
