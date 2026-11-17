@@ -150,8 +150,9 @@ export const updateTemplateItem = (templateId: number, id: number, input: Templa
   api<TemplateItem>(`/api/schedule-templates/${templateId}/items/${id}`, send('PATCH', input));
 export const deleteTemplateItem = (templateId: number, id: number) =>
   api<void>(`/api/schedule-templates/${templateId}/items/${id}`, send('DELETE'));
-export const applyTemplate = (projectId: number, templateId: number) =>
-  api<Schedule>(`${base(projectId)}/apply-template`, send('POST', { templateId }));
+/** skipItemIds: template items unchecked in the dialog. */
+export const applyTemplate = (projectId: number, templateId: number, skipItemIds: number[] = []) =>
+  api<Schedule>(`${base(projectId)}/apply-template`, send('POST', { templateId, skipItemIds }));
 export const pasteItems = (projectId: number, text: string, confirm: boolean) =>
   api<PasteResult>(`${base(projectId)}/paste`, send('POST', { text, confirm }));
 

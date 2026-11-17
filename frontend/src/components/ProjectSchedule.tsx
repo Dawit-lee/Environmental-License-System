@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import {
-  ANCHOR_LABEL, ANCHORS, completeItem, reopenItem, confirmBaseline, createItem, deleteItem, getDisciplines, getSchedule,
+  ANCHOR_LABEL, ANCHORS, completeItem, reopenItem, createItem, deleteItem, getDisciplines, getSchedule,
   needsReason, offsetLabel, STATUS_LABEL, toInput, updateItem,
   type Anchor, type Discipline, type ItemInput, type Schedule, type ScheduleItem,
 } from '../api/schedule';
@@ -10,7 +10,7 @@ import CalendarPage from '../pages/CalendarPage';
 import { getProjectEvents, type ProjectEvent } from '../api/events';
 import ProjectCalendar from './ProjectCalendar';
 import type { Scale } from './ScheduleGantt';
-import { BaseDatesDialog, DelayTable, PasteDialog, TemplateDialog } from './ScheduleTools';
+import { BaseDatesDialog, BaselineDialog, DelayTable, PasteDialog, TemplateDialog } from './ScheduleTools';
 import ReadOnlySchedule from './ReadOnlySchedule';
 import ShareDialog from './ShareDialog';
 import { usePrompt } from './PromptDialog';
@@ -47,11 +47,11 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
   const [filter, setFilter] = useState({ discipline: '', owner: '', delayedOnly: false });
   const [editing, setEditing] = useState<ScheduleItem | 'new' | null>(null);
   const [events, setEvents] = useState<ProjectEvent[]>([]); // the Gantt's 이벤트 row
-  type Tool = 'base' | 'template' | 'paste' | 'share';
+  type Tool = 'base' | 'baseline' | 'template' | 'paste' | 'share';
   // ?tool=template etc.: the 시작하기 checklist opens the dialog directly
   const [tool, setTool] = useState<Tool | null>(() => {
     const t = new URLSearchParams(window.location.search).get('tool');
-    return t === 'base' || t === 'template' || t === 'paste' || t === 'share' ? t : null;
+    return t === 'base' || t === 'baseline' || t === 'template' || t === 'paste' || t === 'share' ? t : null;
   });
 
   // ?item=<id> (a notification link): open that item once it is loaded
@@ -103,24 +103,6 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
     await load(); // on failure this snaps the bar back
   };
 
-  const baseline = async () => {
-    if (!schedule) return;
-    let reason: string | null = null;
-    if (schedule.baselineNo === 0) {
-      if (!window.confirm('현재 계획을 기준 계획으로 확정할까요? 이후 기준보다 늦추면 사유가 필요합니다.')) return;
-    } else {
-      reason = (await ask(`기준 ${schedule.baselineNo}차를 현재 계획으로 다시 확정합니다(PM·프로젝트 어드민). 사유를 입력하세요.`))?.trim() || null;
-      if (!reason) return;
-    }
-    setError(null);
-    try {
-      await confirmBaseline(projectId, reason);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-    await load();
-  };
-
   return (
     <div className="space-y-4">
       {promptUi}
@@ -145,7 +127,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
         {view !== 'deadlines' && schedule && (
           <div className="ml-auto flex items-center gap-2">
             <Tip k="base"><button type="button" className={btn} onClick={() => setTool('base')}>기준일</button></Tip>
-            <Tip k="baseline"><button type="button" className={btn} disabled={!schedule.items.length} onClick={baseline}>
+            <Tip k="baseline"><button type="button" className={btn} disabled={!schedule.items.length} onClick={() => setTool('baseline')}>
               {schedule.baselineNo ? '기준 재확정' : '기준 확정'}</button></Tip>
             <Tip k="template"><button type="button" className={btn} onClick={() => setTool('template')}>템플릿</button></Tip>
             <Tip k="paste"><button type="button" className={btn} onClick={() => setTool('paste')}>붙여넣기</button></Tip>
@@ -239,8 +221,11 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
       {tool === 'base' && schedule && (
         <BaseDatesDialog projectId={projectId} schedule={schedule} onClose={() => setTool(null)} onChanged={load} />
       )}
-      {tool === 'template' && (
-        <TemplateDialog projectId={projectId} onClose={() => setTool(null)} onChanged={() => { setTool(null); load(); }} />
+      {tool === 'baseline' && schedule && (
+        <BaselineDialog projectId={projectId} schedule={schedule} onClose={() => setTool(null)} onDone={() => { setTool(null); load(); }} />
+      )}
+      {tool === 'template' && schedule && (
+        <TemplateDialog projectId={projectId} schedule={schedule} disciplines={disciplines} onClose={() => setTool(null)} onChanged={() => { setTool(null); load(); }} />
       )}
       {tool === 'paste' && (
         <PasteDialog projectId={projectId} onClose={() => setTool(null)} onChanged={() => { setTool(null); load(); }} />
