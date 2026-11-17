@@ -1,13 +1,14 @@
 package com.envpermit.core.auth;
 
+import com.envpermit.core.ApiErrors;
 import com.envpermit.core.signup.JoinRequest;
 import com.envpermit.core.signup.JoinRequestRepository;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import java.time.Clock;
-import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtException;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -31,14 +33,16 @@ public class AuthController {
     private final TokenService tokens;
     private final JoinRequestRepository joinRequests;
     private final Clock clock;
+    private final LoginThrottle throttle;
 
     public AuthController(UserRepository users, PasswordEncoder passwordEncoder, TokenService tokens,
-                          JoinRequestRepository joinRequests, Clock clock) {
+                          JoinRequestRepository joinRequests, Clock clock, LoginThrottle throttle) {
         this.users = users;
         this.passwordEncoder = passwordEncoder;
         this.tokens = tokens;
         this.joinRequests = joinRequests;
         this.clock = clock;
+        this.throttle = throttle;
     }
 
     record LoginRequest(@NotBlank String email, @NotBlank String password) {
@@ -60,12 +64,24 @@ public class AuthController {
     }
 
     @PostMapping("/api/auth/login")
-    ResponseEntity<Object> login(@Valid @RequestBody LoginRequest req) {
+    ResponseEntity<Object> login(@Valid @RequestBody LoginRequest req, HttpServletRequest http) {
         String email = req.email().trim().toLowerCase();
+        String ip = http.getRemoteAddr(); // the real client behind the tunnel (server.forward-headers-strategy)
+        if (throttle.locked(email, ip)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(ApiErrors.body(HttpStatus.TOO_MANY_REQUESTS, "로그인 실패가 너무 많습니다. 15분 뒤 다시 시도해 주세요."));
+        }
         Optional<User> user = users.findByEmail(email)
                 .filter(u -> passwordEncoder.matches(req.password(), u.getPasswordHash()));
-        return user.<ResponseEntity<Object>>map(u -> ResponseEntity.ok(new LoginResponse(tokens.issue(u), u)))
-                .orElseGet(() -> joinRequestLogin(email, req.password()));
+        if (user.isPresent() && user.get().isDisabled()) {
+            return error("비활성화된 계정입니다. 회사 관리자에게 문의해 주세요.");
+        }
+        if (user.isPresent()) {
+            throttle.succeeded(email, ip);
+            return ResponseEntity.ok(new LoginResponse(tokens.issue(user.get()), user.get()));
+        }
+        throttle.failed(email, ip);
+        return joinRequestLogin(email, req.password());
     }
 
     /** An applicant with the right password learns why they can't log in yet; anyone else gets the generic error. */
@@ -89,6 +105,16 @@ public class AuthController {
         }
     }
 
+    /** Logs out every device of the caller: all their access and refresh tokens stop working. */
+    @PostMapping("/api/auth/logout")
+    @Transactional
+    ResponseEntity<Void> logout(@AuthenticationPrincipal Jwt jwt) {
+        if (jwt != null) {
+            users.findById(Long.parseLong(jwt.getSubject())).ifPresent(User::revokeTokens);
+        }
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/api/me")
     ResponseEntity<Me> me(@AuthenticationPrincipal Jwt jwt) {
         return users.findById(Long.parseLong(jwt.getSubject()))
@@ -97,6 +123,6 @@ public class AuthController {
     }
 
     private static ResponseEntity<Object> error(String message) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", message));
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiErrors.body(HttpStatus.UNAUTHORIZED, message));
     }
 }

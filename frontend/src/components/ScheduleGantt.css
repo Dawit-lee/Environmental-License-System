@@ -1,0 +1,86 @@
+/* SVAR Gantt (Willow) themed from the app's tokens (styles/theme.css) and --color-* design tokens. */
+.schedule-gantt .wx-willow-theme {
+  --wx-font-family: inherit;
+  --wx-font-size: 13px;
+  --wx-color-font: var(--foreground);
+  --wx-color-font-alt: var(--muted-foreground);
+  --wx-background: var(--card);
+  --wx-background-alt: var(--muted);
+  --wx-border-color: var(--border);
+  --wx-color-primary: var(--color-brand);
+  --wx-color-danger: var(--color-danger);
+  --wx-gantt-task-color: var(--color-brand);
+  --wx-gantt-task-fill-color: var(--color-brand-hover);
+  --wx-gantt-task-border-color: var(--color-brand-hover);
+  --wx-gantt-task-font-color: #ffffff;
+  --wx-gantt-summary-color: #9ca3af;
+  --wx-gantt-summary-fill-color: #6b7280;
+  --wx-gantt-summary-border-color: #6b7280;
+  --wx-gantt-milestone-color: var(--color-brand);
+  --wx-gantt-link-color: #6b7280;
+  --wx-gantt-select-color: rgba(31, 78, 121, 0.08);
+  --wx-gantt-bar-border-radius: 4px;
+  --wx-gantt-bar-shadow: none;
+}
+
+/* today: a line at today's day inside the week/month cell that contains it (classes from todayClass) */
+/* header cells are in the flow; chart cells only get width/left inline, the class must place them */
+.schedule-gantt .wx-scale .schedule-today {
+  position: relative;
+}
+.schedule-gantt .wx-gantt-holidays .schedule-today {
+  position: absolute;
+  top: 0;
+  height: 100%;
+}
+.schedule-gantt .schedule-today::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc((var(--today-day) + 0.5) / var(--today-len) * 100%);
+  width: 2px;
+  background: var(--color-danger);
+  pointer-events: none;
+}
+
+/* 일 scale: weekends shaded (classes from highlightTime) */
+.schedule-gantt .wx-gantt-holidays .schedule-weekend {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(107, 114, 128, 0.08);
+}
+.schedule-gantt .wx-scale .schedule-weekend { color: var(--color-danger); }
+
+/* 이벤트 row (design-schedule/04): an invisible bar, one dot per event */
+.schedule-gantt .wx-bar.events { background: transparent; border: none; box-shadow: none; overflow: visible; }
+.schedule-gantt .schedule-event-dot {
+  position: absolute; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+  border-radius: 9999px; background: var(--color-brand); border: 2px solid #fff;
+}
+.schedule-gantt .schedule-event-dot.trip { background: var(--color-ok); }
+/* bar content (taskTemplate): title inside a task bar, beside a milestone; "+N일" right of the bar */
+.schedule-gantt .schedule-bar-text {
+  overflow: hidden;
+  padding: 0 6px;
+  font-size: 12px;
+  line-height: inherit;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--wx-gantt-task-font-color);
+}
+.schedule-gantt .schedule-bar-slip,
+.schedule-gantt .schedule-bar-out {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 6px);
+  transform: translateY(-50%);
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--wx-color-font);
+  pointer-events: none;
+}
+.schedule-gantt .schedule-slip {
+  color: var(--color-danger);
+}

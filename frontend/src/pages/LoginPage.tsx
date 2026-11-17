@@ -28,20 +28,20 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
   };
 
   const inputClasses =
-    'w-full rounded-lg border border-[#E5E3DC] px-3 py-2.5 text-sm outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
+    'w-full rounded-lg border border-line px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8F7F2] px-4" style={{ fontFamily: 'system-ui, sans-serif' }}>
+    <div className="flex min-h-screen items-center justify-center bg-paper px-4" style={{ fontFamily: 'system-ui, sans-serif' }}>
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <div className="text-3xl">🌿</div>
-          <h1 className="mt-2 text-xl font-bold text-[#1F4E79]">환경시설 인허가 관리</h1>
+          <h1 className="mt-2 text-xl font-bold text-brand">환경시설 인허가 관리</h1>
           <p className="mt-1 text-sm text-gray-500">로그인 후 이용하실 수 있습니다</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="rounded-xl border border-[#E5E3DC] bg-white p-6 shadow-sm"
+          className="rounded-xl border border-line bg-white p-6 shadow-sm"
         >
           <label className="mb-1.5 block text-sm font-medium text-gray-700">이메일</label>
           <input
@@ -62,18 +62,18 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
             className={inputClasses}
           />
 
-          {error && <p role="alert" className="mt-3 text-sm text-[#991B1B]">{error}</p>}
+          {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
 
           <button
             type="submit"
             disabled={submitting}
-            className="mt-5 w-full rounded-lg bg-[#1F4E79] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40 disabled:opacity-60"
+            className="mt-5 w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
           >
             {submitting ? '로그인 중…' : '로그인'}
           </button>
 
           <p className="mt-4 text-center text-sm text-gray-500">
-            계정이 없나요? <Link to="/signup" className="font-medium text-[#1F4E79] hover:underline">회원가입</Link>
+            계정이 없나요? <Link to="/signup" className="font-medium text-brand hover:underline">회원가입</Link>
           </p>
         </form>
       </div>

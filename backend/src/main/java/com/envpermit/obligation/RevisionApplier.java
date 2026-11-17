@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.sql.Timestamp;
+import java.time.Clock;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.http.HttpStatus;
@@ -34,10 +36,12 @@ class RevisionApplier implements SuggestionApplier {
     private final JdbcTemplate jdbc;
     private final ObjectMapper json;
     private final ObligationTasks tasks;
+    private final Clock clock;
 
     RevisionApplier(ObligationApplier obligationApplier, PermitObligationRepository obligations,
                     PermitItemRepository permits, LawCatalogService laws, JdbcTemplate jdbc, ObjectMapper json,
-                    ObligationTasks tasks) {
+                    ObligationTasks tasks, Clock clock) {
+        this.clock = clock;
         this.tasks = tasks;
         this.obligationApplier = obligationApplier;
         this.obligations = obligations;
@@ -99,7 +103,7 @@ class RevisionApplier implements SuggestionApplier {
                 o.revise(next, doc);
                 if (!computed.path("numeric_changes").isEmpty()) { // F2 §2.6: a person re-checks the limit; its value is never changed here
                     jdbc.update("UPDATE permit_limit SET needs_review = TRUE WHERE obligation_id = ? "
-                            + "AND (effective_to IS NULL OR effective_to >= CURRENT_DATE)", o.getId());
+                            + "AND (effective_to IS NULL OR effective_to >= ?)", o.getId(), LocalDate.now(clock)); // L4: KST, not the DB's zone
                 }
                 if (dueChanges) {
                     o.moveTo(ctx.firstDueDate());

@@ -40,6 +40,12 @@ class MeasurementApiTest extends IntegrationTest {
     long coLimit;
     String measurements;
 
+    String otherCompanyUser() throws Exception {
+        long b = companies.save(new Company("B엔지니어링")).getId();
+        users.save(new User("choi@b.com", encoder.encode("pw"), "최비", User.Role.USER, b));
+        return login("choi@b.com");
+    }
+
     @BeforeEach
     void seed() throws Exception {
         truncateAll();
@@ -162,7 +168,10 @@ class MeasurementApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$.measurements[0].pointName").value("소각로 1호기 굴뚝"))
                 .andExpect(jsonPath("$.measurements[0].pollutantName").value("일산화탄소"))
                 .andExpect(jsonPath("$.measurements[0].value").value(12))
-                .andExpect(jsonPath("$.measurements[0].level").value("NORMAL"));
+                .andExpect(jsonPath("$.measurements[0].level").value("NORMAL"))
+                // linking and deleting a value is part of the task's history, like evidence
+                .andExpect(jsonPath("$.events[*].type", contains("CREATED", "MEASUREMENT_LINKED", "MEASUREMENT_REMOVED", "MEASUREMENT_LINKED")))
+                .andExpect(jsonPath("$.events[2].data.measurement_ids[0]").value(wrong));
         call(kim, json(post("/api/tasks/" + task + "/complete"), "{}")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.task.status").value("DONE"));
 
@@ -184,6 +193,7 @@ class MeasurementApiTest extends IntegrationTest {
 
         call(kim, get("/api/emission-points/999/measurements")).andExpect(status().isNotFound());
         call(kim, json(delete("/api/measurements/999"), "{\"reason\":\"x\"}")).andExpect(status().isNotFound());
+        call(otherCompanyUser(), json(delete("/api/measurements/" + m), "{\"reason\":\"x\"}")).andExpect(status().isNotFound());
         call(kim, get(measurements)).andExpect(jsonPath("$.length()").value(1));
     }
 
@@ -261,8 +271,10 @@ class MeasurementApiTest extends IntegrationTest {
     }
 
     private long project(String name) throws Exception {
-        return id(call(kim, json(post("/api/projects"),
+        long id = id(call(kim, json(post("/api/projects"),
                 "{\"name\":\"" + name + "\",\"facilityType\":\"INCINERATION\",\"location\":\"가온\"}")));
+        jdbc.update("UPDATE project SET operations_enabled = TRUE"); // 운영 module is opt-in (design-schedule/01)
+        return id;
     }
 
     private long point(long project) throws Exception {

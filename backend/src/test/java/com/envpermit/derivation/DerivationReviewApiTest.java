@@ -173,14 +173,14 @@ class DerivationReviewApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$[?(@.field == 'site_area_m2')].rules[*]",
                         contains("재해영향평가", "소규모 재해영향평가")))
                 .andExpect(jsonPath("$[?(@.field == 'air_emission_tpy')].rules[*]", hasItem("통합환경허가")))
-                .andExpect(jsonPath("$.length()").value(11)); // one row per missing input of the 34 rules
+                .andExpect(jsonPath("$.length()").value(17)); // one row per missing input of the 48 rules
 
         attributes("\"capacity_tpd\":300,\"site_area_m2\":60000");
         derive();
         call(get("/api/projects/" + projectId + "/derivations/missing-inputs"))
                 .andExpect(jsonPath("$[?(@.field == 'site_area_m2')]").isEmpty())
                 .andExpect(jsonPath("$[?(@.field == 'air_emission_tpy')]").isNotEmpty())
-                .andExpect(jsonPath("$.length()").value(10));
+                .andExpect(jsonPath("$.length()").value(16));
     }
 
     @Test

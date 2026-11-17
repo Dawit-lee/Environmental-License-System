@@ -65,6 +65,7 @@ class MeasurementPasteApiTest extends IntegrationTest {
         park = login("park@a.com");
         long projectId = id(call(kim, json(post("/api/projects"),
                 "{\"name\":\"가온 자원회수시설\",\"facilityType\":\"INCINERATION\",\"location\":\"가온\"}")));
+        jdbc.update("UPDATE project SET operations_enabled = TRUE"); // 운영 module is opt-in (design-schedule/01)
         stack = id(call(kim, json(post("/api/projects/" + projectId + "/emission-points"),
                 "{\"medium\":\"AIR\",\"name\":\"소각로 1호기 굴뚝\"}")).andExpect(status().isCreated()));
         call(kim, json(post("/api/emission-points/" + stack + "/limits"), """
@@ -123,7 +124,7 @@ class MeasurementPasteApiTest extends IntegrationTest {
         paste("/paste", "").andExpect(status().isUnprocessableEntity());
         String tooMany = "2026-01-02\tCO\t1\n".repeat(501);
         paste("/preview", tooMany).andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(containsString("500")));
+                .andExpect(jsonPath("$.message", containsString("500")));
         paste("/paste", tooMany).andExpect(status().isUnprocessableEntity());
         call(kim, json(post(measurements + "/preview"), "{}")).andExpect(status().isBadRequest());
 

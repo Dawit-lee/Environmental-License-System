@@ -31,8 +31,11 @@ export interface Project {
   location: string;
   capacity: number | null;
   capacityUnit: string | null;
+  /** 착수일 (설계 시작, 일정 KICKOFF) */
   startDate: string | null;
   expectedEndDate: string | null;
+  /** 착공예정일 (공사 시작, 일정 CONSTRUCTION_START) */
+  constructionStartDate: string | null;
   status: ProjectStatus;
   permitCount: number;
   acquiredCount: number;
@@ -48,6 +51,8 @@ export interface Project {
   member: boolean;
   /** derivation input keyed by the field dictionary (backend Fields) */
   attributes: Record<string, unknown> | null;
+  /** 운영 module (design-schedule §8.1): off = no 운영 tab, no measurement numbers */
+  operationsEnabled: boolean;
 }
 
 export interface PermitItem {
@@ -67,6 +72,9 @@ export interface PermitItem {
   status: PermitStatus;
   nextAction: string | null;
   nextActionUrl: string | null;
+  progressNote: string | null; // 보고 1쪽: 완료 여부 칸
+  expectedCompletion: string | null; // 보고 1쪽: 예상완료 시점(자유 문구)
+  issueNote: string | null; // 보고 1쪽: 현안사항
   dDay: number | null;
 }
 
@@ -80,14 +88,18 @@ export interface PermitDocument {
   uploadedAt: string;
   supersedesDocumentId: number | null; // ④ new version of this earlier document
   effectiveDate: string | null;
-  permitItemId: number;
+  permitItemId: number | null; // null: project document (공고문·과업내용서 …, design-schedule/07)
+  docType: DocType | null;
 }
+
+/** design-schedule/07 문서 종류; WEEKLY_REPORT is stored only. */
+export type DocType = 'BID_NOTICE' | 'SITE_BRIEFING_DOC' | 'TASK_SPEC' | 'MINUTES' | 'OFFICIAL_LETTER' | 'WEEKLY_REPORT';
 
 export interface PermitHistory {
   id: number;
   fromStatus: PermitStatus | null; // null = created
   toStatus: PermitStatus;
-  changedBy: string;
+  changedBy: string | null; // null = 날짜에 따른 자동 변경
   changedAt: string;
 }
 

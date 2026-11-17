@@ -249,8 +249,10 @@ class ComplianceApiTest extends IntegrationTest {
     }
 
     private long project(String token, String name) throws Exception {
-        return id(call(token, json(post("/api/projects"),
+        long id = id(call(token, json(post("/api/projects"),
                 "{\"name\":\"" + name + "\",\"facilityType\":\"INCINERATION\",\"location\":\"경기\"}")));
+        jdbc.update("UPDATE project SET operations_enabled = TRUE"); // 운영 module is opt-in (design-schedule/01)
+        return id;
     }
 
     private ResultActions call(String token, MockHttpServletRequestBuilder req) throws Exception {

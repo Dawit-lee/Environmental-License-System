@@ -25,10 +25,10 @@ interface Limit {
 }
 
 const MEDIUM: Record<Medium, string> = { AIR: '대기', WATER: '수질' };
-const today = () => new Date().toISOString().slice(0, 10);
-const INPUT = 'rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
-const BTN = 'rounded-lg border border-[#E5E3DC] px-3 py-1 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
-const PRIMARY = 'rounded-lg bg-[#1F4E79] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#173a5c] disabled:opacity-40';
+const today = () => new Date().toLocaleDateString('sv-SE'); // local day; toISOString is UTC and is yesterday before 09:00 KST
+const INPUT = 'rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const BTN = 'rounded-lg border border-line px-3 py-1 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
+const PRIMARY = 'rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
 
 const emptyPoint = { id: null as number | null, name: '', medium: 'AIR' as Medium, permitItemId: '', active: true };
 const emptyLimit = () => ({
@@ -46,6 +46,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
   const [showPast, setShowPast] = useState(false);
   const [pointForm, setPointForm] = useState<typeof emptyPoint | null>(null);
   const [limitForm, setLimitForm] = useState<ReturnType<typeof emptyLimit> | null>(null);
+  const [closing, setClosing] = useState<{ id: number; date: string } | null>(null); // 닫기: end date typed in the row
   const [error, setError] = useState<string | null>(null);
   const [rev, setRev] = useState(0); // bumped when a measurement is saved or deleted: list and trend reload
 
@@ -117,24 +118,26 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
     if (ok) setLimitForm(null);
   };
 
-  const closeLimit = (l: Limit) => {
-    const date = window.prompt(`${l.pollutantName} 한도의 유효 종료일 (YYYY-MM-DD)`, today())?.trim();
-    if (date) run(() => send(`/api/limits/${l.id}/close`, 'POST', { effectiveTo: date }));
+  const closeLimit = async () => {
+    if (closing && await run(() => send(`/api/limits/${closing.id}/close`, 'POST', { effectiveTo: closing.date }))) setClosing(null);
   };
-
+  /** Only a limit no value was judged against can go (the server answers 409 otherwise). */
+  const deleteLimit = (l: Limit) =>
+    window.confirm(`${l.pollutantName} 한도 ${limitText(l.limitLower, l.limitValue)} ${l.unit}을(를) 삭제할까요? 잘못 넣은 한도만 삭제하세요.`)
+      && run(() => send(`/api/limits/${l.id}`, 'DELETE'));
 
   return (
     <div>
-      {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+      {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
       {/* 배출구 */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-[#1F4E79]">배출구·방류구</h2>
+        <h2 className="text-lg font-bold text-brand">배출구·방류구</h2>
         <button type="button" className={BTN} onClick={() => setPointForm({ ...emptyPoint })}>+ 배출구 추가</button>
       </div>
 
       {pointForm && (
-        <form onSubmit={savePoint} className="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-[#E5E3DC] bg-white p-4">
+        <form onSubmit={savePoint} className="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-line bg-white p-4">
           <label className="text-xs text-gray-500">이름
             <input required maxLength={100} value={pointForm.name} placeholder="예: 소각로 1호기 굴뚝"
               onChange={(e) => setPointForm({ ...pointForm, name: e.target.value })} className={`${INPUT} mt-1 block w-64`} />
@@ -155,7 +158,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
           </label>
           {pointForm.id !== null && (
             <label className="flex items-center gap-2 pb-1.5 text-sm text-gray-600">
-              <input type="checkbox" checked={pointForm.active} className="accent-[#1F4E79]"
+              <input type="checkbox" checked={pointForm.active} className="accent-brand"
                 onChange={(e) => setPointForm({ ...pointForm, active: e.target.checked })} />
               사용 중
             </label>
@@ -165,9 +168,9 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
         </form>
       )}
 
-      <div className="mt-3 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+      <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
         <table className="w-full min-w-[720px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-gray-500">
             <tr>
               <th className="px-4 py-3 font-medium">이름</th>
               <th className="px-4 py-3 font-medium">매체</th>
@@ -177,10 +180,10 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
               <th className="px-4 py-3" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-[#E5E3DC]">
+          <tbody className="divide-y divide-line">
             {points.map((p) => (
               <tr key={p.id} onClick={() => setSelectedId(p.id)} aria-selected={p.id === selectedId}
-                className={`cursor-pointer ${p.id === selectedId ? 'bg-[#1F4E79]/5' : 'hover:bg-[#F8F7F2]'}`}>
+                className={`cursor-pointer ${p.id === selectedId ? 'bg-brand/5' : 'hover:bg-paper'}`}>
                 <td className="max-w-[280px] px-4 py-2.5">
                   <button type="button" title={p.name} className={`block max-w-full truncate font-medium ${p.active ? 'text-gray-800' : 'text-gray-400'}`}>{p.name}</button>
                 </td>
@@ -207,11 +210,11 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
       {selected && (
         <>
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-[#1F4E79]">허가 한도 · {selected.name}</h2>
+            <h2 className="text-lg font-bold text-brand">허가 한도 · {selected.name}</h2>
             <div className="flex items-center gap-4">
               {pastCount > 0 && (
                 <label className="flex items-center gap-2 text-sm text-gray-600">
-                  <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} className="accent-[#1F4E79]" />
+                  <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} className="accent-brand" />
                   지난 한도 보기 ({pastCount})
                 </label>
               )}
@@ -220,7 +223,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
           </div>
 
           {limitForm && (
-            <form onSubmit={saveLimit} className="mt-3 rounded-xl border border-[#E5E3DC] bg-white p-4">
+            <form onSubmit={saveLimit} className="mt-3 rounded-xl border border-line bg-white p-4">
               {limitForm.replaces && (
                 <p className="mb-3 text-sm text-gray-600">
                   기존 한도({limitText(limitForm.replaces.limitLower, limitForm.replaces.limitValue)} {limitForm.replaces.unit}, {limitForm.replaces.effectiveFrom}~)는 새 시작일 전날로 닫히고 이력에 남습니다.
@@ -279,9 +282,9 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
             </form>
           )}
 
-          <div className="mt-3 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
+          <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
             <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
-              <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+              <thead className="bg-paper text-xs text-gray-500">
                 <tr>
                   <th className="px-4 py-3 font-medium">항목</th>
                   <th className="px-4 py-3 text-right font-medium">한도</th>
@@ -293,7 +296,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DC]">
+              <tbody className="divide-y divide-line">
                 {visibleLimits.map((l) => {
                   const basis = [l.obligationSummary, l.basisText].filter(Boolean).join(' · ');
                   const open = !l.effectiveTo;
@@ -311,13 +314,21 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
                           <button type="button" className={BTN} title="개정된 조건을 확인했고 한도는 그대로입니다"
                             onClick={() => run(() => send(`/api/limits/${l.id}/reviewed`, 'POST'))}>확인</button>
                         )}
-                        {open && (
+                        {closing?.id === l.id ? (
+                          <>
+                            <input type="date" required aria-label={`${l.pollutantName} 유효 종료일`} value={closing.date} min={l.effectiveFrom}
+                              onChange={(e) => setClosing({ id: l.id, date: e.target.value })} className={`${INPUT} py-1`} />
+                            <button type="button" className={BTN} disabled={!closing.date} onClick={closeLimit}>종료일 저장</button>
+                            <button type="button" className={BTN} onClick={() => setClosing(null)}>취소</button>
+                          </>
+                        ) : open && (
                           <>
                             <button type="button" className={BTN} onClick={() => setLimitForm({
                               ...emptyLimit(), replaces: l, pollutant: l.pollutant, warnRatio: String(l.warnRatio),
                               obligationId: l.obligationId ? String(l.obligationId) : '', basisText: l.basisText ?? '',
                             })}>한도 변경</button>
-                            <button type="button" className={BTN} onClick={() => closeLimit(l)}>닫기</button>
+                            <button type="button" className={BTN} onClick={() => setClosing({ id: l.id, date: today() })}>닫기</button>
+                            <button type="button" className={BTN} onClick={() => deleteLimit(l)}>삭제</button>
                           </>
                         )}
                       </td>

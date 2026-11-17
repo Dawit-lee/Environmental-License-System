@@ -22,6 +22,7 @@ public class Company {
     private boolean aiExtractionEnabled;
     private Long aiExtractionChangedBy;
     private Instant aiExtractionChangedAt;
+    private boolean googleSyncEnabled;
 
     protected Company() {
     }
@@ -44,6 +45,8 @@ public class Company {
     public Long getAiExtractionChangedBy() { return aiExtractionChangedBy; }
     public Instant getAiExtractionChangedAt() { return aiExtractionChangedAt; }
     public String getInviteCode() { return inviteCode; }
+    public boolean isGoogleSyncEnabled() { return googleSyncEnabled; }
+    public void setGoogleSyncEnabled(boolean enabled) { this.googleSyncEnabled = enabled; }
     public void rename(String name) { this.name = name; }
     public void regenerateInviteCode() { this.inviteCode = newCode(); }
 

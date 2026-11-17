@@ -9,7 +9,7 @@ import { getInvite, joinCompany, signupCompany } from '../api/signup';
 // ---------------------------------------------------------------------------
 
 const inputClasses =
-  'w-full rounded-lg border border-[#E5E3DC] px-3 py-2.5 text-sm outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
+  'w-full rounded-lg border border-line px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
 function Field({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
@@ -59,21 +59,21 @@ export default function SignupPage({ onLogin }: { onLogin: (session: Session) =>
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F8F7F2] px-4" style={{ fontFamily: 'system-ui, sans-serif' }}>
+    <div className="flex min-h-screen items-center justify-center bg-paper px-4" style={{ fontFamily: 'system-ui, sans-serif' }}>
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
           <div className="text-3xl">🌿</div>
-          <h1 className="mt-2 text-xl font-bold text-[#1F4E79]">회원가입</h1>
+          <h1 className="mt-2 text-xl font-bold text-brand">회원가입</h1>
         </div>
 
         {done ? (
-          <div role="status" className="rounded-xl border border-[#E5E3DC] bg-white p-6 text-sm text-gray-700 shadow-sm">
+          <div role="status" className="rounded-xl border border-line bg-white p-6 text-sm text-gray-700 shadow-sm">
             <p>{done}</p>
-            <Link to="/login" className="mt-4 inline-block font-medium text-[#1F4E79] hover:underline">로그인 화면으로</Link>
+            <Link to="/login" className="mt-4 inline-block font-medium text-brand hover:underline">로그인 화면으로</Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="rounded-xl border border-[#E5E3DC] bg-white p-6 shadow-sm">
-            <div role="tablist" className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-[#F8F7F2] p-1">
+          <form onSubmit={handleSubmit} className="rounded-xl border border-line bg-white p-6 shadow-sm">
+            <div role="tablist" className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-paper p-1">
               {([['company', '새 회사 만들기'], ['invite', '초대 코드로 가입']] as const).map(([t, label]) => (
                 <button
                   key={t}
@@ -81,7 +81,7 @@ export default function SignupPage({ onLogin }: { onLogin: (session: Session) =>
                   role="tab"
                   aria-selected={tab === t}
                   onClick={() => { setTab(t); setError(''); }}
-                  className={`rounded-md px-2 py-1.5 text-sm font-medium transition ${tab === t ? 'bg-white text-[#1F4E79] shadow-sm' : 'text-gray-500'}`}
+                  className={`rounded-md px-2 py-1.5 text-sm font-medium transition ${tab === t ? 'bg-white text-brand shadow-sm' : 'text-gray-500'}`}
                 >
                   {label}
                 </button>
@@ -106,17 +106,17 @@ export default function SignupPage({ onLogin }: { onLogin: (session: Session) =>
               <Field label="비밀번호 (8자 이상)" type="password" value={password} onChange={(e) => { setPassword(e.target.value); setError(''); }} />
             </div>
 
-            {error && <p role="alert" className="mt-3 text-sm text-[#991B1B]">{error}</p>}
+            {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
 
             <button
               type="submit"
               disabled={submitting}
-              className="mt-5 w-full rounded-lg bg-[#1F4E79] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40 disabled:opacity-60"
+              className="mt-5 w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
             >
               {submitting ? '처리 중…' : tab === 'company' ? '회사 만들고 시작하기' : '가입 신청'}
             </button>
             <p className="mt-4 text-center text-sm text-gray-500">
-              이미 계정이 있나요? <Link to="/login" className="font-medium text-[#1F4E79] hover:underline">로그인</Link>
+              이미 계정이 있나요? <Link to="/login" className="font-medium text-brand hover:underline">로그인</Link>
             </p>
           </form>
         )}

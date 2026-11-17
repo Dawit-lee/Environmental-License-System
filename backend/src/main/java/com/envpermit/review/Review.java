@@ -101,9 +101,15 @@ public class Review {
     /** AI output of a finished run: PENDING suggestions, CREATED by SYSTEM. Runs in the caller's transaction. */
     @Transactional
     public void addAi(AiRun run, Long targetParentId, List<JsonNode> payloads) {
+        addAi(run, run.getKind(), targetParentId, payloads);
+    }
+
+    /** Same, for a run whose rows become another kind (a schedule extraction run makes items and events). */
+    @Transactional
+    public void addAi(AiRun run, Kind kind, Long targetParentId, List<JsonNode> payloads) {
         for (JsonNode payload : payloads) {
             AiSuggestion s = suggestions.save(new AiSuggestion(run.getCompanyId(), run.getProjectId(), run.getId(),
-                    run.getKind(), targetParentId, Origin.AI, payload));
+                    kind, targetParentId, Origin.AI, payload));
             event(s, null, Type.CREATED, null);
         }
     }
@@ -111,11 +117,13 @@ public class Review {
     /** Riskiest first (design §4.1): quote_check MISMATCH → UNVERIFIABLE → VERIFIED → none, then oldest first. */
     public List<AiSuggestion> list(long projectId, Jwt jwt, Long runId, Status status) {
         access.member(projectId, jwt);
-        return suggestions.findByProjectIdOrderById(projectId).stream()
-                .filter(s -> runId == null || runId.equals(s.getRunId()))
-                .filter(s -> status == null || status == s.getStatus())
-                .sorted(Comparator.comparingInt(Review::risk))
-                .toList();
+        // M9: run and status filters in SQL (project_id/status and run_id indexes); risk order needs the payload, so Java
+        List<AiSuggestion> rows = runId != null && status != null
+                ? suggestions.findByProjectIdAndRunIdAndStatusOrderById(projectId, runId, status)
+                : runId != null ? suggestions.findByProjectIdAndRunIdOrderById(projectId, runId)
+                : status != null ? suggestions.findByProjectIdAndStatusOrderById(projectId, status)
+                : suggestions.findByProjectIdOrderById(projectId);
+        return rows.stream().sorted(Comparator.comparingInt(Review::risk)).toList();
     }
 
     private static int risk(AiSuggestion s) {
@@ -130,14 +138,15 @@ public class Review {
 
     public List<SuggestionEvent> events(long id, Jwt jwt) {
         AiSuggestion s = suggestions.findById(id).orElseThrow(Review::notFound);
-        access.member(s.getProjectId(), jwt);
+        member(s, jwt);
         return events.findBySuggestionIdOrderById(id);
     }
 
     @Transactional
     public AiSuggestion edit(long id, Jwt jwt, JsonNode edited, long version) {
-        AiSuggestion s = lock(id, version);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        AiSuggestion s = lock(id);
+        ProjectMember m = member(s, jwt);
+        checkVersion(s, version);
         Transition.next(s.getStatus(), Action.EDIT, m.canSelfApprove(), true);
         applier(s.getKind()).validate(edited);
         JsonNode diff = diff(s.effectivePayload(), edited);
@@ -148,8 +157,9 @@ public class Review {
 
     @Transactional
     public AiSuggestion submit(long id, Jwt jwt, Decision decision, String reason, long version) {
-        AiSuggestion s = lock(id, version);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        AiSuggestion s = lock(id);
+        ProjectMember m = member(s, jwt);
+        checkVersion(s, version);
         Transition.next(s.getStatus(), Action.SUBMIT, m.canSelfApprove(), false);
         s.submit(decision, m.getUserId(), now());
         event(s, m.getUserId(), Type.SUBMITTED, json.createObjectNode()
@@ -161,8 +171,11 @@ public class Review {
     @Transactional
     public AiSuggestion accept(long id, Jwt jwt, LocalDate firstDueDate, boolean confirmAbsent, Long version,
                                boolean bulk) {
-        AiSuggestion s = version == null ? lock(id) : lock(id, version);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        AiSuggestion s = lock(id);
+        ProjectMember m = member(s, jwt);
+        if (version != null) {
+            checkVersion(s, version);
+        }
         Status next = Transition.next(s.getStatus(), Action.ACCEPT, m.canSelfApprove(), s.getEditedPayload() != null);
         requirePageViewed(s);
         SuggestionApplier applier = applier(s.getKind());
@@ -179,16 +192,18 @@ public class Review {
 
     @Transactional
     public AiSuggestion reject(long id, Jwt jwt, String reason, long version) {
-        AiSuggestion s = lock(id, version);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        AiSuggestion s = lock(id);
+        ProjectMember m = member(s, jwt);
+        checkVersion(s, version);
         Status next = Transition.next(s.getStatus(), Action.REJECT, m.canSelfApprove(), false);
         return close(s, next, m.getUserId(), reason);
     }
 
     @Transactional
     public AiSuggestion returnToPending(long id, Jwt jwt, String reason, long version) {
-        AiSuggestion s = lock(id, version);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        AiSuggestion s = lock(id);
+        ProjectMember m = member(s, jwt);
+        checkVersion(s, version);
         Transition.next(s.getStatus(), Action.RETURN, m.canSelfApprove(), false);
         s.backToPending();
         event(s, m.getUserId(), Type.RETURNED, json.createObjectNode().put("reason", reason));
@@ -197,8 +212,9 @@ public class Review {
 
     @Transactional
     public AiSuggestion reopen(long id, Jwt jwt, long version) {
-        AiSuggestion s = lock(id, version);
-        ProjectMember m = access.member(s.getProjectId(), jwt);
+        AiSuggestion s = lock(id);
+        ProjectMember m = member(s, jwt);
+        checkVersion(s, version);
         Transition.next(s.getStatus(), Action.REOPEN, m.canSelfApprove(), false);
         if (Restructure.isRestructure(s.getRejectReason())) {
             // a replacement suggestion already exists; reviving this one would duplicate it
@@ -243,8 +259,9 @@ public class Review {
     /** Exception 2 entry: the PENDING suggestion at this version, locked, for a member who may edit it. */
     @Transactional
     public AiSuggestion lockForRestructure(long id, long version, Jwt jwt) {
-        AiSuggestion s = lock(id, version);
-        access.member(s.getProjectId(), jwt);
+        AiSuggestion s = lock(id);
+        member(s, jwt);
+        checkVersion(s, version);
         requirePending(s);
         return s;
     }
@@ -284,7 +301,7 @@ public class Review {
     @Transactional
     public void pageViewed(long id, Jwt jwt, int pageNo) {
         AiSuggestion s = suggestions.findById(id).orElseThrow(Review::notFound);
-        long userId = access.member(s.getProjectId(), jwt).getUserId();
+        long userId = member(s, jwt).getUserId();
         if (events.findBySuggestionIdOrderById(id).stream().noneMatch(e -> e.isPageView(pageNo, userId))) {
             event(s, userId, Type.PAGE_VIEWED, json.createObjectNode().put("page_no", pageNo));
         }
@@ -293,7 +310,7 @@ public class Review {
     /** The run a suggestion came from, for members of its project (source document lookup). */
     public AiRun runOf(long id, Jwt jwt) {
         AiSuggestion s = suggestions.findById(id).orElseThrow(Review::notFound);
-        access.member(s.getProjectId(), jwt);
+        member(s, jwt);
         return runs.findById(s.getRunId()).orElseThrow();
     }
 
@@ -307,7 +324,7 @@ public class Review {
         if (!"UNVERIFIABLE".equals(p.path("quote_check").asText())) {
             return;
         }
-        int page = p.path("page_no").asInt();
+        int page = p.has("evidence") ? p.path("evidence").path("page").asInt() : p.path("page_no").asInt(); // 07 rows
         if (events.findBySuggestionIdOrderById(s.getId()).stream().noneMatch(e -> e.isPageView(page, null))) {
             throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
                     "원문 미열람 스캔본: " + page + "쪽 원문을 열어 본 뒤 승인할 수 있습니다.");
@@ -326,16 +343,21 @@ public class Review {
         }
     }
 
+    /** A member of the suggestion's project; another company's suggestion is 404 like a missing id. */
+    private ProjectMember member(AiSuggestion s, Jwt jwt) {
+        access.hideForeign(s.getProjectId(), jwt);
+        return access.member(s.getProjectId(), jwt);
+    }
+
     private AiSuggestion lock(long id) {
         return suggestions.lock(id).orElseThrow(Review::notFound);
     }
 
-    private AiSuggestion lock(long id, long version) {
-        AiSuggestion s = lock(id);
+    /** After the member check, so a non-member learns neither that the id exists nor its version. */
+    private static void checkVersion(AiSuggestion s, long version) {
         if (s.getVersion() != version) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "다른 사람이 먼저 변경했습니다. 새로고침 후 다시 시도하세요.");
         }
-        return s;
     }
 
     private long runInProject(long runId, long projectId, Kind kind) {

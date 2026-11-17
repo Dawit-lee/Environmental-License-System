@@ -1,407 +1,230 @@
 # 🌿 환경기초시설 인허가 관리 시스템
 
 ![Status](https://img.shields.io/badge/status-in%20progress-yellow)
+[![CI](https://github.com/Dawit-lee/Environmental-License-System/actions/workflows/ci.yml/badge.svg?branch=dev)](https://github.com/Dawit-lee/Environmental-License-System/actions/workflows/ci.yml)
 ![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-6DB33F?logo=springboot&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-> 사기업 엔지니어링 회사의 프로젝트별 환경기초시설 인허가 생애주기를 통합 관리하는 웹 애플리케이션
+> 설계·엔지니어링 회사가 소각·하수·바이오가스 같은 환경기초시설 프로젝트의 인허가를 **도출 → 진행·기한 관리 → 협의의견·허가조건 반영 → 법령 개정 대응**까지 프로젝트 단위로 관리하는 웹 애플리케이션
 
 ---
 
-## ✅ 지금 동작하는 것
+## 왜 만들었나
 
-백엔드(Spring Boot)와 화면(React)이 실제 API로 연결돼 있고, 로컬에서 `docker compose` + `npm run dev`로 띄워 볼 수 있습니다. 백엔드 테스트는 Testcontainers로 실제 PostgreSQL 위에서 돌립니다(2026-11-10 `dev` 기준 413개 통과, 실제 API 녹화용 2개는 건너뜀). 아직 배포하지 않았고, 정확도 평가(정답셋)는 만들지 않았습니다. 자세한 구분은 [개발 로드맵](#-개발-로드맵)에 있습니다.
+환경기초시설 설계 한 건에는 인허가가 수십 건 걸립니다. 어떤 인허가가 필요한지는 엔지니어가 시설용량·부지면적·공사비·용도지역 같은 사업 속성을 법령 기준과 하나씩 대조해 엑셀 검토서로 정리하고, 진행 상황과 기한은 엑셀·공문·담당자 기억에 나뉘어 있습니다. 협의의견서와 허가증의 조건은 사람이 읽어 설계에 반영했는지 따로 챙겨야 하고, 법령이 바뀌면 어느 프로젝트의 어느 인허가에 영향이 있는지 다시 훑어야 합니다. 이 앱은 그 과정을 프로젝트 하나에 모으고, AI와 규칙 엔진이 **제안**을 만들면 담당자가 원문과 대조해 **승인한 것만** 대장에 반영하도록 만든 것입니다.
 
-| 기능 | 상태 | 테스트 (`backend/src/test/java/com/envpermit/…`) |
+> 개인 포트폴리오 프로젝트입니다. 저장소의 회사·프로젝트·지명·인물은 모두 가상의 이름이고, 실제 회사 문서와 실제 사업 데이터는 저장소에 없습니다([기밀 처리](docs/ARCHITECTURE.md#8-기밀-데이터-처리)).
+
+---
+
+## 기능
+
+### 핵심
+
+| 기능 | 하는 일 | 상태 |
 |---|---|---|
-| 로그인(JWT, 토큰 재발급), 회사·프로젝트·멤버 권한, 인허가 항목 CRUD·상태 이력 | ✅ API · 화면 (인허가 추가·수정 폼은 아직 없음) | `core/auth/AuthApiTest`, `core/project/ProjectPermitApiTest` |
-| 인허가 문서 첨부 (S3, 형식·용량·내용 검사) | ✅ | `core/document/DocumentApiTest`, `DocumentTypeTest` |
-| 기한 알림 D-90/60/30/7, 앱 알림, 캘린더 | ✅ (이메일은 로그로만 남김, 실제 발송 없음) | `notification/NotificationApiTest` |
-| 법령 카탈로그 · 인허가↔법령 연결 · 법제처 검색 | ✅ | `law/LawApiTest`, `law/LawApiClientTest` |
-| 매일 법령 개정 감지 배치 · 직접 영향/참고 판정 · 개정 알림 화면 | ✅ (테스트는 법제처 응답 픽스처로) | `law/AmendmentBatchTest`, `AmendmentFilterTest`, `ImpactRuleTest`, `LawImpactApiTest` |
-| 사람 검토 통로 (승인·승인 요청·거절, 일괄 승인, 감사 로그) | ✅ | `review/ReviewApiTest`, `review/TransitionTest` |
-| 허가조건 AI 추출 (텍스트 PDF, 인용문 원문 대조, 스캔본은 원문 페이지 열람 후 승인) | ✅ (스캔본 OCR은 없음) | `extraction/ExtractionApiTest`, `QuoteCheckerTest`, `CitationKeyTest` |
-| 추출 제공자 Claude / Gemini / OpenAI 선택 | ✅ (Gemini·OpenAI는 실제 API 응답을 녹화해 테스트, Claude는 손으로 만든 응답 + 공개 문서 3건 실측) | `extraction/GeminiClientTest`, `OpenAiClientTest`, `ProviderTest` |
-| 의무사항 승인 시 근거 법령 자동 연결 | ✅ | `obligation/ObligationLawLinkApiTest`, `law/LegalBasisTest` |
-| 인허가 자동 도출 (규칙 엔진 참/거짓/모름, 판정 보류, 승인, 재실행) | ✅ (규칙은 시드 SQL, AI 규칙 초안은 없음) | `derivation/EvaluatorTest`, `DerivationApiTest`, `DerivationReviewApiTest`, `RerunTest` |
-| 허가증 버전 비교 (추가/삭제/변경/경미), 승인, 현장 반영 추적 | ✅ | `revision/DiffEngineTest`, `extraction/RevisionApiTest`, `RevisionApplyApiTest` |
-| 대시보드 | 🟡 기한 임박·현장 반영 대기는 실제 API, **상태 분포 차트·최근 활동은 아직 mock** | — |
+| **인허가 자동 도출** | 시설유형·용량·위치·추진주체·신설/증설 등 속성을 넣으면 필요한 인허가를 해당 사유("시설용량 300톤/일 ≥ 100톤/일")·근거 법령과 함께 판정. 값이 없으면 추정하지 않고 **판정 보류** + 필요한 정보 표시. 결과는 검토·승인 후 대장에 반영, 속성이 바뀌면 재실행 | ✅ 규칙 51개(시드 SQL). AI 규칙 초안은 미구현 |
+| **인허가 진행·기한 관리** | 프로젝트별 인허가 대장(분야·상태·이력), 문서 첨부, D-90/60/30/7 기한 알림, 내 할 일, 대시보드 | ✅ |
+| **협의의견·허가조건 AI 추출 + 사람 검토** | 협의의견서·허가증 PDF에서 이행 조건을 조건번호·인용문과 함께 추출. 인용문을 원문과 대조해 다르면 "환각 의심"으로 맨 위에. 승인·수정 후 승인·승인 요청·거절, 일괄 승인, 감사 로그. 제공자 Claude / Gemini / OpenAI 중 서버당 하나 | ✅ 텍스트 PDF. 스캔본은 OCR 없이 원문 페이지 열람 후 승인 |
+| **허가증·협의의견 버전 비교** | 변경허가·재협의로 새 판이 나오면 이전 판과 조건별로 비교(추가/삭제/변경/경미). 숫자·주기가 바뀌면 반드시 "변경". 승인 후 "현장 반영" 담당·목표일 추적 | ✅ |
+| **법령 개정 알림** | 인허가에 법령(필요하면 조문까지) 연결. 매일 법제처 Open API로 개정을 감지해 직접 영향 / 참고로 나누고, 신구조문 비교·시행일 기한 등록·확인 메모 | ✅ |
+| **프로젝트 중심 구조** | 프로젝트 화면의 탭(개요·인허가·의무사항·AI 검토·법령 영향·일정·문서·설정), 회사·부서·팀, 프로젝트별 PM·EM, 멤버별 승인 권한 | ✅ |
+| **분야별 설계 일정** | 분야별 일정 항목·마일스톤·선후행(FS) 간트, 기준일·오프셋과 기준 확정·지연 계산, 이벤트·출장(프로젝트·회사 달력), 협력사 읽기 전용 공유(링크·ICS·인쇄본), 선택형 Google 캘린더 단방향 동기화, 문서 → 일정 제안(AI 제안 + 사람 검토), 인허가 진행 현황 1쪽(XLSX) | ✅ Google 동기화는 실제 Google 호출 전 |
 
-> 로그인 화면의 "카카오 로그인" 버튼은 자리만 있고 동작하지 않습니다.
+### 선택 모듈
 
-### 화면
-
-아래는 로컬에서 띄운 실제 화면입니다. 회사·프로젝트·법령 개정 내역은 `dev` 프로필이 넣는 **가상의 예시 데이터**입니다.
-
-| 프로젝트 상세 — 분야별 인허가 대장 | 인허가 상세 — 해당 사유, 관련 법령, 문서 |
-|---|---|
-| ![프로젝트 상세](docs/images/project-detail.png) | ![인허가 상세](docs/images/permit-drawer.png) |
-| **인허가 자동 도출 — 해당 / 판정 보류 + 필요한 정보** | **법령 개정 알림 — 직접 영향 / 참고** |
-| ![인허가 자동 도출](docs/images/derivation.png) | ![법령 개정 알림](docs/images/laws.png) |
-
----
-
-## 👀 목차
-0. [✅ 지금 동작하는 것](#-지금-동작하는-것)
-1. [📌 프로젝트 개요](#-프로젝트-개요)
-2. [📑 요구사항 분석](#-요구사항-분석)
-3. [🔧 시스템 아키텍처](#-시스템-아키텍처)
-4. [📋 요구사항 명세서](#-요구사항-명세서)
-5. [🪧 ERD](#-erd)
-6. [🗃️ 테이블 명세서](#️-테이블-명세서)
-7. [🎯 API 명세서](#-api-명세서)
-8. [🖥 화면 및 기능 설계서](#-화면-및-기능-설계서)
-9. [🛠 기술 스택](#-기술-스택)
-10. [📁 폴더 구조](#-폴더-구조)
-11. [🚀 로컬 실행 방법](#-로컬-실행-방법)
-12. [🗓 개발 로드맵](#-개발-로드맵)
-
----
-
-## 📌 프로젝트 개요
-
-### 📘 프로젝트 소개
-
-**환경기초시설 인허가 관리 시스템**은 민간 엔지니어링 회사가 수행하는 환경기초시설 프로젝트의 인허가 생애주기를 통합 관리하는 웹 애플리케이션입니다.
-
-프로젝트별로 수십 종에 달하는 인허가 항목(설치허가, 가동개시신고, 정기검사, 변경허가, 갱신허가 등)을 한 곳에서 등록·조회·관리하고, 기한 도래 시 자동 알림을 통해 허가 만료 누락을 사전에 방지합니다.
-
-여기에 더해 **엔지니어가 법규를 손으로 검토하는 시간을 줄이는 것**을 목표로 합니다.
-
-| 기능 | 하는 일 |
-|---|---|
-| **인허가 자동 도출** | 시설유형·용량·위치 등을 넣으면 필요한 인허가를 해당 사유·관련 법규와 함께 판정. 정보가 부족하면 "판정 보류"와 필요한 정보를 표시 |
-| **허가조건 AI 추출** | 허가증·협의의견서 PDF에서 이행 의무(측정·보고 주기 등)를 뽑아 기한 알림에 연결 |
-| **사람 검토** | AI 결과는 담당자가 원문과 대조해 승인한 것만 대장에 반영. 직급별 승인 권한 |
-| **법령 개정 모니터링** | 법제처 Open API로 매일 개정을 감지해, 영향받는 인허가 담당자에게 알림 |
-
----
-
-### ✅ 배경: 왜 이 서비스가 필요한가?
-
-**반복되는 현장의 문제**
-
-환경기초시설의 인허가는 프로젝트 착공부터 준공 이후까지 수십 종의 절차가 발생합니다. 현장에서는 이를 엑셀·종이문서·담당자 기억에 의존하여 관리하며, 아래 문제가 반복됩니다.
-
-- 허가 만료 및 정기검사 기한 누락
-- 담당자 교체 시 인허가 이력 소실
-- 문서 분산 보관으로 인한 조회·제출 지연
-- 법령 개정 대응 지체로 인한 행정처분 리스크
-
-**프로젝트 기반 통합 관리의 필요성**
-
-인허가는 시설 단위가 아닌 **프로젝트 단위**로 발생합니다. 하나의 프로젝트 안에서 인허가 유형별 진행 현황, 기한, 담당자, 첨부 문서를 한눈에 파악할 수 있는 도구가 필요합니다.
-
----
-
-## 📑 요구사항 분석
-
-### 🔐 1. 사용자 인증
-- 이메일 + 비밀번호 로그인 (JWT)
-- Access Token / Refresh Token 재발급
-- 권한 구분: 관리자(ADMIN) / 담당자(USER)
-
-### 📂 2. 프로젝트 관리
-- 프로젝트 등록·수정·삭제 (프로젝트명, 시설 유형, 위치, 기간, 담당자)
-- 프로젝트 상태 관리 (진행중 / 완료 / 보류)
-- 프로젝트명·상태·담당자 기준 검색·필터
-
-### 📋 3. 인허가 항목 관리
-- 인허가 항목 등록·수정·삭제 (유형, 허가번호, 담당기관, 신청일, 취득일, 만료일)
-- 진행 상태 관리 (미신청 / 신청중 / 취득완료 / 만료임박 / 만료)
-- 인허가 변경 이력 자동 기록
-
-### 🔔 4. 기한 알림
-- 유효기간 만료 D-90 / D-60 / D-30 / D-7 자동 알림
-- 시스템 인앱 알림 + 이메일 알림
-- 알림 읽음 처리 및 목록 조회
-
-### 📎 5. 문서 관리
-- 인허가 항목별 파일 첨부 (허가증, 검사성적서, 신고서 등)
-- 지원 형식: PDF / JPG / PNG / XLSX (파일당 최대 10MB)
-- AWS S3 저장, 파일 다운로드·삭제
-
-### 📅 6. 캘린더
-- 인허가 기한 월별 캘린더 뷰 시각화
-- 만료 임박 항목 색상 구분
-- 캘린더 항목 클릭 → 인허가 상세 이동
-
-### 📊 7. 대시보드
-- 전체 프로젝트 수 / 인허가 항목 수 / 만료 임박 건수 요약
-- D-30 이내 만료 임박 인허가 목록
-- 인허가 상태별 현황 차트
-
-### 🧭 8. 인허가 자동 도출
-- 프로젝트 속성(시설유형·용량·위치·추진주체·신설/증설) → 필요한 인허가 목록
-- 각 항목에 해당 사유("시설용량 300톤/일 ≥ 100톤/일"), 관련 법규, 승인 시점 표시
-- 판정에 필요한 값이 없으면 추정하지 않고 "판정 보류" + 필요한 정보 안내
-- 판정은 규칙표로 계산(같은 입력 → 같은 결과). AI는 법령 원문에서 규칙 초안을 만드는 데 사용
-
-### 🤖 9. 허가조건 AI 추출 + 사람 검토
-- 허가증·환경영향평가 협의의견서 PDF(스캔본 포함) → 이행 의무 목록
-- 의무마다 원문 조건번호와 인용문 저장, 원문과 다르면 "환각 의심" 표시
-- 승인 전에는 대장·알림에 반영되지 않음. 스캔본은 원문 페이지를 열어야 승인 가능
-- 프로젝트 멤버별 권한: 혼자 승인 / 승인 요청만 / 일괄 승인
-
-### ⚖️ 10. 법령 개정 모니터링
-- 인허가 항목에 관련 법령(필요하면 조문까지) 연결
-- 매일 06:00 법제처 Open API로 개정 감지 → 직접 영향 / 참고 분류
-- 신구조문 비교, 시행일 D-day 등록, 담당자 확인 메모
-- 영향 담당자에게 앱 알림 + 이메일 일일 요약
-
-### 🔁 11. 허가증 버전 비교
-- 변경허가·재협의로 새 허가증이 나오면 이전 버전과 조건별로 비교(추가 / 삭제 / 변경 / 경미)
-- 숫자·주기가 바뀌면 반드시 "변경"으로 판정, 말투만 다르면 "경미"로 묶어 한 번에 처리
-- 변경은 같은 의무를 고쳐 써서 이행 기록 유지, 삭제는 원문 확인 체크 후 하나씩 승인
-- 대장 반영과 별도로 "현장 반영 완료"를 담당자·목표일로 추적
-
----
-
-## 🔧 시스템 아키텍처
-
-![시스템 아키텍처](docs/architecture.svg)
-
-> 모듈 구성, 주요 흐름, 데이터 모델: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-
----
-
-## 📋 요구사항 명세서
-
-> [요구사항 명세서](https://docs.google.com/spreadsheets/d/12-2jKy9jEzSq1YM0xmzFc1EF5N1-gAC9O7Z6JvjYeJ0/edit?hl=ko&gid=1907448249#gid=1907448249)
-
----
-
-## 🪧 ERD
-
-> [ERDCloud](https://www.erdcloud.com/d/qQKndT33McSBD2xAW)
-
----
-
-## 🗃️ 테이블 명세서
-
-> [테이블 명세서](https://github.com/user-attachments/files/28127595/table_specification.xlsx)
-
-**기본 6개 테이블**
-`users` `projects` `permit_items` `permit_history` `documents` `notifications`
-
-확장 기능(AI 검토, 의무사항, 법령 카탈로그·개정, 판정 규칙) 테이블은 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#5-데이터-모델-핵심)에 정리했습니다.
-
----
-
-## 🎯 API 명세서
-
-> [API 명세서](https://www.notion.so/API-368d9a463c0a80ba9200da393f864d4e?source=copy_link)
-
----
-
-## 🖥 화면 및 기능 설계서
-
-> 화면은 실제 API에 연결돼 있습니다(대시보드 일부 제외). 아래 [로컬 실행 방법](#-로컬-실행-방법)으로 볼 수 있습니다.
-
-| 경로 | 화면 | 데이터 |
+| 기능 | 하는 일 | 상태 |
 |---|---|---|
-| `/dashboard` | 대시보드 — 인허가 현황, 만료 임박 | 🟡 기한 임박·현장 반영 대기는 API, 상태 분포 차트·최근 활동은 mock |
-| `/projects`, `/projects/:id` | 프로젝트 목록·상세 — 분야별 인허가 대장, 관련 법령, 문서, 버전 비교 | API (인허가 추가 버튼은 아직 동작하지 않음) |
-| `/projects/new` | 새 프로젝트 — 속성 입력 → 인허가 자동 도출(판정 보류 포함) | API |
-| `/calendar` | 인허가 일정 캘린더 | API |
-| `/review` | 허가조건 AI 추출 결과 검토 | API |
-| `/laws` | 법령 개정 알림 — 직접 영향 / 참고, 신구조문 비교 | API |
+| 운영단계 관리 | 배출구·허가 한도, 측정값 입력·판정, 초과 시 조치 업무, 이행 보고서 초안(XLSX). 운영사 업무라 **프로젝트별로 켜는 선택 모듈이며 기본은 꺼짐** | ✅ (꺼짐이 기본) |
+
+그 밖에: 이메일+비밀번호 로그인(JWT), 새 회사 가입 / 초대 코드로 가입 신청 → 회사 관리자 승인, Gmail SMTP 메일(설정이 없으면 로그로만).
 
 ---
 
-## 🛠 기술 스택
+## 화면
 
-| 구분 | 기술 |
-|------|------|
-| Frontend | ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white) ![TailwindCSS](https://img.shields.io/badge/TailwindCSS-06B6D4?logo=tailwindcss&logoColor=white) |
-| Backend | ![SpringBoot](https://img.shields.io/badge/SpringBoot-3.x-6DB33F?logo=springboot&logoColor=white) ![Java](https://img.shields.io/badge/Java-17-007396?logo=openjdk&logoColor=white) |
-| Database | ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white) |
-| 파일 저장 | ![AWS S3](https://img.shields.io/badge/AWS%20S3-569A31?logo=amazons3&logoColor=white) |
-| 인프라 | ![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=white) ![AWS EC2](https://img.shields.io/badge/AWS%20EC2-FF9900?logo=amazonec2&logoColor=white) |
-| 인증 | ![JWT](https://img.shields.io/badge/JWT-000000?logo=jsonwebtokens&logoColor=white) |
-| AI | Claude / Gemini / OpenAI 중 하나 (서버 설정) — 허가증 PDF 의무사항 추출 |
-| 외부 데이터 | 법제처 국가법령정보 Open API — 법령 개정 감지, 신구조문 |
+모두 `dev` 프로필의 가상 데이터로 찍었습니다(2026-11-16, 1440×900).
+
+- [x] 프로젝트 개요 탭 (`/projects/:id/overview`) — 단계, 처리 대기, 기한
+- [x] 인허가 탭 — 분야별 대장 + 인허가 상세 드로어(해당 사유·관련 법령·문서)
+- [x] 새 프로젝트 → 인허가 자동 도출 결과 (해당 / 판정 보류 + 추가 정보 필요)
+- [x] AI 검토 탭 — 환각 의심 표시, 인용문, 승인 버튼(권한별)
+- [x] 버전 비교 화면 — 추가/삭제/변경/경미
+- [x] 법령 영향 탭 — 직접 영향 / 참고, 신구조문
+- [x] 일정 탭 — 간트(분야 묶음, 선후행 선, 오늘 선)
+- [x] 내 할 일 (`/inbox`)
+
+**프로젝트 개요** — 단계, 인허가 집계, 규제 대응 현황
+
+![프로젝트 개요](docs/images/project-overview.png)
+
+**인허가 탭** — 분야별 대장, `진행 현황 보고 ⬇` 버튼(XLSX 1쪽 보고)
+
+![인허가 탭](docs/images/permits.png)
+
+**인허가 상세 드로어** — 해당 사유, 관련 법령, 승인기관, 일정
+
+![인허가 상세 드로어](docs/images/permits-drawer.png)
+
+**새 프로젝트 → 인허가 자동 도출** — 해당 / 판정 보류, 추가 정보 필요
+
+![인허가 자동 도출](docs/images/new-project-derivation.png)
+
+**AI 검토** — 원문 불일치(환각 의심) 표시, 원문 인용, 승인·거절·수정
+
+![AI 검토](docs/images/ai-review.png)
+
+**버전 비교** — 변경/삭제/경미, 숫자 변화
+
+![버전 비교](docs/images/revision-diff.png)
+
+**법령 영향** — 직접 영향, 신구조문, 시행일 기한 등록
+
+![법령 영향](docs/images/law-impacts.png)
+
+**일정 — 간트** — 분야 묶음, 선후행 선, 오늘 선, 기준 대비 지연
+
+![일정 간트](docs/images/schedule-gantt.png)
+
+**일정 — 달력** — 마일스톤과 인허가 기한
+
+![일정 달력](docs/images/schedule-calendar.png)
+
+**일정 — 지연 현황** — 기준 대비 지연 일수, 연기 사유, 주간보고용 복사
+
+![지연 현황](docs/images/schedule-delays.png)
+
+**내 할 일** — 기한 임박, 법령 개정 미확인, AI 검토 대기
+
+![내 할 일](docs/images/inbox.png)
 
 ---
 
-## 📁 폴더 구조
+## 로컬 실행
 
-```
-Environmental-License-System/
-├── frontend/                   # React + TypeScript + Vite
-│   ├── src/
-│   │   ├── api/                # 백엔드 API 호출
-│   │   ├── pages/              # 화면 (대시보드, 프로젝트, 검토, 법령 개정 …)
-│   │   ├── components/
-│   │   ├── types/
-│   │   └── styles/
-│   └── package.json
-├── backend/                    # Spring Boot 3 + Flyway
-│   └── src/main/java/com/envpermit/
-│       ├── core/               # 인증·회사·프로젝트·인허가·문서
-│       ├── review/             # AI 제안 검토·승인
-│       ├── extraction/         # 허가증 의무 추출 (Claude / Gemini / OpenAI)
-│       ├── obligation/         # 의무사항·버전 반영·현장 반영
-│       ├── revision/           # 허가증 버전 비교
-│       ├── derivation/         # 인허가 자동 도출
-│       ├── law/                # 법령 카탈로그·개정 감지·영향 판정
-│       └── notification/       # 기한 알림·이메일(현재 로그)
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── architecture.svg
-│   └── images/                 # README 화면 캡처
-└── README.md
-```
+### 준비
+- Docker Desktop, Node.js 20+, Java 17(Docker 없이 백엔드를 돌리거나 테스트할 때)
 
----
-
-## 🚀 로컬 실행 방법
-
-### 사전 준비
-- Docker Desktop
-- Node.js 20+
-- Java 17 (백엔드를 Docker 없이 실행하거나 테스트할 때)
-
-### 1. 환경변수 (`.env`)
-비밀값(DB 비밀번호, JWT 키, 외부 API 키)은 환경변수로만 받습니다. `.env`는 git에 올라가지 않습니다.
+### 1. 환경변수
 ```bash
 cp .env.example .env
 ```
-`.env`를 열어 `DB_PASSWORD`, `JWT_SECRET`(32바이트 이상, 예: `openssl rand -base64 48` 결과), `S3_SECRET_KEY`를 채웁니다.
-법제처 검색(관련 법령 추가)을 쓰려면 `LAW_API_OC`에 법제처 Open API OC를 넣습니다. 비워 두면 그 기능만 503을 돌려주고, 시드 법령 카탈로그와 연결은 그대로 동작합니다.
+`.env`에서 `DB_PASSWORD`, `JWT_SECRET`(32바이트 이상, 예: `openssl rand -base64 48`), `S3_SECRET_KEY`를 채웁니다. 나머지는 선택입니다.
 
-**허가조건 AI 추출 제공자 (Claude / Gemini / OpenAI)** — 서버당 하나를 씁니다.
-
-| 환경변수 | 내용 |
+| 변수 | 비워 두면 |
 |---|---|
-| `EXTRACTION_PROVIDER` | `claude`, `gemini`, `openai` 중 하나. 비우면 키가 있는 쪽(여럿이면 Claude → Gemini → OpenAI 순) |
-| `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | API 키. 이 환경변수로만 받고 설정 파일·로그·응답 저장본에는 남기지 않습니다 |
-| `CLAUDE_MODEL` / `GEMINI_MODEL` / `OPENAI_MODEL` | 모델 id (기본 `claude-sonnet-5-5` / `gemini-3.6-flash` / `gpt-6.1-terra`). PDF 입력과 구조화 출력(JSON 스키마)을 지원하는 모델이어야 합니다 |
+| `LAW_API_OC` (법제처 Open API OC) | 법제처 검색만 503. 시드 법령 카탈로그·연결은 동작 |
+| `EXTRACTION_PROVIDER`, `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENAI_API_KEY` | AI 추출 실행이 실패 메시지를 냄. 제공자를 비우면 키가 있는 쪽(Claude → Gemini → OpenAI 순) |
+| `CLAUDE_MODEL` / `GEMINI_MODEL` / `OPENAI_MODEL` | 기본 `claude-sonnet-5-5` / `gemini-3.6-flash` / `gpt-6.1-terra` |
+| `SMTP_*` | 메일을 보내지 않고 로그에만 남김 |
 
-회사 설정에서 마스터가 AI 추출을 켜야 실행되며, 실행 전 고지에 선택된 제공자 이름이 나옵니다. 실행마다 제공자·모델·프롬프트 버전·토큰 수가 `ai_run`에 남습니다. 제공자별 추출 품질은 수동 평가 스크립트로 잽니다([방법](docs/EXTRACTION_EVAL.md), [2026-11-11 실측 결과](docs/EXTRACTION_EVAL_RESULTS.md)).
+> ⚠️ AI 추출은 회사 설정에서 관리자가 켜야 실행되고, 실행 전 고지에 제공자 이름이 나옵니다. **Gemini 무료 등급은 입력을 Google 제품 개선에 쓸 수 있으니** 실제 회사 문서는 유료 등급에서만 보내세요([Gemini API 약관](https://ai.google.dev/gemini-api/terms)). Claude·OpenAI도 [Anthropic 약관](https://www.anthropic.com/legal)·[OpenAI 데이터 정책](https://openai.com/enterprise-privacy/)을 확인하세요. OpenAI 호출은 `store: false`로 보냅니다.
 
-> ⚠️ **Gemini 무료 등급은 입력·응답을 Google 제품 개선에 쓸 수 있습니다.** 실제 회사 문서는 결제 계정이 연결된 유료 등급(학습 미사용)에서만 보내세요. 약관은 바뀔 수 있으니 [Gemini API 추가 약관](https://ai.google.dev/gemini-api/terms)을 직접 확인하세요. Claude·OpenAI도 마찬가지로 [Anthropic 약관](https://www.anthropic.com/legal)·[OpenAI 데이터 정책](https://openai.com/enterprise-privacy/)의 데이터 사용·보존 조건을 확인하세요. OpenAI 호출은 `store: false`로 보냅니다.
+Gmail로 실제 메일을 보내려면 [2단계 인증](https://myaccount.google.com/signinoptions/two-step-verification)을 켜고 [앱 비밀번호](https://myaccount.google.com/apppasswords)를 만들어 `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USERNAME`, `SMTP_PASSWORD`에 넣습니다.
 
-**메일 (Gmail SMTP)** — `SMTP_HOST`가 있으면 실제로 보내고, 비우면 로그에만 남깁니다(`LogMailer`). 가입 요청·결과, 기한 알림, 법령 개정 메일이 모두 같은 발송기를 씁니다.
-1. 보낼 Gmail 계정에서 [2단계 인증](https://myaccount.google.com/signinoptions/two-step-verification)을 켭니다.
-2. [앱 비밀번호](https://myaccount.google.com/apppasswords)에서 앱 비밀번호(16자)를 만듭니다. 계정 비밀번호는 쓰지 않습니다.
-3. `.env`에 채웁니다:
-   ```
-   SMTP_HOST=smtp.gmail.com
-   SMTP_PORT=587            # STARTTLS
-   SMTP_USERNAME=you@gmail.com
-   SMTP_PASSWORD=앱비밀번호16자
-   SMTP_FROM=               # 비우면 SMTP_USERNAME
-   APP_BASE_URL=http://localhost:5182   # 메일 속 링크가 가리킬 웹 주소
-   ```
-
-### 2. DB + API 실행 (Docker)
+### 2. DB · 문서 저장소 · API (Docker Compose)
+기본 포트는 DB 5432 / API 8080입니다. 다른 로컬 DB와 겹치지 않게 개발 중에는 아래처럼 DB 5435 / API 8081로 띄웁니다.
 ```bash
-docker compose up -d --build
+DB_PORT=5435 API_PORT=8081 docker compose up -d --build
 ```
-- PostgreSQL 16(`localhost:5432`), 문서 저장소(S3 호환 SeaweedFS, `localhost:8333`), API(`localhost:8080`)가 뜹니다. Flyway가 스키마를 만들고, API가 시작할 때 버킷을 만듭니다.
-- 포트가 이미 쓰이고 있으면 바꿔서 띄웁니다: `DB_PORT=15432 API_PORT=18080 docker compose up -d --build`
-- `SPRING_PROFILES_ACTIVE=dev`(기본값)이면 개발용 계정과 가상의 예시 데이터(회사·프로젝트·인허가)가 생깁니다. 로컬 전용, 운영 프로필에서는 만들어지지 않습니다. 비밀번호는 모두 `dev1234!`
-  - **dev@envpermit.local** — A사 회사 관리자, 예시 프로젝트 4개의 생성자(어드민)
-  - kim@envpermit.local — A사, 프로젝트 1의 일반 멤버(승인 권한 없음)
-  - other@envpermit.local — B사. A사 프로젝트에 들어가면 403
+PostgreSQL 16, S3 호환 저장소(SeaweedFS, 8333), API가 뜹니다. Flyway가 스키마를 만들고, API가 시작할 때 버킷을 만듭니다.
 
-### 3. 프론트엔드 실행
+`SPRING_PROFILES_ACTIVE=dev`(기본)이면 가상의 회사·프로젝트·인허가와 개발용 계정이 생깁니다(운영 프로필에서는 만들지 않음).
+계정 비밀번호는 `.env`의 `DEV_SEED_PASSWORD`입니다. 정하지 않으면 혼자 쓰는 로컬 설치용 기본값 `dev1234!`가 쓰입니다.
+**여럿이 쓰거나 외부에 공개하는 실행(데모 포함)에서는 반드시 `DEV_SEED_PASSWORD`를 새 값으로 정하고 DB를 처음 만들기 전에 넣으세요.**
+이 값은 계정이 처음 생길 때만 쓰입니다. 이미 있는 계정의 비밀번호는 바꾸지 않습니다.
+
+| 계정 | 역할 |
+|---|---|
+| `dev@envpermit.local` | A사 회사 관리자, 예시 프로젝트 4개의 프로젝트 관리자(승인·일괄 승인 권한) |
+| `kim@envpermit.local` | A사, 프로젝트 1의 일반 멤버(승인 권한 없음 → 승인 요청만) |
+| `other@envpermit.local` | B사. A사 프로젝트 API는 403 |
+
+### 3. 웹
 ```bash
 cd frontend
 npm install
-npm run dev
+API_URL=http://localhost:8081 npm run dev -- --port 5182
 ```
-`/api` 요청은 Vite가 `http://localhost:8080`으로 넘깁니다. API 포트를 바꿨다면 `API_URL=http://localhost:18080 npm run dev`.
-로그인 화면에서 위 개발용 계정으로 로그인합니다. 대시보드의 상태 분포 차트·최근 활동만 mock이고, 나머지 화면은 실제 API를 씁니다.
+`http://localhost:5182`에서 위 계정으로 로그인합니다. `/api` 요청은 Vite가 `API_URL`(기본 `http://localhost:8080`)로 넘깁니다. 메일 속 링크는 `APP_BASE_URL`(기본 `http://localhost:5182`)을 씁니다.
 
-### 백엔드만 Docker 없이 실행
-DB와 문서 저장소는 `docker compose up -d db s3`로 띄우고:
+### 백엔드만 Docker 없이
 ```bash
+docker compose up -d db s3
 cd backend
 set -a; . ../.env; set +a
 S3_ENDPOINT=http://localhost:8333 ./gradlew bootRun
 ```
-DB 포트를 바꿨다면 `DB_URL=jdbc:postgresql://localhost:15432/envpermit ./gradlew bootRun`.
+DB 포트를 바꿨다면 `DB_URL=jdbc:postgresql://localhost:5435/envpermit`도 줍니다.
 
-### 테스트
+---
+
+## 기술 스택
+
+| 구분 | 기술 |
+|---|---|
+| Backend | Java 17, Spring Boot 3, Spring Security(JWT, OAuth2 Resource Server), Spring Mail, Spring Data JPA, Flyway |
+| Database | PostgreSQL 16 |
+| 파일 저장 | S3 호환 저장소 (로컬 SeaweedFS, AWS SDK v2) |
+| Frontend | React 18, TypeScript, Vite, Tailwind CSS 4, 간트: [SVAR React Gantt](https://svar.dev/react/gantt/) 2.8.2 (MIT) |
+| AI | Claude(anthropic-java SDK) / Gemini / OpenAI 중 서버당 하나 — PDF 입력 + JSON 스키마 구조화 출력. PDFBox(글자층 확인·원문 대조), Apache POI(XLSX) |
+| 외부 데이터 | [법제처 국가법령정보 Open API](https://open.law.go.kr/LSO/openApi/guideList.do) — 개정 목록, 조문, 신구조문 |
+| 인프라 | Docker Compose (로컬). 배포는 아직 없음 |
+| 테스트 | JUnit 5, Testcontainers(PostgreSQL), 녹화한 외부 API 응답 픽스처(JDK `HttpServer` 대역) |
+
+---
+
+## 테스트
+
 ```bash
-cd backend
-./gradlew test
+cd backend && ./gradlew test     # Docker가 켜져 있어야 함
 ```
-Docker가 켜져 있어야 합니다. Testcontainers가 PostgreSQL 16 컨테이너를 띄워 실제 DB 위에서 API를 검증합니다. 문서 저장소는 테스트에서 메모리 가짜로 바꿉니다.
+2026-11-16 `dev`(#61) 기준 887개 통과, 실패 0, 건너뜀 3(실제 API 녹화용 2개 + 레포 밖 골든 사례 1개).
 
-### 인증 API
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| POST | `/api/auth/login` | `{email, password}` → `{accessToken, refreshToken, user}`. 실패 시 401 `{message}` |
-| POST | `/api/auth/refresh` | `{refreshToken}` → 새 토큰 쌍 |
-| GET | `/api/me` | `Authorization: Bearer <accessToken>` → 내 정보 |
+| 방식 | 내용 |
+|---|---|
+| **REST + Testcontainers (주 seam)** | 대부분의 테스트는 실제 PostgreSQL 16 컨테이너 위에서 HTTP API를 호출해 응답·DB 상태를 봅니다. 권한(타 회사 403, 비멤버 403), 트랜잭션, 낙관적 락 409, append-only 감사 트리거까지 실제 DB로 확인합니다. 문서 저장소만 메모리 가짜로 바꿉니다 |
+| **순수 함수 표 테스트** | 규칙 평가(참/거짓/모름), 버전 비교 판정, 영향 판정, 일정 상태·지연 계산, 조건번호 정규화 같은 결정적 로직은 경계값 표로 고정합니다(예: `RuleSeedTest` 규칙별 128행) |
+| **외부 API는 녹화 응답** | 법제처 응답은 실제 호출을 녹화한 픽스처 파일(키 제거 확인 테스트 포함), Gemini·OpenAI는 실제 응답을 녹화해 로컬 대역 서버로 재생합니다. CI에서 외부 호출·비용이 없습니다. Claude 어댑터는 손으로 만든 응답 + 실제 호출 3건으로 확인했습니다 |
+| **골든 하네스 (자동 도출)** | 규칙 세트를 실제 사업의 인허가 목록과 대조해 재현율·정밀도·보류를 잽니다. 저장소에는 지어낸 사례만 있고, 실제 사례는 `GOLDEN_DIR`이 가리키는 레포 밖 폴더에서만 읽습니다 → [golden-accuracy.md](docs/golden-accuracy.md) |
+| **추출 품질 평가 (수동)** | 공개 협의내용 문서와 정답표로 3사 추출 재현율·정밀도를 잽니다. 비용이 들어 CI에서는 돌지 않습니다 → [방법](docs/EXTRACTION_EVAL.md), [결과](docs/EXTRACTION_EVAL_RESULTS.md) |
 
-Access 토큰 30분, Refresh 토큰 14일.
-
-### 회원가입 API
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| POST | `/api/auth/signup` | 새 회사 `{companyName, name, email, password}` → 회사 + 회사 관리자 계정, 바로 로그인 토큰 |
-| GET | `/api/auth/invite/{code}` | 초대 코드의 회사명 (없으면 404) |
-| POST | `/api/auth/join` | 가입 신청 `{code, name, email, password}` → 202. 승인 전에는 로그인 401(대기 안내) |
-| GET/POST | `/api/company/invite-code` | 회사 관리자: 초대 코드 보기 / 재발급(옛 코드 즉시 무효) |
-| GET | `/api/join-requests` | 회사 관리자: 대기 중 신청 |
-| POST | `/api/join-requests/{id}/approve` · `/reject` `{reason}` | 회사 관리자: 승인(계정 생성 + 회사 합류) / 거절. 다른 회사면 403 |
-
-- 회사 관리자 = `users.role = ADMIN`. 새 회사를 만든 사람이 첫 관리자입니다.
-- 신청하면 그 회사 관리자 전원에게 메일(`/join-requests` 링크)과 앱 알림이 갑니다. 한 명이 처리하면 끝나고, 신청자에게 결과 메일이 갑니다.
-- 이메일 중복 불가, 비밀번호 8자 이상, 대기 신청은 14일 후 만료, 같은 코드·IP는 10분에 3건까지.
-
-### 기한 알림 API
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| GET | `/api/deadlines?from=YYYY-MM-DD&to=YYYY-MM-DD` | 내가 속한 프로젝트의 기한 일정(최대 1년 범위) |
-| GET | `/api/notifications` | 내 알림 최신 50건 |
-| POST | `/api/notifications/{id}/read` | 읽음 처리 (남의 알림이면 404) |
-| POST | `/api/notifications/read-all` | 모두 읽음 |
-
-- 다른 모듈은 `Deadlines.register(kind, targetId, projectId, title, dueDate, assigneeId)`로 기한을 등록합니다. 인허가 만료일은 자동 등록됩니다(`PERMIT_EXPIRY`).
-- 매일 07:00(서버 시작 시에도 한 번) D-90/60/30/7 앱 알림을 만들고, 사용자별 이메일 요약을 1통 보냅니다. 같은 일정·D-day 알림은 다시 만들지 않습니다.
-- 메일은 `SMTP_*`가 있으면 실제 발송, 없으면 로그(`LogMailer`). 위 '메일 (Gmail SMTP)' 참고.
-
-### 문서 첨부 API
-프로젝트 멤버만 쓸 수 있습니다(아니면 403). 경로 앞부분은 `/api/projects/{projectId}/permits/{permitId}/documents`.
-
-| 메서드 | 경로 | 설명 |
-|---|---|---|
-| GET | `…/documents` | 목록 (최신순, SHA-256 해시 포함) |
-| POST | `…/documents` | `multipart/form-data`의 `file`. PDF/JPG/PNG/XLSX, 10MB 이하. 확장자와 파일 내용이 모두 맞아야 합니다. 아니면 400/413 `{message}` |
-| GET | `…/documents/{id}` | 내려받기 |
-| DELETE | `…/documents/{id}` | 삭제 (저장소의 파일도 지움) |
+프론트엔드는 테스트 러너가 없고 `vite build`와 브라우저 확인으로 검증합니다.
 
 ---
 
-## 🗓 개발 로드맵
+## 문서
 
-✅ 구현(테스트 있음) · 🟡 부분 구현 · ⏳ 미구현. PR 번호는 `dev` 브랜치에 병합된 PR입니다.
-
-| 단계 | 작업 내용 | 상태 |
-|------|----------|------|
-| 1 | 화면 설계 · 프론트엔드 초안 | ✅ (#1) |
-| 2–3 | 확장 기능 설계: 사람 검토 + 허가조건 추출, 법령 개정 모니터링, 자동 도출, 버전 비교 | ✅ 설계 승인 (#2, #3) |
-| 4 | 앱 뼈대: 인증, 회사·프로젝트·멤버 권한, 인허가 CRUD, 문서 첨부, 기한 알림 | ✅ (#4–#7) · 🟡 이메일은 로그로만, 화면의 인허가 추가·수정 폼 없음 |
-| 5 | 사람 검토 + 허가조건 AI 추출 (텍스트 PDF, 스캔본 원문 열람 승인, 일괄 승인, Claude/Gemini/OpenAI) | ✅ (#9, #12, #13, #18, #20) · 🟡 스캔본 OCR 없음 · 3사 실측: [결과](docs/EXTRACTION_EVAL_RESULTS.md) |
-| 6 | 법령 개정 모니터링 (카탈로그, 매일 개정 감지, 영향 판정, 의무–법령 연결) | ✅ (#8, #10, #14, #15) |
-| 7a | 인허가 자동 도출 (규칙 엔진, 판정 승인, 재실행) | ✅ (#11, #16) · ⏳ AI 규칙 초안·규칙 관리자 승인 없음(규칙은 시드 SQL) |
-| 7b | 허가증 버전 비교 (비교 엔진, 승인, 현장 반영 추적) | ✅ (#17, #19, #21) |
-| 7c | 자동 도출 정확도 평가 (정답셋으로 재현율·정밀도) | ⏳ 미구현 |
-| — | 대시보드 상태 분포 차트·최근 활동 | 🟡 mock |
-| — | 실제 이메일 발송 (SMTP) | ⏳ 미구현 (`LogMailer`가 로그로만 남김) |
-| — | CI (GitHub Actions) | ⏳ 미구현 |
-| 8 | 배포 (Docker → AWS EC2) | ⏳ 미구현 |
+- [아키텍처](docs/ARCHITECTURE.md) — 모듈, AI 제안 + 사람 검토 통로, 법령 배치, 권한, 기밀 처리, 주요 결정
+- [포트폴리오](docs/PORTFOLIO.md) — 기능별 문제·해결·실측 성과
+- [자동 도출 골든 측정](docs/golden-accuracy.md) · [추출 품질 평가 방법](docs/EXTRACTION_EVAL.md) · [추출 품질 실측 결과](docs/EXTRACTION_EVAL_RESULTS.md)
 
 ---
 
-## 📄 License
+## 로드맵
+
+✅ 구현(테스트 있음) · 🟡 진행 중·부분 · ⏳ 미구현. 괄호는 `dev`에 병합된 PR.
+
+| 영역 | 상태 |
+|---|---|
+| 앱 뼈대: 인증, 회사·프로젝트·멤버 권한, 인허가 CRUD, 문서 첨부, 기한 알림, 회원가입·SMTP | ✅ (#4–#7, #22, #28) |
+| 사람 검토 통로 + 허가조건 AI 추출, 스캔본 원문 열람 승인, 일괄 승인, 3사 어댑터 | ✅ (#9, #12, #13, #18, #20) · ⏳ 스캔본 OCR |
+| 추출 품질 측정 (공개 문서 2건, 3사) | 🟡 (#43, #45, #52) 정답표 규칙 기반 2차 검토(Claude) + 경계 행 9개 실무자 판정, 문서당 1회 |
+| 법령 카탈로그, 매일 개정 감지, 영향 판정, 의무–법령 자동 연결 | ✅ (#8, #10, #14, #15) |
+| 인허가 자동 도출: 규칙 엔진, 판정 승인, 재실행, 규칙 14 → 34 → 48 → 51개 | ✅ (#11, #16, #46, #47, #61) · ⏳ AI 규칙 초안, 규칙 관리자 승인 |
+| 자동 도출 골든 하네스 | 🟡 (#41) 실제 사례 1건, 회귀 게이트 없음 |
+| 허가증 버전 비교, 현장 반영 추적 | ✅ (#17, #19, #21) |
+| 프로젝트 중심 화면, 부서·팀, 내 할 일, 대시보드 | ✅ (#23, #25–#27, #29, #31) |
+| 통합 QA (브라우저 전 구간, 타 회사 접근 점검) | ✅ (#48) |
+| 운영단계 선택 모듈 (기본 꺼짐) | ✅ (#32–#35, #37–#40, #42, #49) |
+| **분야별 설계 일정** 01 운영 모듈 선택화 · 02 분야·일정 항목·간트 · 03 기준일·오프셋, 기준 확정, 지연 현황 · 04 이벤트·출장 달력 · 05 협력사 읽기 전용 공유 · 06 Google 캘린더 단방향 동기화 · 07 문서 → 일정 제안(AI + 사람 검토) · 08 인허가 진행 현황 보고 1쪽 | ✅ (#49, #50, #53–#59) · ⏳ 실제 Google 연결 확인, 별도 세트로 AI 일정 추출 측정 |
+| CI (GitHub Actions), 배포 | ⏳ |
+
+---
+
+## License
 
 [MIT](./LICENSE)

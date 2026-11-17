@@ -2,6 +2,7 @@ package com.envpermit.operation;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -35,6 +36,12 @@ class EmissionLimitApiTest extends IntegrationTest {
     long permitId;
     long stack;
     String limits;
+
+    String otherCompanyUser() throws Exception {
+        long b = companies.save(new Company("B엔지니어링")).getId();
+        users.save(new User("choi@b.com", encoder.encode("pw"), "최비", User.Role.USER, b));
+        return login("choi@b.com");
+    }
 
     @BeforeEach
     void seed() throws Exception {
@@ -145,6 +152,21 @@ class EmissionLimitApiTest extends IntegrationTest {
     }
 
     @Test
+    void a_limit_entered_by_mistake_is_deleted_only_while_no_value_was_judged_against_it() throws Exception {
+        long used = id(limit("CO", 30, "2026-01-01", null));
+        long unused = id(limit("NOX", 70, "2026-01-01", null));
+        call(kim, json(post("/api/emission-points/" + stack + "/measurements"), """
+                {"rows":[{"measuredOn":"2026-01-05","pollutant":"CO","value":12,"unit":"ppm"}]}""")).andExpect(status().isCreated());
+
+        call(park, delete("/api/limits/" + unused)).andExpect(status().isForbidden());
+        call(kim, delete("/api/limits/" + used)).andExpect(status().isConflict());
+        call(kim, delete("/api/limits/" + unused)).andExpect(status().isNoContent());
+        call(kim, delete("/api/limits/" + unused)).andExpect(status().isNotFound());
+        call(kim, get(limits)).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(used));
+        limit("NOX", 60, "2026-01-01", null).andExpect(status().isCreated()); // the period is free again
+    }
+
+    @Test
     void non_members_get_403_everywhere_and_unknown_ids_404() throws Exception {
         long limitId = id(limit("CO", 30, "2026-01-01", null));
 
@@ -160,6 +182,11 @@ class EmissionLimitApiTest extends IntegrationTest {
 
         call(kim, get("/api/emission-points/999/limits")).andExpect(status().isNotFound());
         call(kim, post("/api/limits/999/reviewed")).andExpect(status().isNotFound());
+        // another company's limit id answers like a missing one
+        String choi = otherCompanyUser();
+        call(choi, post("/api/limits/" + limitId + "/reviewed")).andExpect(status().isNotFound());
+        call(choi, json(post("/api/limits/" + limitId + "/close"), "{\"effectiveTo\":\"2026-03-31\"}")).andExpect(status().isNotFound());
+        call(choi, delete("/api/limits/" + limitId)).andExpect(status().isNotFound());
         call(kim, get(limits)).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].effectiveTo").doesNotExist());
     }
 
@@ -185,8 +212,10 @@ class EmissionLimitApiTest extends IntegrationTest {
     }
 
     private long project(String token, String name) throws Exception {
-        return id(call(token, json(post("/api/projects"),
+        long id = id(call(token, json(post("/api/projects"),
                 "{\"name\":\"" + name + "\",\"facilityType\":\"INCINERATION\",\"location\":\"가온\"}")));
+        jdbc.update("UPDATE project SET operations_enabled = TRUE"); // 운영 module is opt-in (design-schedule/01)
+        return id;
     }
 
     private ResultActions call(String token, MockHttpServletRequestBuilder req) throws Exception {

@@ -14,8 +14,8 @@ interface Sheet { name: string; note: string; headers: string[]; rows: Cell[][] 
 interface Report { fileName: string; from: string; to: string; sheets: Sheet[] }
 interface Point { id: number; permitItemId: number | null; name: string }
 
-const INPUT = 'rounded-lg border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
-const BTN = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
+const INPUT = 'rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const BTN = 'rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
 /** Only these two are coloured; every other status is plain text. */
 const ALERT = new Set<Cell>(['초과', '기한 경과']);
 
@@ -76,7 +76,7 @@ export default function ComplianceReportDraft({ projectId, permits, initial, onC
   });
 
   return (
-    <section className="mt-4 rounded-xl border border-[#E5E3DC] bg-white p-4 shadow-sm">
+    <section className="mt-4 rounded-xl border border-line bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-gray-800">이행 보고서 초안</h3>
         <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-gray-400 hover:text-gray-700">×</button>
@@ -115,7 +115,7 @@ export default function ComplianceReportDraft({ projectId, permits, initial, onC
         ))}
         {ofPermit.length === 0 && <span className="text-xs text-gray-400">이 인허가 항목에 연결된 배출구가 없습니다.</span>}
       </div>
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
       {saved !== null && <p role="status" className="mt-3 text-sm text-gray-700">문서 목록에 추가했습니다: {saved}</p>}
 
       {report && (
@@ -124,17 +124,17 @@ export default function ComplianceReportDraft({ projectId, permits, initial, onC
             <div key={s.name}>
               <h4 className="text-sm font-semibold text-gray-800">{s.name} <span className="font-normal text-gray-400">({s.rows.length})</span></h4>
               <p className="text-xs text-gray-500">{s.note}</p>
-              <div className="mt-1.5 overflow-x-auto rounded-lg border border-[#E5E3DC]">
+              <div className="mt-1.5 overflow-x-auto rounded-lg border border-line">
                 <table className="w-full whitespace-nowrap text-left text-sm">
-                  <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+                  <thead className="bg-paper text-xs text-gray-500">
                     <tr>{s.headers.map((h) => <th key={h} className="px-3 py-2 font-medium">{h}</th>)}</tr>
                   </thead>
-                  <tbody className="divide-y divide-[#E5E3DC]">
+                  <tbody className="divide-y divide-line">
                     {s.rows.map((r, i) => (
                       <tr key={i}>
                         {r.map((c, j) => (
                           <td key={j} title={String(c)}
-                            className={`max-w-[260px] truncate px-3 py-1.5 ${ALERT.has(c) ? 'font-semibold text-[#991B1B]' : 'text-gray-700'}`}>{c}</td>
+                            className={`max-w-[260px] truncate px-3 py-1.5 ${ALERT.has(c) ? 'font-semibold text-danger' : 'text-gray-700'}`}>{c}</td>
                         ))}
                       </tr>
                     ))}

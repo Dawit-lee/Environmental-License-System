@@ -49,7 +49,7 @@ export interface SuggestionEvent {
   data: { page_no?: number } | null;
 }
 
-export const effective = (s: Suggestion) => s.editedPayload ?? s.payload;
+export const effective = <P,>(s: { payload: P; editedPayload: P | null }) => s.editedPayload ?? s.payload;
 
 const post = <T>(path: string, body: unknown) => api<T>(path, { method: 'POST', body: JSON.stringify(body) });
 
@@ -80,6 +80,42 @@ export const listRevisions = (pid: number, runId?: number) =>
   api<(Suggestion | RevisionSuggestion)[]>(`/api/projects/${pid}/suggestions${runId ? `?runId=${runId}` : ''}`).then(
     (all) => all.filter((s): s is RevisionSuggestion => s.kind === 'OBLIGATION_REVISION'),
   );
+/** design-schedule/07 row (설계 §4.1): SCHEDULE_ITEM = MILESTONE/TASK, PROJECT_EVENT = EVENT/RECURRING. */
+export interface ScheduleRowPayload {
+  type: 'EVENT' | 'MILESTONE' | 'TASK' | 'RECURRING';
+  kind?: string; // event kind
+  subkind?: string;
+  title: string;
+  discipline?: string;
+  date?: string;
+  startDate?: string;
+  startsAt?: string;
+  endsAt?: string;
+  location?: string;
+  anchor?: string;
+  offsetDays?: number;
+  offsetMonths?: number;
+  durationDays?: number;
+  rule?: string;
+  interval?: 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'QUARTERLY';
+  yearInferred?: boolean;
+  evidence: { page: number; quote: string };
+  confidence?: string;
+  quote_check?: QuoteCheck;
+  checks?: ('YEAR_INFERRED' | 'RELATIVE_RULE' | 'BASE_DATE_MISSING')[];
+  matchId?: number; // 기존 항목 갱신 (default when similar)
+  createNew?: boolean;
+  documentName?: string;
+}
+export type ScheduleSuggestion = Omit<Suggestion, 'kind' | 'payload' | 'editedPayload'> & {
+  kind: 'SCHEDULE_ITEM' | 'PROJECT_EVENT';
+  payload: ScheduleRowPayload;
+  editedPayload: ScheduleRowPayload | null;
+};
+export const listScheduleSuggestions = (pid: number) =>
+  api<(Suggestion | ScheduleSuggestion)[]>(`/api/projects/${pid}/suggestions`).then(
+    (all) => all.filter((s): s is ScheduleSuggestion => s.kind === 'SCHEDULE_ITEM' || s.kind === 'PROJECT_EVENT'),
+  );
 export const suggestionEvents = (id: number) => api<SuggestionEvent[]>(`/api/suggestions/${id}/events`);
 export const addSuggestion = (pid: number, permitItemId: number, payload: ObligationPayload) =>
   post<Suggestion>(`/api/projects/${pid}/suggestions`, { permitItemId, payload });
@@ -88,7 +124,7 @@ type Ref = { id: number; version: number };
 
 export const editSuggestion = <P>(s: Ref, editedPayload: P) =>
   api<Suggestion>(`/api/suggestions/${s.id}`, { method: 'PATCH', body: JSON.stringify({ editedPayload, version: s.version }) });
-export const submitSuggestion = (s: Suggestion, proposedDecision: 'ACCEPT' | 'REJECT', reason?: string) =>
+export const submitSuggestion = (s: Ref, proposedDecision: 'ACCEPT' | 'REJECT', reason?: string) =>
   post<Suggestion>(`/api/suggestions/${s.id}/submit`, { proposedDecision, reason, version: s.version });
 export const acceptSuggestion = (s: Ref, firstDueDate: string | null) =>
   post<Suggestion>(`/api/suggestions/${s.id}/accept`, { firstDueDate, version: s.version });

@@ -14,10 +14,12 @@ public interface AiRunRepository extends JpaRepository<AiRun, Long> {
 
     List<AiRun> findByProjectIdAndPreparerNotOrderByIdDesc(long projectId, String preparer);
 
-    /** Same file (SHA-256) already extracted, or being extracted, in this project. Failed runs don't count. */
+    /** Same file (SHA-256) already extracted for obligations, or being extracted, in this project. Failed runs don't count. */
     @Query(value = "SELECT EXISTS (SELECT 1 FROM ai_run WHERE project_id = ?1 AND input_ref ->> 'sha256' = ?2 "
-            + "AND status <> 'FAILED')", nativeQuery = true)
+            + "AND kind IN ('OBLIGATION', 'OBLIGATION_REVISION') AND status <> 'FAILED')", nativeQuery = true)
     boolean extractedBefore(long projectId, String sha256);
+
+    long countByCompanyIdAndStartedAtGreaterThanEqualAndPreparerNot(long companyId, Instant from, String preparer);
 
     /** Orphans of a restart: RUNNING since before {@code before}. */
     @Transactional

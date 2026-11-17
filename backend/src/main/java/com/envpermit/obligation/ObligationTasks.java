@@ -2,6 +2,7 @@ package com.envpermit.obligation;
 
 import com.envpermit.core.permit.PermitItem;
 import com.envpermit.core.permit.PermitItemRepository;
+import com.envpermit.core.project.MemberRemoved;
 import com.envpermit.notification.Deadlines;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -15,6 +16,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -38,6 +40,10 @@ public class ObligationTasks {
     static final String NOT_OPEN = "이미 완료되었거나 취소된 업무입니다.";
     static final String OTHER_PERMIT = "같은 인허가 항목의 문서만 증빙으로 연결할 수 있습니다.";
     static final String NOT_MEMBER = "담당자는 이 프로젝트의 멤버여야 합니다.";
+
+    /** Corrective tasks belong to the 운영 module: hidden from lists while the project has it off (design-schedule §8.1). */
+    public static final String MODULE_ON = " AND (t.kind <> 'CORRECTIVE' OR EXISTS (SELECT 1 FROM project mp "
+            + "WHERE mp.id = t.project_id AND mp.operations_enabled)) ";
 
     private static final String SELECT = """
             SELECT t.id, t.project_id, t.kind, t.obligation_id,
@@ -96,8 +102,9 @@ public class ObligationTasks {
     public record EventView(String type, JsonNode data, Instant at, String byName) {
     }
 
+    /** people: id → name of everyone the 담당 변경 history names, so a member removed since still shows by name. */
     public record TaskDetail(TaskView task, List<EvidenceView> evidence, List<MeasurementView> measurements,
-                             List<EventView> events) {
+                             List<EventView> events, Map<Long, String> people) {
     }
 
     // --- lifecycle --------------------------------------------------------------------------------------------
@@ -208,6 +215,18 @@ public class ObligationTasks {
         }
     }
 
+    /** A removed member cannot be reminded or open the task: their open tasks become 미지정 (every member is reminded). */
+    @EventListener
+    void onMemberRemoved(MemberRemoved e) {
+        jdbc.queryForList("SELECT id FROM obligation_task WHERE project_id = ? AND assignee_id = ? AND status = 'OPEN' ORDER BY id",
+                Long.class, e.projectId(), e.userId()).forEach(id -> update(id, e.actorId(), true, null, null, null));
+    }
+
+    /** 측정값 연결·삭제 of a task (the values count like evidence, so the history shows them too). */
+    public void measurementEvent(long taskId, long actorId, boolean added, List<Long> measurementIds) {
+        event(taskId, actorId, added ? "MEASUREMENT_LINKED" : "MEASUREMENT_REMOVED", Map.of("measurement_ids", measurementIds));
+    }
+
     /**
      * 담당·기한 변경 of an open task. An obligation task's due date is the obligation's next due date, so both
      * (and the D-day deadline with its recipient) move together.
@@ -312,16 +331,24 @@ public class ObligationTasks {
     /** Every task of the project, oldest first; obligationId narrows it to one obligation's cycles (no corrective tasks). */
     public List<TaskView> list(long projectId, Long obligationId) {
         return jdbc.query(SELECT + "WHERE t.project_id = ? AND (?::bigint IS NULL OR (t.obligation_id = ? AND t.kind = 'OBLIGATION')) "
-                        + "ORDER BY t.id",
+                        + MODULE_ON + "ORDER BY t.id",
                 this::view, projectId, obligationId, obligationId);
     }
 
-    /** 내 할 일: my open tasks in projects I am still a member of, soonest due first. */
+    /**
+     * 내 할 일: my open tasks in projects I am still a member of, soonest due first. An overdue task nobody is assigned
+     * to goes to the project's PM, EM and project admins (assigneeId null: the screen marks it 미지정).
+     */
     public List<TaskView> mine(long userId) {
         return jdbc.query(SELECT + """
-                WHERE t.assignee_id = ? AND t.status = 'OPEN' AND EXISTS (SELECT 1 FROM project_member m
-                      WHERE m.project_id = t.project_id AND m.user_id = t.assignee_id)
-                ORDER BY t.due_date, t.id""", this::view, userId);
+                WHERE t.status = 'OPEN' AND (
+                      (t.assignee_id = ? AND EXISTS (SELECT 1 FROM project_member m
+                            WHERE m.project_id = t.project_id AND m.user_id = t.assignee_id))
+                   OR (t.assignee_id IS NULL AND t.due_date < ? AND EXISTS (SELECT 1 FROM project_member m
+                            JOIN project p ON p.id = m.project_id
+                            WHERE m.project_id = t.project_id AND m.user_id = ?
+                              AND (m.is_admin OR p.pm_user_id = m.user_id OR p.em_user_id = m.user_id))))
+                """ + MODULE_ON + "ORDER BY t.due_date, t.id", this::view, userId, LocalDate.now(clock), userId);
     }
 
     public TaskDetail detail(long taskId) {
@@ -343,7 +370,13 @@ public class ObligationTasks {
                 (rs, i) -> new MeasurementView(rs.getLong(1), rs.getString(2), rs.getString(3),
                         rs.getObject(4, LocalDate.class), rs.getBigDecimal(5), rs.getString(6), rs.getBoolean(7),
                         rs.getString(8)), taskId);
-        return new TaskDetail(get(taskId), evidence, measurements, events);
+        Map<Long, String> people = new java.util.HashMap<>();
+        jdbc.query("""
+                SELECT DISTINCT u.id, u.name FROM task_event e
+                JOIN users u ON u.id IN ((e.data->>'from')::bigint, (e.data->>'to')::bigint)
+                WHERE e.task_id = ? AND e.type = 'ASSIGNED'""",
+                (org.springframework.jdbc.core.RowCallbackHandler) rs -> people.put(rs.getLong(1), rs.getString(2)), taskId);
+        return new TaskDetail(get(taskId), evidence, measurements, events, people);
     }
 
     TaskView openTask(long obligationId) {

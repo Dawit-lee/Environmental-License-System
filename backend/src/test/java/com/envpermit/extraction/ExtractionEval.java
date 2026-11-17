@@ -53,9 +53,14 @@ public final class ExtractionEval {
             extract(Path.of(args[1]), args.length > 3 ? args[3] : null, Path.of(args[2]));
             return;
         }
+        if (args.length == 2 && args[0].equals("rescore")) {
+            rescore(Path.of(args[1]));
+            return;
+        }
         if (args.length < 1 || args.length > 2) {
             System.out.println("usage: extractionEval --args=\"<dir> [claude,gemini,openai]\""
-                    + " | --args=\"rasterize <in.pdf> <out.pdf>\"" + " | --args=\"extract <in.pdf> <out-dir> [provider]\"");
+                    + " | --args=\"rasterize <in.pdf> <out.pdf>\" | --args=\"rescore <dir>\""
+                    + " | --args=\"extract <in.pdf> <out-dir> [provider]\"");
             return;
         }
         Path dir = Path.of(args[0]);
@@ -131,6 +136,52 @@ public final class ExtractionEval {
                 cost(name, inTokens, outTokens), Extraction.ATTEMPTS);
     }
 
+    /**
+     * Re-scores the saved responses in {@code <dir>/out} against the current answer sheets, without calling any API:
+     * per document and provider, the highest-numbered {@code X.<provider>.response-N.json} (a run's last attempt).
+     * Table and per-item matches go to {@code <dir>/out/rescore/}.
+     */
+    private static void rescore(Path dir) throws Exception {
+        Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
+        Path out = Files.createDirectories(dir.resolve("out").resolve("rescore"));
+        StringBuilder table = new StringBuilder("""
+                | 문서 | 제공자 | 응답 파일 | 정답 조건 | 추출 | 재현율 | 정밀도 | 번호 일치(정확) | 번호 일치(포함) | 주기 일치 |
+                |---|---|---|---|---|---|---|---|---|---|
+                """);
+        List<Path> sheets;
+        try (Stream<Path> files = Files.list(dir)) {
+            sheets = files.filter(p -> p.getFileName().toString().endsWith(".answers.csv")).sorted().toList();
+        }
+        for (Path sheet : sheets) {
+            String doc = sheet.getFileName().toString().replaceFirst("\\.answers\\.csv$", "");
+            List<Gold> gold = EvalScorer.answerSheet(Files.readString(sheet));
+            for (Provider provider : Provider.values()) {
+                String name = provider.name().toLowerCase(Locale.ROOT);
+                Path response = null;
+                for (int n = Extraction.ATTEMPTS; n >= 1 && response == null; n--) {
+                    Path p = dir.resolve("out").resolve(doc + "." + name + ".response-" + n + ".json");
+                    response = Files.exists(p) ? p : null;
+                }
+                if (response == null) {
+                    continue;
+                }
+                List<Extraction.Item> found = Extraction.parse(JSON, validator,
+                        provider.text(JSON.readTree(Files.readString(response)))).obligations();
+                List<Item> items = found.stream()
+                        .map(i -> new Item(i.citationRaw(), List.of(i.requirementText(), i.sourceQuote()), i.frequency().name()))
+                        .toList();
+                Score s = EvalScorer.score(gold, items);
+                Files.writeString(out.resolve(doc + "." + name + ".detail.txt"), detail(gold, found, s));
+                table.append(String.format(Locale.ROOT, "| %s | %s | %s | %d | %d | %s | %s | %s | %s | %s |%n",
+                        doc, name, response.getFileName(), s.gold(), s.items(), pct(s.found(), s.gold()),
+                        pct(s.hits(), s.items() - s.optionalHits()), pct(s.numberExact(), s.numbered()),
+                        pct(s.numberLoose(), s.numbered()), pct(s.frequencyOk(), s.frequencyGold())));
+            }
+        }
+        System.out.println(table);
+        Files.writeString(out.resolve("results.md"), table);
+    }
+
     /** One line per extracted item with the answer row it matched, then the scored rows nothing matched. */
     private static String detail(List<Gold> gold, List<Extraction.Item> found, Score s) {
         StringBuilder b = new StringBuilder("# 추출 항목 → 정답표 행(CSV 줄 번호. 머리글이 1줄)\n");
@@ -171,7 +222,7 @@ public final class ExtractionEval {
     }
 
     /** The app's own adapters and model settings (application.yml, so CLAUDE_MODEL etc. apply); only providers with a key. */
-    private static List<LlmClient> clients(String wanted) throws IOException {
+    static List<LlmClient> clients(String wanted) throws IOException {
         StandardEnvironment env = new StandardEnvironment();
         new YamlPropertySourceLoader().load("application", new ClassPathResource("application.yml"))
                 .forEach(env.getPropertySources()::addLast);

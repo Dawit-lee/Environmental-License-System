@@ -1,0 +1,27 @@
+{
+  "id": "msg_01FixtureScheduleBidNotice",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {
+      "type": "thinking",
+      "thinking": "",
+      "signature": "EqQBCkYIBhgCKkB-hand-built-fixture-signature"
+    },
+    {
+      "type": "text",
+      "text": "{\"rows\": [{\"type\": \"EVENT\", \"kind\": \"SITE_BRIEFING\", \"subkind\": \"\", \"title\": \"현장설명회\", \"discipline\": \"\", \"date\": \"\", \"startDate\": \"\", \"startsAt\": \"2027-03-08T14:00\", \"endsAt\": \"\", \"location\": \"가온시청 301호\", \"counterpartOrg\": \"\", \"purpose\": \"\", \"anchor\": \"\", \"offset\": 0, \"offsetUnit\": \"\", \"durationDays\": 0, \"rule\": \"\", \"interval\": \"\", \"yearInferred\": false, \"evidence\": {\"page\": 1, \"quote\": \"Site briefing: 2027-03-08 14:00 at Gaon City Hall room 301.\"}, \"confidence\": \"HIGH\"}, {\"type\": \"EVENT\", \"kind\": \"QNA_DEADLINE\", \"subkind\": \"\", \"title\": \"질의 마감\", \"discipline\": \"\", \"date\": \"2027-03-12\", \"startDate\": \"\", \"startsAt\": \"\", \"endsAt\": \"\", \"location\": \"\", \"counterpartOrg\": \"\", \"purpose\": \"\", \"anchor\": \"\", \"offset\": 0, \"offsetUnit\": \"\", \"durationDays\": 0, \"rule\": \"\", \"interval\": \"\", \"yearInferred\": false, \"evidence\": {\"page\": 1, \"quote\": \"Questions until 2027-03-12.\"}, \"confidence\": \"HIGH\"}, {\"type\": \"EVENT\", \"kind\": \"SUBMISSION\", \"subkind\": \"\", \"title\": \"입찰서 제출\", \"discipline\": \"\", \"date\": \"\", \"startDate\": \"\", \"startsAt\": \"2027-04-20T10:00\", \"endsAt\": \"\", \"location\": \"\", \"counterpartOrg\": \"\", \"purpose\": \"\", \"anchor\": \"\", \"offset\": 0, \"offsetUnit\": \"\", \"durationDays\": 0, \"rule\": \"\", \"interval\": \"\", \"yearInferred\": false, \"evidence\": {\"page\": 2, \"quote\": \"Bid submission: 2027-04-20 10:00.\"}, \"confidence\": \"HIGH\"}, {\"type\": \"TASK\", \"kind\": \"\", \"subkind\": \"\", \"title\": \"설계기간\", \"discipline\": \"\", \"date\": \"2027-10-31\", \"startDate\": \"2027-05-01\", \"startsAt\": \"\", \"endsAt\": \"\", \"location\": \"\", \"counterpartOrg\": \"\", \"purpose\": \"\", \"anchor\": \"\", \"offset\": 0, \"offsetUnit\": \"\", \"durationDays\": 0, \"rule\": \"\", \"interval\": \"\", \"yearInferred\": false, \"evidence\": {\"page\": 2, \"quote\": \"Design period: 2027-05-01 to 2027-10-31.\"}, \"confidence\": \"HIGH\"}, {\"type\": \"MILESTONE\", \"kind\": \"\", \"subkind\": \"\", \"title\": \"착수보고회\", \"discipline\": \"\", \"date\": \"\", \"startDate\": \"\", \"startsAt\": \"\", \"endsAt\": \"\", \"location\": \"\", \"counterpartOrg\": \"\", \"purpose\": \"\", \"anchor\": \"CONTRACT\", \"offset\": 15, \"offsetUnit\": \"DAYS\", \"durationDays\": 0, \"rule\": \"계약일로부터 15일 이내\", \"interval\": \"\", \"yearInferred\": false, \"evidence\": {\"page\": 2, \"quote\": \"Kickoff report within 15 days of contract.\"}, \"confidence\": \"HIGH\"}, {\"type\": \"RECURRING\", \"kind\": \"CLIENT_REPORT\", \"subkind\": \"\", \"title\": \"월간 보고\", \"discipline\": \"\", \"date\": \"2027-10-31\", \"startDate\": \"2027-05-01\", \"startsAt\": \"\", \"endsAt\": \"\", \"location\": \"\", \"counterpartOrg\": \"\", \"purpose\": \"\", \"anchor\": \"\", \"offset\": 0, \"offsetUnit\": \"\", \"durationDays\": 0, \"rule\": \"\", \"interval\": \"MONTHLY\", \"yearInferred\": false, \"evidence\": {\"page\": 2, \"quote\": \"Monthly progress report.\"}, \"confidence\": \"HIGH\"}, {\"type\": \"MILESTONE\", \"kind\": \"\", \"subkind\": \"\", \"title\": \"근거 없는 기한\", \"discipline\": \"\", \"date\": \"2027-06-30\", \"startDate\": \"\", \"startsAt\": \"\", \"endsAt\": \"\", \"location\": \"\", \"counterpartOrg\": \"\", \"purpose\": \"\", \"anchor\": \"\", \"offset\": 0, \"offsetUnit\": \"\", \"durationDays\": 0, \"rule\": \"\", \"interval\": \"\", \"yearInferred\": false, \"evidence\": {\"page\": 0, \"quote\": \"\"}, \"confidence\": \"LOW\"}, {\"type\": \"MILESTONE\", \"kind\": \"\", \"subkind\": \"\", \"title\": \"배관평면도 제출\", \"discipline\": \"공정·기계\", \"date\": \"2027-10-31\", \"startDate\": \"\", \"startsAt\": \"\", \"endsAt\": \"\", \"location\": \"\", \"counterpartOrg\": \"\", \"purpose\": \"\", \"anchor\": \"\", \"offset\": 0, \"offsetUnit\": \"\", \"durationDays\": 0, \"rule\": \"\", \"interval\": \"\", \"yearInferred\": true, \"evidence\": {\"page\": 2, \"quote\": \"Piping plan due 10/31.\"}, \"confidence\": \"MEDIUM\"}]}"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+    "input_tokens": 1980,
+    "cache_creation_input_tokens": 0,
+    "cache_read_input_tokens": 0,
+    "output_tokens": 12,
+    "service_tier": "standard"
+  }
+}

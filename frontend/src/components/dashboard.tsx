@@ -7,8 +7,8 @@ import { ymd, type Deadline } from '../api/notifications';
 // ---------------------------------------------------------------------------
 
 export function dDayClasses(dDay: number): string {
-  if (dDay <= 7) return 'text-[#991B1B] font-semibold';
-  if (dDay <= 30) return 'text-[#B45309] font-semibold';
+  if (dDay <= 7) return 'text-danger font-semibold';
+  if (dDay <= 30) return 'text-warn font-semibold';
   if (dDay <= 60) return 'text-amber-500 font-medium';
   return 'text-gray-500';
 }
@@ -25,11 +25,11 @@ export const STATUSES: { status: PermitStatus; label: string; color: string }[] 
 export const STAGES = ['입지', '설계', '착공', '준공', '운영'] as const;
 
 /** shortcut: rough stage from permit status + planned dates; replace when projects store a real stage. */
-export function lifecycleStage(project: Project, permits: PermitItem[], today = new Date().toISOString().slice(0, 10)): number {
+export function lifecycleStage(project: Project, permits: PermitItem[], today = new Date().toLocaleDateString('sv-SE')): number {
   const done = (cats: PermitCategory[]) =>
     permits.filter((p) => cats.includes(p.category)).every((p) => p.status === 'COMPLETED');
   if (!done(['LOCATION', 'ENVIRONMENT'])) return 0;
-  if (!project.startDate || today < project.startDate) return 1;
+  if (!project.constructionStartDate || today < project.constructionStartDate) return 1;
   if (!project.expectedEndDate || today < project.expectedEndDate) return 2;
   if (!permits.every((p) => p.status === 'COMPLETED')) return 3;
   return 4;
@@ -64,7 +64,7 @@ export function StatusDonut({ permits }: { permits: PermitItem[] }) {
   const slices = STATUSES.map((s) => ({ ...s, value: permits.filter((p) => p.status === s.status).length }));
   // Build conic-gradient stops for the donut (grey ring when there are no permits yet).
   let acc = 0;
-  const gradient = total === 0 ? '#E5E3DC' : `conic-gradient(${slices
+  const gradient = total === 0 ? 'var(--color-line)' : `conic-gradient(${slices
     .map((s) => {
       const start = (acc / total) * 360;
       acc += s.value;
@@ -100,7 +100,7 @@ export function StatusDonut({ permits }: { permits: PermitItem[] }) {
 
 export function ActivityList({ activity }: { activity: Activity[] }) {
   return (
-          <ul className="mt-3 divide-y divide-[#E5E3DC]">
+          <ul className="mt-3 divide-y divide-line">
       {activity.length === 0 && <li className="py-6 text-center text-sm text-gray-400">아직 기록된 신청·취득이 없습니다.</li>}
       {activity.map((a) => (
         <li key={a.key} className="flex gap-3 py-2.5 text-sm">
@@ -128,7 +128,7 @@ export function DeadlineTimeline({ deadlines }: { deadlines: Deadline[] }) {
   const max = Math.max(1, ...weeks.map((w) => w.items.length));
   return (
     <div className="mt-4">
-      <div className="flex h-36 items-end gap-1.5 border-b border-[#E5E3DC]">
+      <div className="flex h-36 items-end gap-1.5 border-b border-line">
         {weeks.map((w, i) => (
           <div key={i} className="flex h-full flex-1 flex-col justify-end"
             title={`${w.start.getMonth() + 1}/${w.start.getDate()} 주 — ${w.items.length}건${w.items.map((d) => `\n· ${d.projectName}: ${d.title}`).join('')}`}>
@@ -151,9 +151,9 @@ export function DeadlineTimeline({ deadlines }: { deadlines: Deadline[] }) {
 export function PendingRow({ to, label, value }: { to: string; label: string; value: number }) {
   return (
     <li>
-      <Link to={to} className="flex items-center justify-between py-3 text-sm transition hover:text-[#1F4E79]">
+      <Link to={to} className="flex items-center justify-between py-3 text-sm transition hover:text-brand">
         <span className="text-gray-600">{label}</span>
-        <span className={`text-2xl font-bold ${value > 0 ? 'text-[#1F4E79]' : 'text-gray-300'}`}>{value}</span>
+        <span className={`text-2xl font-bold ${value > 0 ? 'text-brand' : 'text-gray-300'}`}>{value}</span>
       </Link>
     </li>
   );

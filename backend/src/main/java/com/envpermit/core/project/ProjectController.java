@@ -14,6 +14,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -21,8 +22,10 @@ import java.util.Set;
 import java.util.stream.Stream;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,10 +49,15 @@ public class ProjectController {
     private final UserRepository users;
     private final ProjectAccess access;
     private final Org org;
+    private final ApplicationEventPublisher events;
+    private final JdbcTemplate jdbc;
 
     public ProjectController(ProjectRepository projects, ProjectMemberRepository members,
-                             PermitItemRepository permits, UserRepository users, ProjectAccess access, Org org) {
+                             PermitItemRepository permits, UserRepository users, ProjectAccess access, Org org,
+                             ApplicationEventPublisher events, JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
         this.org = org;
+        this.events = events;
         this.projects = projects;
         this.members = members;
         this.permits = permits;
@@ -64,6 +72,7 @@ public class ProjectController {
                           @Size(max = 20) String capacityUnit,
                           LocalDate startDate,
                           LocalDate expectedEndDate,
+                          LocalDate constructionStartDate,
                           Project.Status status,
                           Long teamId,
                           Long pmUserId,
@@ -72,10 +81,10 @@ public class ProjectController {
 
     record ProjectView(long id, String name, Project.FacilityType facilityType, String location,
                        BigDecimal capacity, String capacityUnit, LocalDate startDate, LocalDate expectedEndDate,
-                       Project.Status status, long permitCount, long acquiredCount, long nearExpiryCount,
+                       LocalDate constructionStartDate, Project.Status status, long permitCount, long acquiredCount, long nearExpiryCount,
                        Long teamId, String teamName, String departmentName,
                        Long pmUserId, String pmName, Long emUserId, String emName, boolean member,
-                       JsonNode attributes) {
+                       JsonNode attributes, boolean operationsEnabled) {
     }
 
     record MemberView(long userId, String name, String email, boolean isAdmin,
@@ -112,6 +121,7 @@ public class ProjectController {
         Project p = new Project(companyId);
         p.apply(req);
         projects.save(p);
+        setConstructionStart(p.getId(), req.constructionStartDate());
         members.save(ProjectMember.creator(p.getId(), userId(jwt)));
         return ResponseEntity.status(HttpStatus.CREATED).body(views(List.of(p), userId(jwt)).get(0));
     }
@@ -126,10 +136,24 @@ public class ProjectController {
     @Transactional
     ProjectView update(@AuthenticationPrincipal Jwt jwt, @PathVariable long id,
                        @Valid @RequestBody ProjectRequest req) {
-        access.member(id, jwt);
+        ProjectMember me = access.member(id, jwt);
         Project p = projects.findById(id).orElseThrow();
+        // PM·EM carry share-link and module powers, so only a project admin may reassign them (M1)
+        if (!me.isAdmin() && !(Objects.equals(p.getTeamId(), req.teamId()) && Objects.equals(p.getPmUserId(), req.pmUserId())
+                && Objects.equals(p.getEmUserId(), req.emUserId()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "팀·PM·EM은 프로젝트 어드민만 바꿀 수 있습니다.");
+        }
         checkOrg(p.getCompanyId(), req);
+        LocalDate oldStart = p.getStartDate();
+        LocalDate oldEnd = p.getExpectedEndDate();
+        LocalDate oldConstruction = constructionStarts(List.of(id)).get(id);
         p.apply(req);
+        setConstructionStart(id, req.constructionStartDate());
+        if (!Objects.equals(oldStart, p.getStartDate()) || !Objects.equals(oldEnd, p.getExpectedEndDate())
+                || !Objects.equals(oldConstruction, req.constructionStartDate())) {
+            events.publishEvent(new ProjectDatesChanged(id, userId(jwt), oldStart, p.getStartDate(), oldEnd,
+                    p.getExpectedEndDate(), oldConstruction, req.constructionStartDate())); // relative items follow
+        }
         return views(List.of(p), userId(jwt)).get(0);
     }
 
@@ -139,6 +163,27 @@ public class ProjectController {
         access.admin(id, jwt);
         projects.deleteById(id); // members, permits and history go with it (ON DELETE CASCADE)
         return ResponseEntity.noContent().build();
+    }
+
+    record ModulesRequest(@NotNull Boolean operations) {
+    }
+
+    /** design-schedule §8.1: project admins, the PM and the EM switch the 운영 module; every change is logged. */
+    @PatchMapping("/api/projects/{id}/modules")
+    @Transactional
+    ProjectView modules(@AuthenticationPrincipal Jwt jwt, @PathVariable long id, @Valid @RequestBody ModulesRequest req) {
+        boolean admin = access.member(id, jwt).isAdmin(); // PM·EM powers need membership too (M1)
+        Project p = projects.findById(id).orElseThrow();
+        long me = userId(jwt);
+        if (!admin && !Objects.equals(p.getPmUserId(), me) && !Objects.equals(p.getEmUserId(), me)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "프로젝트 어드민·PM·EM만 모듈을 켜고 끌 수 있습니다.");
+        }
+        if (p.isOperationsEnabled() != req.operations()) {
+            p.setOperationsEnabled(req.operations());
+            jdbc.update("INSERT INTO project_module_event (project_id, module, enabled, actor_id) VALUES (?, 'OPERATIONS', ?, ?)",
+                    id, req.operations(), me);
+        }
+        return views(List.of(p), me).get(0);
     }
 
     // --- members ----------------------------------------------------------
@@ -189,6 +234,7 @@ public class ProjectController {
         ProjectMember m = target(id, userId);
         requireAnotherAdmin(m);
         members.delete(m);
+        events.publishEvent(new MemberRemoved(id, userId, userId(jwt))); // their open tasks go back to 미지정
         return ResponseEntity.noContent().build();
     }
 
@@ -210,11 +256,12 @@ public class ProjectController {
         org.requireUser(companyId, req.emUserId());
     }
 
-    private List<ProjectView> views(List<Project> list, long userId) {
+    List<ProjectView> views(List<Project> list, long userId) {
         if (list.isEmpty()) {
             return List.of();
         }
         List<Long> ids = list.stream().map(Project::getId).toList();
+        Map<Long, LocalDate> construction = constructionStarts(ids);
         Map<Long, PermitCounts> counts = permits.countByProject(ids).stream()
                 .collect(Collectors.toMap(PermitCounts::projectId, Function.identity()));
         Set<Long> mine = projects.findByMember(userId).stream().map(Project::getId).collect(Collectors.toSet());
@@ -226,11 +273,30 @@ public class ProjectController {
             PermitCounts c = counts.getOrDefault(p.getId(), PermitCounts.none(p.getId()));
             Org.Team t = p.getTeamId() == null ? null : teams.get(p.getTeamId());
             return new ProjectView(p.getId(), p.getName(), p.getFacilityType(), p.getLocation(), p.getCapacity(),
-                    p.getCapacityUnit(), p.getStartDate(), p.getExpectedEndDate(), p.getStatus(),
+                    p.getCapacityUnit(), p.getStartDate(), p.getExpectedEndDate(), construction.get(p.getId()), p.getStatus(),
                     c.total(), c.completed(), c.nearExpiry(),
                     p.getTeamId(), t == null ? null : t.name(), t == null ? null : t.departmentName(),
                     p.getPmUserId(), names.get(p.getPmUserId()), p.getEmUserId(), names.get(p.getEmUserId()),
-                    mine.contains(p.getId()), p.getAttributes());
+                    mine.contains(p.getId()), p.getAttributes(), p.isOperationsEnabled());
         }).toList();
+    }
+
+    /** 착공예정일 is the schedule's CONSTRUCTION_START base date (project_schedule_anchor); 착수일 is project.start_date. */
+    private Map<Long, LocalDate> constructionStarts(List<Long> ids) {
+        Map<Long, LocalDate> m = new HashMap<>();
+        jdbc.query("SELECT project_id, date FROM project_schedule_anchor WHERE anchor = 'CONSTRUCTION_START' "
+                        + "AND project_id = ANY(?)", rs -> { m.put(rs.getLong(1), rs.getObject(2, LocalDate.class)); },
+                (Object) ids.toArray(Long[]::new));
+        return m;
+    }
+
+    private void setConstructionStart(long id, LocalDate date) {
+        if (date == null) {
+            jdbc.update("DELETE FROM project_schedule_anchor WHERE project_id = ? AND anchor = 'CONSTRUCTION_START'", id);
+        } else {
+            jdbc.update("""
+                    INSERT INTO project_schedule_anchor (project_id, anchor, date) VALUES (?, 'CONSTRUCTION_START', ?)
+                    ON CONFLICT (project_id, anchor) DO UPDATE SET date = excluded.date""", id, java.sql.Date.valueOf(date));
+        }
     }
 }

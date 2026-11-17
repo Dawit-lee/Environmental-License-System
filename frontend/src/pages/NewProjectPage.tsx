@@ -15,8 +15,10 @@ import {
   type PermitSuggestion,
   type RuleCategory,
 } from '../api/derivation';
-import { acceptSuggestion, editSuggestion, rejectSuggestion } from '../api/review';
+import { acceptSuggestion, bulkAccept, editSuggestion, rejectSuggestion } from '../api/review';
+import { ANCHOR_LABEL, setAnchor } from '../api/schedule';
 import type { FacilityType, Project, ProjectStatus } from '../types';
+import { usePrompt } from '../components/PromptDialog';
 
 // ---------------------------------------------------------------------------
 // NewProjectPage — two-step wizard.
@@ -47,11 +49,6 @@ const WASTE_OPTIONS = [
 ];
 
 const CATEGORY_LABEL: Record<RuleCategory, string> = { SITE: '입지', FACILITY: '시설', GENERAL: '일반' };
-const CATEGORY_BADGE: Record<RuleCategory, string> = {
-  SITE: 'bg-amber-100 text-amber-800',
-  FACILITY: 'bg-sky-100 text-sky-800',
-  GENERAL: 'bg-violet-100 text-violet-800',
-};
 const CATEGORY_TAB_ORDER: RuleCategory[] = ['SITE', 'FACILITY', 'GENERAL'];
 
 // How the "추가 정보 필요" panel asks for a missing field. Default: plain number.
@@ -81,13 +78,14 @@ const BASE_FIELDS = ['facility_type', 'capacity_tpd', 'sido', 'address', 'propon
 
 const law = (name: string) => `https://www.law.go.kr/법령/${name.replace(/\s/g, '')}`;
 const input =
-  'w-full rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
+  'w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
 /**
  * New project wizard. With `projectId` it is the project's 설정 tab: the same form prefilled from the project and its
  * attributes, saving with PUT and re-running the derivation (step 2) when the facility type supports it.
  */
 export default function NewProjectPage({ projectId: editId, onSaved }: { projectId?: number; onSaved?: () => void } = {}) {
+  const [ask, promptUi] = usePrompt();
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
 
@@ -103,6 +101,8 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
   const [capacity, setCapacity] = useState('');
   const [startDate, setStartDate] = useState('');
   const [expectedEndDate, setExpectedEndDate] = useState('');
+  const [constructionStartDate, setConstructionStartDate] = useState(''); // 착공예정일, not 착수일 (H2)
+  const [savedDates, setSavedDates] = useState({ start: '', end: '', construction: '' }); // to preview the schedule move on save
   const [status, setStatus] = useState<ProjectStatus>('IN_PROGRESS');
   const [saved, setSaved] = useState(false);
   const [depts, setDepts] = useState<Department[]>([]);
@@ -141,6 +141,8 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setCapacity(p.capacity == null ? '' : String(p.capacity));
       setStartDate(p.startDate ?? '');
       setExpectedEndDate(p.expectedEndDate ?? '');
+      setConstructionStartDate(p.constructionStartDate ?? '');
+      setSavedDates({ start: p.startDate ?? '', end: p.expectedEndDate ?? '', construction: p.constructionStartDate ?? '' });
       setStatus(p.status);
       setTeamId(p.teamId);
       setPmUserId(p.pmUserId);
@@ -153,6 +155,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
   const [extra, setExtra] = useState<Attributes>({});
   const [result, setResult] = useState<DerivationResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [phase, setPhase] = useState(''); // what the slow save → derive → list is doing now
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState<'ALL' | RuleCategory>('ALL');
   const [showNotApplicable, setShowNotApplicable] = useState(false);
@@ -198,7 +201,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     project_kind: projectKind,
     ...(projectKind === 'EXPANSION' ? { existing_capacity_tpd: Number(existingCapacity) } : {}),
     ...(wasteTypes.length ? { waste_types: wasteTypes } : {}),
-    ...(startDate ? { construction_start: startDate } : {}),
+    ...(constructionStartDate ? { construction_start: constructionStartDate } : {}),
   });
 
   const reload = async (pid: number) => {
@@ -214,8 +217,10 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
 
   // the server applies the re-run policy: unchanged suggestions stay, changed ones are replaced
   const run = async (pid: number, attrs: Attributes) => {
+    setPhase('규칙으로 판정 중…');
     await saveAttributes(pid, attrs);
     setResult(await derive(pid));
+    setPhase('검토 목록 불러오는 중…');
     await reload(pid);
   };
 
@@ -233,24 +238,45 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
     }
   };
 
-  const approve = (s: PermitSuggestion) =>
-    act(async () => {
-      const p = s.editedPayload ?? s.payload;
-      if (p.determination !== 'ON_HOLD') return acceptSuggestion(s, null);
-      // ON_HOLD can't be approved as is: the reviewer judges it applicable and says why (EDITED_ACCEPTED)
-      const why = window.prompt('해당으로 판단한 근거를 입력하세요.')?.trim();
-      if (!why) return;
-      const edited = await editSuggestion(s, { ...p, determination: 'APPLICABLE', hold_info: null, reason: why });
-      return acceptSuggestion(edited, null);
-    });
+  const approve = async (s: PermitSuggestion) => {
+    const p = s.editedPayload ?? s.payload;
+    if (p.determination !== 'ON_HOLD') return act(() => acceptSuggestion(s, null));
+    // ON_HOLD can't be approved as is: the reviewer judges it applicable and says why (EDITED_ACCEPTED)
+    const why = (await ask('해당으로 판단한 근거를 입력하세요.'))?.trim();
+    if (!why) return;
+    act(async () => acceptSuggestion(await editSuggestion(s, { ...p, determination: 'APPLICABLE', hold_info: null, reason: why }), null));
+  };
 
-  const reject = (s: PermitSuggestion) => {
-    const why = window.prompt('거절 사유')?.trim();
+  // 해당 rows still open, minus name clashes with existing items (those need a person to look)
+  const openApplicable = Object.values(byRule).filter((s) => !['ACCEPTED', 'EDITED_ACCEPTED', 'REJECTED'].includes(s.status)
+    && (s.editedPayload ?? s.payload).determination !== 'ON_HOLD' && !permitNames.has(s.payload.permit_name));
+  const approveAll = () => {
+    if (!window.confirm(`해당 ${openApplicable.length}건을 모두 승인할까요? 승인하면 인허가 항목이 됩니다.`)) return;
+    act(async () => {
+      const failed = (await bulkAccept(openApplicable.map((s) => s.id))).filter((r) => !r.ok);
+      if (failed.length) throw new Error(`${failed.length}건은 승인하지 못했습니다: ${failed[0].reason}`);
+    });
+  };
+
+  const reject = async (s: PermitSuggestion) => {
+    const why = (await ask('거절 사유'))?.trim();
     if (why) act(() => rejectSuggestion(s, why));
+  };
+
+  /** 착수일·완료일·착공예정일 move the schedule's relative items (설계 §2.3): show how many before saving. */
+  const confirmScheduleMove = async (pid: number) => {
+    const changes = ([['KICKOFF', savedDates.start, startDate], ['COMPLETION', savedDates.end, expectedEndDate],
+      ['CONSTRUCTION_START', savedDates.construction, constructionStartDate]] as const)
+      .filter(([, from, to]) => to && to !== from);
+    const previews = await Promise.all(changes.map(([a, , to]) => setAnchor(pid, a, to, true)));
+    const moved = previews.filter((p) => p.count > 0);
+    return !moved.length || window.confirm(`${moved.map((p) => `${ANCHOR_LABEL[p.anchor]} ${p.from ?? '미정'} → ${p.to}: 일정 항목 ${p.count}건 이동`)
+      .join('\n')}\n완료·고정 항목과 기준 계획은 그대로입니다. 저장할까요?`);
   };
 
   const handleNext = async (derivation = true) => {
     setBusy(true);
+    setPhase('저장 중…');
     setError(null);
     setSaved(false);
     try {
@@ -262,6 +288,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
         capacityUnit: '톤/일',
         startDate: startDate || null,
         expectedEndDate: expectedEndDate || null,
+        constructionStartDate: constructionStartDate || null,
         status,
         teamId,
         pmUserId,
@@ -270,7 +297,9 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       const pid =
         projectId ??
         (await api<{ id: number }>('/api/projects', { method: 'POST', body })).id;
+      if (projectId && !(await confirmScheduleMove(pid))) return;
       if (projectId) await api(`/api/projects/${pid}`, { method: 'PUT', body });
+      setSavedDates({ start: startDate, end: expectedEndDate, construction: constructionStartDate });
       setProjectId(pid);
       onSaved?.();
       if (!derivation) return setSaved(true);
@@ -280,10 +309,11 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setError((e as Error).message);
     } finally {
       setBusy(false);
+      setPhase('');
     }
   };
 
-  const fillExtra = async (field: string, value: string | number) => {
+  const fillExtra = async (field: string, value: string | number | boolean) => {
     if (!projectId) return;
     const next = { ...extra, [field]: value };
     setExtra(next);
@@ -295,6 +325,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       setError((e as Error).message);
     } finally {
       setBusy(false);
+      setPhase('');
     }
   };
 
@@ -308,31 +339,32 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
       acc[cat] = derived.filter((p) => p.category === cat).length;
       return acc;
     }, {});
-    return { all: derived.length, ...byCat };
+    return { all: derived.length, ...byCat } as Record<RuleCategory | 'all', number>;
   }, [derived]);
 
   const visiblePermits =
     activeCategory === 'ALL' ? derived : derived.filter((p) => p.category === activeCategory);
 
   return (
-    <div className={editId ? '' : 'min-h-full bg-[#F8F7F2]'}>
+    <div className={editId ? '' : 'min-h-full bg-paper'}>
       <div className={editId ? 'max-w-5xl' : 'mx-auto max-w-5xl px-4 py-8 sm:px-6'}>
+      {promptUi}
         {/* Step indicator */}
         <ol className="mb-8 flex items-center gap-4 text-sm">
           <StepDot index={1} label={editId ? '프로젝트 정보·도출 조건' : '프로젝트 정보 입력'} active={step >= 1} current={step === 1} />
-          <li className="h-px flex-1 bg-[#E5E3DC]" aria-hidden />
+          <li className="h-px flex-1 bg-line" aria-hidden />
           <StepDot index={2} label="인허가 자동 도출" active={step >= 2} current={step === 2} />
         </ol>
 
         {error && (
-          <p role="alert" className="mb-4 rounded-lg border border-[#991B1B]/30 bg-red-50 px-4 py-3 text-sm text-[#991B1B]">
+          <p role="alert" className="mb-4 rounded-lg border border-danger/30 bg-red-50 px-4 py-3 text-sm text-danger">
             {error}
           </p>
         )}
 
         {step === 1 ? (
-          <section className="rounded-xl border border-[#E5E3DC] bg-white p-6 shadow-sm sm:p-8">
-            <h1 className="text-2xl font-bold text-[#1F4E79]">{editId ? '프로젝트 정보' : '프로젝트 정보 입력'}</h1>
+          <section className="rounded-xl border border-line bg-white p-6 shadow-sm sm:p-8">
+            <h1 className="text-2xl font-bold text-brand">{editId ? '프로젝트 정보' : '프로젝트 정보 입력'}</h1>
             <p className="mt-1 text-sm text-gray-500">
               {editId
                 ? '정보를 고친 뒤 저장합니다. 사업 속성을 바꿨다면 인허가를 다시 도출하세요. 바뀐 판정만 검토 목록에 새로 올라갑니다.'
@@ -359,7 +391,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   ))}
                 </select>
                 {facilityType !== 'INCINERATION' && (
-                  <p className="mt-1 text-xs text-[#B45309]">자동 도출은 현재 소각시설만 지원합니다</p>
+                  <p className="mt-1 text-xs text-warn">자동 도출은 현재 소각시설만 지원합니다</p>
                 )}
               </Field>
 
@@ -401,17 +433,18 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                     return (
                       <label
                         key={waste.value}
-                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition hover:border-[#1F4E79] focus-within:ring-2 focus-within:ring-[#1F4E79]/20 ${
+                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition hover:border-brand focus-within:ring-2 focus-within:ring-brand/20 ${
                           checked
-                            ? 'border-[#1F4E79] bg-[#1F4E79]/5 text-[#1F4E79]'
-                            : 'border-[#E5E3DC] text-gray-700'
+                            ? 'border-brand bg-brand/5 text-brand'
+                            : 'border-line text-gray-700'
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleWaste(waste.value)}
-                          className="h-4 w-4 accent-[#1F4E79]"
+                          aria-label={waste.label}
+                          className="h-4 w-4 accent-brand"
                         />
                         {waste.label}
                       </label>
@@ -429,7 +462,8 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                         name="projectKind"
                         checked={projectKind === k}
                         onChange={() => setProjectKind(k)}
-                        className="h-4 w-4 accent-[#1F4E79]"
+                        aria-label={k === 'NEW' ? '신설' : '증설'}
+                        className="h-4 w-4 accent-brand"
                       />
                       {k === 'NEW' ? '신설' : '증설'}
                     </label>
@@ -442,7 +476,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="0" className={input} />
                   <span className="shrink-0 text-sm text-gray-500">톤/일</span>
                 </div>
-                <p className="mt-1 text-xs text-[#B45309]">100톤/일 이상 시 설치승인 대상</p>
+                <p className={`mt-1 text-xs ${Number(capacity) >= 100 ? 'text-warn' : 'text-gray-500'}`}>100톤/일 이상 시 설치승인 대상</p>
               </Field>
 
               {projectKind === 'EXPANSION' && (
@@ -462,8 +496,14 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 </Field>
               )}
 
-              <Field label="착공예정일">
+              <Field label="착수일">
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} />
+                <p className="mt-1 text-xs text-gray-500">설계를 시작하는 날입니다. 일정의 착수일 기준이 됩니다.</p>
+              </Field>
+
+              <Field label="착공예정일">
+                <input type="date" value={constructionStartDate} onChange={(e) => setConstructionStartDate(e.target.value)} className={input} />
+                <p className="mt-1 text-xs text-gray-500">공사를 시작하는 날입니다. 인허가 판정과 일정의 착공일 기준에 씁니다.</p>
               </Field>
 
               {editId && (
@@ -503,13 +543,13 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
             </div>
 
             <div className="mt-8 flex items-center justify-end gap-3">
-              {saved && <span role="status" className="text-sm text-[#0F6E56]">저장했습니다</span>}
+              {saved && <span role="status" className="text-sm text-ok">저장했습니다</span>}
               {editId && (
                 <button
                   type="button"
                   disabled={!canSave || busy}
                   onClick={() => handleNext(false)}
-                  className="rounded-lg border border-[#E5E3DC] px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-[#F8F7F2] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-lg border border-line px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   저장
                 </button>
@@ -518,34 +558,35 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 type="button"
                 disabled={!canProceed || busy}
                 onClick={() => handleNext()}
-                className="rounded-lg bg-[#1F4E79] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {busy ? '처리 중…' : editId ? '저장 후 인허가 다시 도출 →' : '다음: 인허가 자동 도출 →'}
+                {busy ? phase || '처리 중…' : editId ? '저장 후 인허가 다시 도출 →' : '다음: 인허가 자동 도출 →'}
               </button>
             </div>
           </section>
         ) : (
-          <section className="rounded-xl border border-[#E5E3DC] bg-white p-6 shadow-sm sm:p-8">
-            <h1 className="text-2xl font-bold text-[#1F4E79]">인허가 자동 도출</h1>
+          <section className="rounded-xl border border-line bg-white p-6 shadow-sm sm:p-8">
+            <h1 className="text-2xl font-bold text-brand">인허가 자동 도출</h1>
             <p className="mt-1 text-sm text-gray-500">
               규칙표로 판정했습니다. 해당·판정 보류 항목은 검토 목록에 대기 중이며, 승인해야 인허가 항목이 됩니다.
             </p>
 
             {/* Summary bar */}
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#1F4E79]/5 px-4 py-3">
-              <p className="text-sm font-semibold text-[#1F4E79]">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand/5 px-4 py-3">
+              <p className="text-sm font-semibold text-brand">
                 해당 {result?.applicable ?? 0}개 · 판정 보류 {result?.onHold ?? 0}개 · 해당없음 {result?.notApplicable ?? 0}개
               </p>
               <p className="text-sm text-gray-600">
                 ruleset-v{result?.rulesetVersion} · {result && new Date(result.ranAt).toLocaleString('ko-KR')}
               </p>
             </div>
+            {busy && phase && <p role="status" className="mt-2 text-sm text-brand">{phase}</p>}
             {!!result?.errors && (
-              <p className="mt-2 text-sm text-[#991B1B]">규칙 오류 {result.errors}건 — 해당 규칙은 판정하지 못했습니다.</p>
+              <p className="mt-2 text-sm text-danger">규칙 오류 {result.errors}건 — 해당 규칙은 판정하지 못했습니다.</p>
             )}
 
             {result?.warnings?.map((w) => (
-              <p key={w.rule_key} className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-[#B45309]">
+              <p key={w.rule_key} className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-warn">
                 {w.permit_name}: {w.message} (등록된 항목은 그대로 둡니다)
               </p>
             ))}
@@ -559,12 +600,17 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   const cfg = EXTRA_INPUT[k] ?? {
                     unit: m.unit,
                     placeholder: '',
-                    options: m.type === 'ENUM' ? Object.entries(m.values).map(([value, label]) => ({ value, label })) : undefined,
+                    options:
+                      m.type === 'ENUM'
+                        ? Object.entries(m.values).map(([value, label]) => ({ value, label }))
+                        : m.type === 'BOOL' // yes/no inputs must be saved as booleans
+                          ? [{ value: 'true', label: '예' }, { value: 'false', label: '아니오' }]
+                          : undefined,
                   };
                   return (
                     <div
                       key={k}
-                      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-dashed border-[#B45309]/50 bg-amber-50 px-3 py-2 text-sm"
+                      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-dashed border-warn/50 bg-amber-50 px-3 py-2 text-sm"
                     >
                       <label htmlFor={`extra-${k}`} className="w-32 font-medium text-gray-800">
                         {w.label}
@@ -574,8 +620,8 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                           id={`extra-${k}`}
                           disabled={busy}
                           defaultValue=""
-                          onChange={(e) => e.target.value && fillExtra(k, e.target.value)}
-                          className="w-40 rounded-md border border-[#E5E3DC] bg-white px-2 py-1 text-sm"
+                          onChange={(e) => e.target.value && fillExtra(k, m.type === 'BOOL' ? e.target.value === 'true' : e.target.value)}
+                          className="w-40 rounded-md border border-line bg-white px-2 py-1 text-sm"
                         >
                           <option value="">선택</option>
                           {cfg.options.map((o) => (
@@ -598,7 +644,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                             const v = e.currentTarget.value.trim();
                             if (v !== '') fillExtra(k, Number(v) * (cfg.scale ?? 1));
                           }}
-                          className="w-32 rounded-md border border-[#E5E3DC] bg-white px-2 py-1 text-sm"
+                          className="w-32 rounded-md border border-line bg-white px-2 py-1 text-sm"
                         />
                       )}
                       <span className="text-gray-500">{cfg.unit}</span>
@@ -612,7 +658,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
             )}
 
             {/* Category tabs */}
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-5 flex flex-wrap items-center gap-2">
               <CategoryTab label={`전체(${counts.all})`} active={activeCategory === 'ALL'} onClick={() => setActiveCategory('ALL')} />
               {CATEGORY_TAB_ORDER.map((cat) => (
                 <CategoryTab
@@ -622,63 +668,31 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   onClick={() => setActiveCategory(cat)}
                 />
               ))}
+              {openApplicable.length > 0 && (
+                <button type="button" disabled={busy} onClick={approveAll}
+                  className="ml-auto rounded-lg bg-ok px-3.5 py-1.5 text-sm font-semibold text-white transition hover:bg-ok-hover focus:outline-none focus:ring-2 focus:ring-ok/30 disabled:opacity-50">
+                  해당 일괄 승인 ({openApplicable.length})
+                </button>
+              )}
             </div>
 
             {/* Table */}
-            <div className="mt-4 overflow-x-auto rounded-lg border border-[#E5E3DC]">
-              <table className="w-full min-w-[760px] text-left text-sm">
-                <thead className="bg-[#F8F7F2] text-xs uppercase text-gray-500">
+            <div className="mt-4 overflow-x-auto rounded-lg border border-line">
+              <table className="w-full min-w-[760px] whitespace-nowrap text-left text-sm">
+                <thead className="bg-paper text-xs uppercase text-gray-500">
                   <tr>
+                    <th className="px-4 py-3 font-medium">검토</th>
                     <th className="px-4 py-3 font-medium">판정</th>
                     <th className="px-4 py-3 font-medium">인허가명</th>
                     <th className="px-4 py-3 font-medium">카테고리</th>
                     <th className="px-4 py-3 font-medium">해당 사유</th>
                     <th className="px-4 py-3 font-medium">관련 법규</th>
                     <th className="px-4 py-3 font-medium">승인 시점</th>
-                    <th className="px-4 py-3 font-medium">검토</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[#E5E3DC]">
+                <tbody className="divide-y divide-line">
                   {visiblePermits.map((p) => (
-                    <tr key={p.rule_key} className="transition hover:bg-[#F8F7F2]">
-                      <td className="px-4 py-3">
-                        <span
-                          className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                            p.determination === 'ON_HOLD'
-                              ? 'bg-amber-100 text-[#B45309]'
-                              : 'bg-emerald-100 text-[#0F6E56]'
-                          }`}
-                        >
-                          {p.determination === 'ON_HOLD' ? '판정 보류' : '해당'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-medium text-gray-800">{p.permit_name}</td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${CATEGORY_BADGE[p.category]}`}>
-                          {CATEGORY_LABEL[p.category]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {p.hold_info ? (
-                          <>
-                            <b className="text-[#B45309]">{p.hold_info.missing_inputs.join(', ')} 필요</b> · {p.hold_info.criterion}
-                          </>
-                        ) : (
-                          p.reason
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <LawLink row={p} />
-                      </td>
-                      <td className="px-4 py-3 text-gray-600">
-                        {p.approval_stage}
-                        {p.required_by_text && (
-                          <span className="block text-xs text-gray-400">
-                            {p.required_by_text}
-                            {byRule[p.rule_key]?.payload.required_by_date && ` (${byRule[p.rule_key].payload.required_by_date})`}
-                          </span>
-                        )}
-                      </td>
+                    <tr key={p.rule_key} className="transition hover:bg-paper">
                       <td className="px-4 py-3">
                         <ReviewCell
                           s={byRule[p.rule_key]}
@@ -687,6 +701,45 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                           onApprove={approve}
                           onReject={reject}
                         />
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`whitespace-nowrap ${
+                            p.determination === 'ON_HOLD'
+                              ? 'text-warn'
+                              : 'text-ok'
+                          }`}
+                        >
+                          {p.determination === 'ON_HOLD' ? '판정 보류' : '해당'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-gray-800">{p.permit_name}</td>
+                      <td className="px-4 py-3">
+                        <span className="whitespace-nowrap text-gray-700">
+                          {CATEGORY_LABEL[p.category]}
+                        </span>
+                      </td>
+                      <td className="max-w-[420px] truncate px-4 py-3 text-gray-600"
+                        title={p.hold_info ? `${p.hold_info.missing_inputs.join(', ')} 필요 · ${p.hold_info.criterion}` : p.reason}>
+                        {p.hold_info ? (
+                          <>
+                            <b className="text-warn">{p.hold_info.missing_inputs.join(', ')} 필요</b> · {p.hold_info.criterion}
+                          </>
+                        ) : (
+                          p.reason
+                        )}
+                      </td>
+                      <td className="max-w-[280px] truncate px-4 py-3">
+                        <LawLink row={p} />
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">
+                        {p.approval_stage}
+                        {p.required_by_text && (
+                          <span className="ml-2 text-xs text-gray-400">
+                            {p.required_by_text}
+                            {byRule[p.rule_key]?.payload.required_by_date && ` (${byRule[p.rule_key].payload.required_by_date})`}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -701,12 +754,12 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   type="button"
                   aria-expanded={showClosed}
                   onClick={() => setShowClosed((v) => !v)}
-                  className="text-sm font-medium text-[#1F4E79] underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+                  className="text-sm font-medium text-brand underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30"
                 >
                   {showClosed ? '재실행으로 정리된 제안 접기' : `재실행으로 정리된 제안 ${closed.length}건 보기`}
                 </button>
                 {showClosed && (
-                  <ul className="mt-2 divide-y divide-[#E5E3DC] rounded-lg border border-[#E5E3DC] text-sm">
+                  <ul className="mt-2 divide-y divide-line rounded-lg border border-line text-sm">
                     {closed.map((s) => (
                       <li key={s.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5">
                         <span className="font-medium text-gray-500">{s.payload.permit_name}</span>
@@ -725,12 +778,12 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   type="button"
                   aria-expanded={showNotApplicable}
                   onClick={() => setShowNotApplicable((v) => !v)}
-                  className="text-sm font-medium text-[#1F4E79] underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+                  className="text-sm font-medium text-brand underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30"
                 >
                   {showNotApplicable ? '해당없음 접기' : `해당없음 ${notApplicable.length}건 보기`}
                 </button>
                 {showNotApplicable && (
-                  <ul className="mt-2 divide-y divide-[#E5E3DC] rounded-lg border border-[#E5E3DC] text-sm">
+                  <ul className="mt-2 divide-y divide-line rounded-lg border border-line text-sm">
                     {notApplicable.map((p) => (
                       <li key={p.rule_key} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5">
                         <span className="font-medium text-gray-500">{p.permit_name}</span>
@@ -749,14 +802,14 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="rounded-lg border border-[#E5E3DC] px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20"
+                className="rounded-lg border border-line px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20"
               >
                 ← 이전
               </button>
               <button
                 type="button"
                 onClick={() => (editId ? setStep(1) : navigate(`/projects/${projectId}`))}
-                className="rounded-lg bg-[#1F4E79] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40"
+                className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
               >
                 완료
               </button>
@@ -782,24 +835,24 @@ function ReviewCell({
   onReject: (s: PermitSuggestion) => void;
 }) {
   if (!s) return <span className="text-gray-400">—</span>;
-  if (s.status === 'ACCEPTED' || s.status === 'EDITED_ACCEPTED') return <span className="text-[#0F6E56]">승인됨</span>;
+  if (s.status === 'ACCEPTED' || s.status === 'EDITED_ACCEPTED') return <span className="text-ok">승인됨</span>;
   if (s.status === 'REJECTED') return <span className="text-gray-500" title={s.rejectReason ?? ''}>거절됨</span>;
   const onHold = (s.editedPayload ?? s.payload).determination === 'ON_HOLD';
   const btn =
-    'rounded-md border px-2 py-1 text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30';
+    'rounded-md border px-2 py-1 text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand/30';
   return (
     <div className="flex flex-col gap-1">
       <div className="flex gap-1 whitespace-nowrap">
-        <button type="button" disabled={busy} onClick={() => onApprove(s)} className={`${btn} border-[#0F6E56] text-[#0F6E56] hover:bg-emerald-50`}>
+        <button type="button" disabled={busy} onClick={() => onApprove(s)} className={`${btn} border-ok text-ok hover:bg-emerald-50`}>
           {onHold ? '해당으로 승인' : '승인'}
         </button>
-        <button type="button" disabled={busy} onClick={() => onReject(s)} className={`${btn} border-[#E5E3DC] text-gray-600 hover:bg-[#F8F7F2]`}>
+        <button type="button" disabled={busy} onClick={() => onReject(s)} className={`${btn} border-line text-gray-600 hover:bg-paper`}>
           거절
         </button>
       </div>
       {s.status === 'SUBMITTED' && <span className="text-xs text-gray-500">결재 중</span>}
-      {s.payload.warning && <span className="text-xs text-[#B45309]">{s.payload.warning}</span>}
-      {duplicate && <span className="text-xs text-[#B45309]">중복 가능: 같은 이름의 항목이 있습니다</span>}
+      {s.payload.warning && <span className="text-xs text-warn">{s.payload.warning}</span>}
+      {duplicate && <span className="text-xs text-warn">중복 가능: 같은 이름의 항목이 있습니다</span>}
     </div>
   );
 }
@@ -812,7 +865,7 @@ function LawLink({ row }: { row: JudgementRow }) {
       href={law(name)}
       target="_blank"
       rel="noreferrer"
-      className="text-[#1F4E79] underline-offset-2 transition hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+      className="text-brand underline-offset-2 transition hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30"
     >
       {text}
     </a>
@@ -838,13 +891,13 @@ function StepDot({
     <li className="flex items-center gap-2">
       <span
         className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold transition ${
-          active ? 'bg-[#1F4E79] text-white' : 'bg-[#E5E3DC] text-gray-500'
+          active ? 'bg-brand text-white' : 'bg-line text-gray-500'
         }`}
       >
         {index}
       </span>
       <span
-        className={`font-medium ${current ? 'text-[#1F4E79]' : active ? 'text-gray-700' : 'text-gray-400'}`}
+        className={`font-medium ${current ? 'text-brand' : active ? 'text-gray-700' : 'text-gray-400'}`}
       >
         {label}
       </span>
@@ -867,7 +920,7 @@ function Field({
     <div className={className}>
       <label className="mb-1.5 block text-sm font-medium text-gray-700">
         {label}
-        {required && <span className="ml-0.5 text-[#991B1B]">*</span>}
+        {required && <span className="ml-0.5 text-danger">*</span>}
       </label>
       {children}
     </div>
@@ -887,10 +940,10 @@ function CategoryTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30 ${
+      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
         active
-          ? 'bg-[#1F4E79] text-white'
-          : 'bg-[#F8F7F2] text-gray-600 hover:bg-[#E5E3DC]'
+          ? 'bg-brand text-white'
+          : 'bg-paper text-gray-600 hover:bg-line'
       }`}
     >
       {label}

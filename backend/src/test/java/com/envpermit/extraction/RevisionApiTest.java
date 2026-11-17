@@ -174,7 +174,7 @@ class RevisionApiTest extends IntegrationTest {
         call(kim, post(base(v2) + "/revisions")).andExpect(status().isAccepted());
 
         call(kim, post(base(v2) + "/revisions")).andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(REVISION_OPEN));
+                .andExpect(jsonPath("$.message").value(REVISION_OPEN));
         upload(permitId, "v3.pdf", v2, null).andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.message").value(REVISION_OPEN));
     }
@@ -187,7 +187,7 @@ class RevisionApiTest extends IntegrationTest {
         call(kim, post(base(v1) + "/extractions")).andExpect(status().isAccepted());
 
         call(kim, post(base(v2) + "/revisions")).andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(FINISH_V1));
+                .andExpect(jsonPath("$.message").value(FINISH_V1));
         assertThat(llm.calls).hasSize(1);
     }
 
@@ -196,9 +196,9 @@ class RevisionApiTest extends IntegrationTest {
         long v2 = id(upload(permitId, "v2.pdf", v1, null));
 
         call(kim, post(base(v2) + "/extractions")).andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason("개정 문서는 [개정 비교]로 처리합니다."));
+                .andExpect(jsonPath("$.message").value("개정 문서는 [개정 비교]로 처리합니다."));
         call(kim, post(base(v1) + "/revisions")).andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason("대체할 이전 버전이 없는 문서입니다."));
+                .andExpect(jsonPath("$.message").value("대체할 이전 버전이 없는 문서입니다."));
         assertThat(llm.calls).isEmpty();
     }
 

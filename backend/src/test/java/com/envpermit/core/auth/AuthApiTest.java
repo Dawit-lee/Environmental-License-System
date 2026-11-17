@@ -2,6 +2,7 @@ package com.envpermit.core.auth;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,8 +49,45 @@ class AuthApiTest extends IntegrationTest {
     }
 
     @Test
-    void protected_api_without_token_is_401() throws Exception {
-        mvc.perform(get("/api/me")).andExpect(status().isUnauthorized());
+    void protected_api_without_token_is_401_with_json_body() throws Exception {
+        mvc.perform(get("/api/me")).andExpect(status().isUnauthorized())
+                .andExpect(header().exists("WWW-Authenticate"))
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"))
+                .andExpect(jsonPath("$.message").value("로그인이 필요합니다."));
+    }
+
+    @Test
+    void five_failures_lock_the_account_for_that_ip_for_15_minutes() throws Exception { // H4
+        for (int i = 0; i < LoginThrottle.MAX_FAILURES; i++) {
+            login("kim@example.com", "wrong").andExpect(status().isUnauthorized());
+        }
+        login("kim@example.com", "correct-pw").andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value("TOO_MANY_REQUESTS"));
+        mvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"email\":\"kim@example.com\",\"password\":\"correct-pw\"}")
+                        .with(r -> {
+                            r.setRemoteAddr("10.0.0.9");
+                            return r;
+                        }))
+                .andExpect(status().isOk()); // another IP is not locked out
+        clock.advance(LoginThrottle.LOCK.minusSeconds(1));
+        login("kim@example.com", "correct-pw").andExpect(status().isTooManyRequests());
+        clock.advance(Duration.ofSeconds(1));
+        login("kim@example.com", "correct-pw").andExpect(status().isOk());
+    }
+
+    @Test
+    void failures_older_than_the_window_do_not_count_and_success_clears_them() throws Exception {
+        for (int i = 0; i < LoginThrottle.MAX_FAILURES - 1; i++) {
+            login("kim@example.com", "wrong");
+        }
+        clock.advance(LoginThrottle.WINDOW);
+        login("kim@example.com", "wrong");
+        login("kim@example.com", "correct-pw").andExpect(status().isOk()); // 1 failure in the new window
+        for (int i = 0; i < LoginThrottle.MAX_FAILURES - 1; i++) {
+            login("kim@example.com", "wrong");
+        }
+        login("kim@example.com", "correct-pw").andExpect(status().isOk()); // the success above reset the count
     }
 
     @Test
@@ -85,6 +123,35 @@ class AuthApiTest extends IntegrationTest {
         String refresh = token(login("kim@example.com", "correct-pw"), "refreshToken");
         mvc.perform(get("/api/me").header("Authorization", "Bearer " + refresh))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void logout_revokes_access_and_refresh_tokens_of_every_session() throws Exception { // M2
+        ResultActions first = login("kim@example.com", "correct-pw");
+        String access = token(first, "accessToken");
+        String refresh = token(first, "refreshToken");
+        String otherDevice = token(login("kim@example.com", "correct-pw"), "accessToken");
+
+        mvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + access))
+                .andExpect(status().isNoContent());
+
+        mvc.perform(get("/api/me").header("Authorization", "Bearer " + access)).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/me").header("Authorization", "Bearer " + otherDevice)).andExpect(status().isUnauthorized());
+        refresh(refresh).andExpect(status().isUnauthorized());
+        String fresh = token(login("kim@example.com", "correct-pw").andExpect(status().isOk()), "accessToken");
+        mvc.perform(get("/api/me").header("Authorization", "Bearer " + fresh)).andExpect(status().isOk());
+    }
+
+    @Test
+    void logout_without_a_token_is_a_no_op() throws Exception {
+        mvc.perform(post("/api/auth/logout")).andExpect(status().isNoContent());
+    }
+
+    @Test
+    void tokens_of_a_deleted_user_are_rejected() throws Exception {
+        String access = token(login("kim@example.com", "correct-pw"), "accessToken");
+        jdbc.update("DELETE FROM users");
+        mvc.perform(get("/api/me").header("Authorization", "Bearer " + access)).andExpect(status().isUnauthorized());
     }
 
     private ResultActions login(String email, String password) throws Exception {

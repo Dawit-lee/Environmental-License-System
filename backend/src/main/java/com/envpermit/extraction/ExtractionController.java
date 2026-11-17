@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -60,8 +61,7 @@ class ExtractionController {
                                             @PathVariable long permitId, @PathVariable long documentId,
                                             @RequestBody(required = false) StartRequest req) {
         AiRun run = extraction.start(projectId, permitId, documentId, jwt, req != null && req.confirmDuplicate());
-        executor.execute(() -> extraction.run(run.getId())); // after start() committed
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("runId", run.getId()));
+        return enqueue(run); // after start() committed
     }
 
     /** ④ "개정 비교": the document must supersede an earlier one. 202 + runId like extractions. */
@@ -69,7 +69,25 @@ class ExtractionController {
     ResponseEntity<Map<String, Long>> revise(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                                              @PathVariable long permitId, @PathVariable long documentId) {
         AiRun run = extraction.startRevision(projectId, permitId, documentId, jwt);
-        executor.execute(() -> extraction.run(run.getId()));
+        return enqueue(run);
+    }
+
+    /** Document → schedule suggestions (design-schedule/07). 202 + runId, polled like extractions. */
+    @PostMapping("/api/projects/{projectId}/documents/{documentId}/schedule-extractions")
+    ResponseEntity<Map<String, Long>> schedule(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
+                                               @PathVariable long documentId) {
+        AiRun run = extraction.startSchedule(projectId, documentId, jwt);
+        return enqueue(run);
+    }
+
+    private ResponseEntity<Map<String, Long>> enqueue(AiRun run) {
+        try {
+            executor.execute(() -> extraction.run(run.getId()));
+        } catch (RejectedExecutionException e) {
+            extraction.rejectQueued(run.getId());
+            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                    "AI 추출 요청이 많아 대기열이 가득 찼습니다. 잠시 후 다시 시도해 주세요.");
+        }
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(Map.of("runId", run.getId()));
     }
 

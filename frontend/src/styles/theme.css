@@ -89,6 +89,35 @@
   --sidebar-ring: #ededed;
 }
 
+/*
+ * Design tokens — the app's own colors. Use the utilities (bg-brand, border-line, text-danger,
+ * hover:bg-brand-hover, focus:ring-brand/20 …), or var(--color-*) in plain CSS and inline styles.
+ * Never write a hex value in className; add a token here instead.
+ *   brand       navy primary: buttons, links, active tab, focus ring
+ *   line        default border and table divider
+ *   line-soft   lighter divider inside dialogs and lists
+ *   paper       warm gray: row hover, table header, soft panels
+ *   danger      overdue, expired, destructive
+ *   warn        due soon, needs action
+ *   ok          done, acquired
+ * The shadcn tokens in @theme inline below (primary, border, muted …) are the Figma Make
+ * defaults the app barely uses; `border` there still sets the default border color.
+ * `static` keeps every variable in the output, since library CSS (Gantt, FullCalendar) reads them.
+ */
+@theme static {
+  --color-brand: #1F4E79;
+  --color-brand-hover: #173a5c;
+  --color-line: #E5E3DC;
+  --color-line-soft: #F0EEE8;
+  --color-paper: #F8F7F2;
+  --color-danger: #991B1B;
+  --color-danger-hover: #7f1616;
+  --color-warn: #B45309;
+  --color-warn-hover: #92400e;
+  --color-ok: #0F6E56;
+  --color-ok-hover: #0b5a46;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -158,14 +187,14 @@
     font-size: 48px;
     font-weight: var(--font-weight-semibold);
     line-height: 1;
-    letter-spacing: -2.4px;
+    letter-spacing: -0.01em; /* Korean titles run together at tighter tracking */
   }
 
   h2 {
     font-size: 32px;
     font-weight: var(--font-weight-semibold);
     line-height: 1;
-    letter-spacing: -1.28px;
+    letter-spacing: -0.01em;
   }
 
   h3 {

@@ -36,7 +36,7 @@
 
   <!-- server -->
   <rect x="110" y="226" width="910" height="560" rx="24" class="dash"/>
-  <text x="146" y="266" class="grp">AWS EC2 · Docker</text>
+  <text x="146" y="266" class="grp">Docker Compose (배포 전)</text>
   <rect x="146" y="284" width="838" height="476" rx="14" class="beige"/>
   <text x="565" y="326" class="t">Spring Boot API Server (Java 17)</text>
 
@@ -66,7 +66,7 @@
   <rect x="1060" y="284" width="300" height="476" rx="20" class="dash"/>
   <text x="1086" y="324" class="grp">External</text>
   <rect x="1086" y="350" width="248" height="104" rx="10" class="ext"/>
-  <text x="1210" y="394" class="t">Claude API</text><text x="1210" y="428" class="s">PDF 추출 · 규칙 초안</text>
+  <text x="1210" y="394" class="t">LLM (서버당 1곳)</text><text x="1210" y="428" class="s">Claude · Gemini · OpenAI</text>
   <rect x="1086" y="476" width="248" height="104" rx="10" class="ext"/>
   <text x="1210" y="520" class="t">법제처 Open API</text><text x="1210" y="554" class="s">법령 변경 목록 · 신구조문</text>
   <rect x="1086" y="634" width="248" height="100" rx="10" class="ext"/>
@@ -83,7 +83,7 @@
   <text x="410" y="888" class="t">PostgreSQL 16</text>
   <text x="410" y="924" class="s">인허가 · 의무사항 · AI 제안·감사 · 법령 · 규칙</text>
   <rect x="700" y="840" width="360" height="120" rx="14" class="teal"/>
-  <text x="880" y="888" class="t">AWS S3</text>
+  <text x="880" y="888" class="t">S3 호환 저장소</text>
   <text x="880" y="924" class="s">허가 문서 · AI 원 응답</text>
 
   <!-- legend -->

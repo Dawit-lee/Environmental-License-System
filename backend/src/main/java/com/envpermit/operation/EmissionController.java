@@ -3,6 +3,7 @@ package com.envpermit.operation;
 import static com.envpermit.core.project.ProjectAccess.userId;
 
 import com.envpermit.core.project.ProjectAccess;
+import com.envpermit.obligation.ObligationTasks;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -77,8 +78,10 @@ class EmissionController {
     private final ProjectAccess access;
     private final Clock clock;
     private final ExceedanceAlerts alerts;
+    private final ObligationTasks tasks;
 
-    EmissionController(JdbcTemplate jdbc, ProjectAccess access, Clock clock, ExceedanceAlerts alerts) {
+    EmissionController(JdbcTemplate jdbc, ProjectAccess access, Clock clock, ExceedanceAlerts alerts, ObligationTasks tasks) {
+        this.tasks = tasks;
         this.alerts = alerts;
         this.jdbc = jdbc;
         this.access = access;
@@ -155,7 +158,7 @@ class EmissionController {
 
     @GetMapping("/api/projects/{projectId}/emission-points")
     List<PointView> points(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId) {
-        access.member(projectId, jwt);
+        access.operations(projectId, jwt);
         return points("e.project_id = ? ORDER BY e.active DESC, e.medium, e.id", projectId);
     }
 
@@ -164,7 +167,7 @@ class EmissionController {
     @Transactional
     PointView createPoint(@AuthenticationPrincipal Jwt jwt, @PathVariable long projectId,
                           @Validated @RequestBody PointRequest req) {
-        access.member(projectId, jwt);
+        access.operations(projectId, jwt);
         checkPermit(projectId, req.permitItemId());
         Long id = jdbc.queryForObject("INSERT INTO emission_point (project_id, permit_item_id, medium, name) "
                 + "VALUES (?, ?, ?, ?) RETURNING id", Long.class, projectId, req.permitItemId(), req.medium(), req.name().trim());
@@ -253,6 +256,18 @@ class EmissionController {
         return limits("l.id = ?", id).get(0);
     }
 
+    /** 오입력 한도 삭제: only while no measured value was judged against it; after that [닫기] or [한도 변경] keeps the history. */
+    @DeleteMapping("/api/limits/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @Transactional
+    void deleteLimit(@AuthenticationPrincipal Jwt jwt, @PathVariable long id) {
+        limit(id, jwt);
+        if (jdbc.queryForObject("SELECT count(*) FROM measurement WHERE limit_id = ?", Integer.class, id) > 0) { // deleted values too: their snapshot points here
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "이 한도로 판정한 측정값이 있어 삭제할 수 없습니다. [닫기]나 [한도 변경]을 쓰세요.");
+        }
+        jdbc.update("DELETE FROM permit_limit WHERE id = ?", id);
+    }
+
     /** "한도 확인 필요" acknowledged: the person looked at the revised condition; the value itself is untouched. */
     @PostMapping("/api/limits/{id}/reviewed")
     @Transactional
@@ -299,6 +314,9 @@ class EmissionController {
                     req.source() == null ? "MANUAL" : req.source(), req.taskId(), limit == null ? null : limit.id(),
                     lower, limitValue, ratio, Judgement.judge(r.value(), lower, limitValue, ratio, r.belowDetection()).name(),
                     userId(jwt), now));
+        }
+        if (req.taskId() != null) {
+            tasks.measurementEvent(req.taskId(), userId(jwt), true, ids);
         }
         alerts.raise(p.projectId(), id, ids, userId(jwt)); // 초과 → 조치 업무 + 알림, 근접 → 알림 (ticket 06)
         return ids.stream().map(m -> measurements("AND m.id = ?", m).get(0)).toList();
@@ -373,17 +391,20 @@ class EmissionController {
         Long projectId = jdbc.queryForList("SELECT e.project_id FROM measurement m JOIN emission_point e "
                         + "ON e.id = m.emission_point_id WHERE m.id = ? AND m.deleted_at IS NULL FOR UPDATE OF m", Long.class, id)
                 .stream().findFirst().orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        access.member(projectId, jwt);
+        access.hideForeign(projectId, jwt);
+        access.operations(projectId, jwt);
         jdbc.update("UPDATE measurement SET deleted_at = ?, deleted_by = ?, delete_reason = ? WHERE id = ?",
                 Timestamp.from(clock.instant()), userId(jwt), req.reason().trim(), id);
+        jdbc.queryForList("SELECT task_id FROM measurement WHERE id = ? AND task_id IS NOT NULL", Long.class, id)
+                .forEach(taskId -> tasks.measurementEvent(taskId, userId(jwt), false, List.of(id)));
     }
 
-    // --- lookups: 404 unknown, 403 not a project member ----------------------------------------------------------
+    // --- lookups: 404 unknown (or another company's), 403 not a project member ----------------------------------------------------------
 
     private PointView point(long id, Jwt jwt) {
         PointView p = points("e.id = ?", id).stream().findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        access.member(p.projectId(), jwt);
+        access.operations(p.projectId(), jwt);
         return p;
     }
 
@@ -391,7 +412,8 @@ class EmissionController {
         Long projectId = jdbc.queryForList("SELECT e.project_id FROM permit_limit l JOIN emission_point e "
                         + "ON e.id = l.emission_point_id WHERE l.id = ? FOR UPDATE OF l", Long.class, id).stream().findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        access.member(projectId, jwt);
+        access.hideForeign(projectId, jwt);
+        access.operations(projectId, jwt);
         return limits("l.id = ?", id).get(0);
     }
 

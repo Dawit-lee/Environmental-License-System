@@ -4,6 +4,8 @@ import { api } from '../api/client';
 import PermitDocuments from './PermitDocuments';
 import PermitLawLinks from './PermitLawLinks';
 import PermitVersions from './PermitVersions';
+import { Help } from './Onboarding';
+import { useEscape } from './useEscape';
 
 // ---------------------------------------------------------------------------
 // PermitDetailDrawer — slide-in panel (480px) showing a single permit's
@@ -19,14 +21,6 @@ const CATEGORY_LABEL: Record<PermitCategory, string> = {
   ENVIRONMENT: '환경평가',
 };
 
-const CATEGORY_BADGE: Record<PermitCategory, string> = {
-  LOCATION: 'bg-amber-100 text-amber-800',
-  FACILITY: 'bg-sky-100 text-sky-800',
-  CONSTRUCTION: 'bg-violet-100 text-violet-800',
-  ELECTRICAL: 'bg-emerald-100 text-emerald-800',
-  ENVIRONMENT: 'bg-rose-100 text-rose-800',
-};
-
 const STATUS_LABEL: Record<PermitStatus, string> = {
   NOT_APPLIED: '미신청',
   IN_PROGRESS: '진행중',
@@ -37,8 +31,8 @@ const STATUS_LABEL: Record<PermitStatus, string> = {
 
 function dDayClasses(dDay: number | null): string {
   if (dDay === null) return 'bg-gray-200 text-gray-600';
-  if (dDay <= 7) return 'bg-[#991B1B] text-white';
-  if (dDay <= 30) return 'bg-[#B45309] text-white';
+  if (dDay <= 7) return 'bg-danger text-white';
+  if (dDay <= 30) return 'bg-warn text-white';
   if (dDay <= 60) return 'bg-amber-400 text-amber-900';
   return 'bg-gray-200 text-gray-600';
 }
@@ -50,6 +44,7 @@ function dDayLabel(dDay: number | null): string {
 }
 
 function historyText(h: PermitHistory): string {
+  if (!h.changedBy) return `날짜에 따라 상태가 ${h.fromStatus ? `${STATUS_LABEL[h.fromStatus]} → ` : ''}${STATUS_LABEL[h.toStatus]}(으)로 바뀌었습니다.`;
   return h.fromStatus
     ? `${h.changedBy}님이 상태를 ${STATUS_LABEL[h.fromStatus]} → ${STATUS_LABEL[h.toStatus]}(으)로 변경했습니다.`
     : `${h.changedBy}님이 ${STATUS_LABEL[h.toStatus]} 상태로 등록했습니다.`;
@@ -58,9 +53,11 @@ function historyText(h: PermitHistory): string {
 export default function PermitDetailDrawer({
   permit,
   onClose,
+  onSaved,
 }: {
   permit: PermitItem | null;
   onClose: () => void;
+  onSaved?: (p: PermitItem) => void; // members only: edits 일정·상태 and the 보고 문구
 }) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [history, setHistory] = useState<PermitHistory[]>([]);
@@ -73,6 +70,7 @@ export default function PermitDetailDrawer({
   }, [permit]);
 
   const open = permit !== null;
+  useEscape(onClose, open);
 
   return (
     <div
@@ -99,11 +97,9 @@ export default function PermitDetailDrawer({
         {permit && (
           <>
             {/* Header */}
-            <div className="flex items-start justify-between border-b border-[#E5E3DC] px-6 py-4">
+            <div className="flex items-start justify-between border-b border-line px-6 py-4">
               <div>
-                <span
-                  className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${CATEGORY_BADGE[permit.category]}`}
-                >
+                <span className="text-sm text-gray-500">
                   {CATEGORY_LABEL[permit.category]}
                 </span>
                 <h2 className="mt-2 text-lg font-semibold text-gray-900">{permit.name}</h2>
@@ -112,7 +108,7 @@ export default function PermitDetailDrawer({
                 type="button"
                 onClick={onClose}
                 aria-label="닫기"
-                className="rounded-lg p-1.5 text-gray-500 transition hover:bg-[#F8F7F2] hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+                className="rounded-lg p-1.5 text-gray-500 transition hover:bg-paper hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand/30"
               >
                 <span className="block h-5 w-5 text-center text-lg leading-5">✕</span>
               </button>
@@ -122,7 +118,7 @@ export default function PermitDetailDrawer({
             <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
               {/* 해당 사유 */}
               <Section title="해당 사유">
-                <div className="rounded-lg bg-[#F8F7F2] p-3 text-sm leading-relaxed text-gray-700">
+                <div className="rounded-lg bg-paper p-3 text-sm leading-relaxed text-gray-700">
                   {permit.reason}
                 </div>
               </Section>
@@ -136,7 +132,7 @@ export default function PermitDetailDrawer({
                       href={permit.regulationUrl ?? undefined}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-[#1F4E79] underline-offset-2 hover:underline"
+                      className="text-brand underline-offset-2 hover:underline"
                     >
                       {permit.regulation}
                     </a>
@@ -147,13 +143,13 @@ export default function PermitDetailDrawer({
 
               {/* 승인기관 */}
               <Section title="승인기관">
-                <div className="flex items-center justify-between rounded-lg border border-[#E5E3DC] px-3 py-2.5">
+                <div className="flex items-center justify-between rounded-lg border border-line px-3 py-2.5">
                   <span className="text-sm text-gray-700">{permit.authority}</span>
                   <a
                     href={permit.authorityUrl ?? undefined}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-sm font-medium text-[#1F4E79] transition hover:underline focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30"
+                    className="text-sm font-medium text-brand transition hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30"
                   >
                     {permit.authority} 바로가기 →
                   </a>
@@ -162,13 +158,18 @@ export default function PermitDetailDrawer({
 
               {/* 일정 */}
               <Section title="일정">
-                <div className="flex items-center justify-between">
-                  <Milestone label="신청일" value={permit.applicationDate} />
-                  <Arrow />
-                  <Milestone label="취득일" value={permit.acquisitionDate} />
-                  <Arrow />
-                  <Milestone label="만료일" value={permit.expiryDate} />
-                </div>
+                {onSaved ? (
+                  <PermitDates key={`${permit.id}-${permit.status}-${permit.applicationDate}-${permit.acquisitionDate}-${permit.expiryDate}`}
+                    permit={permit} onSaved={onSaved} />
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <Milestone label="신청일" value={permit.applicationDate} />
+                    <Arrow />
+                    <Milestone label="취득일" value={permit.acquisitionDate} />
+                    <Arrow />
+                    <Milestone label="만료일" value={permit.expiryDate} />
+                  </div>
+                )}
                 <div className="mt-4 flex items-center gap-2">
                   <span
                     className={`inline-flex items-center rounded-lg px-3 py-1.5 text-base font-bold ${dDayClasses(permit.dDay)}`}
@@ -178,22 +179,28 @@ export default function PermitDetailDrawer({
                   <span className="text-sm text-gray-500">
                     상태: {STATUS_LABEL[permit.status]}
                   </span>
+                  <Help k="permitStatus" />
                 </div>
               </Section>
 
               {/* 다음 액션 */}
               <Section title="다음 액션">
-                <div className="rounded-lg border border-[#B45309]/30 bg-[#B45309]/10 p-3">
-                  <p className="text-sm text-[#B45309]">{permit.nextAction}</p>
+                <div className="rounded-lg border border-warn/30 bg-warn/10 p-3">
+                  <p className="text-sm text-warn">{permit.nextAction}</p>
                   <a
                     href={permit.nextActionUrl ?? undefined}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 inline-flex rounded-lg bg-[#B45309] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#92400e] focus:outline-none focus:ring-2 focus:ring-[#B45309]/40"
+                    className="mt-3 inline-flex rounded-lg bg-warn px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-warn-hover focus:outline-none focus:ring-2 focus:ring-warn/40"
                   >
                     {permit.authority} 바로가기
                   </a>
                 </div>
+              </Section>
+
+              {/* 진행 현황 보고 1쪽 문구 */}
+              <Section title="보고 문구">
+                <ReportNotes key={permit.id} permit={permit} onSaved={onSaved} />
               </Section>
 
               {/* 첨부 문서 */}
@@ -211,7 +218,7 @@ export default function PermitDetailDrawer({
                 <button
                   type="button"
                   onClick={() => setHistoryOpen((v) => !v)}
-                  className="flex w-full items-center justify-between rounded-lg border border-[#E5E3DC] px-3 py-2.5 text-sm text-gray-700 transition hover:bg-[#F8F7F2] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/20"
+                  className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2.5 text-sm text-gray-700 transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20"
                 >
                   <span>이력 {history.length}건</span>
                   <span aria-hidden className={`transition-transform ${historyOpen ? 'rotate-180' : ''}`}>
@@ -233,6 +240,144 @@ export default function PermitDetailDrawer({
           </>
         )}
       </aside>
+    </div>
+  );
+}
+
+// --- 일정·상태 (2026-11-17 review H1·H3) -------------------------------------
+
+const DATE_FIELDS = [
+  { key: 'applicationDate', label: '신청일' },
+  { key: 'acquisitionDate', label: '취득일' },
+  { key: 'expiryDate', label: '만료일' },
+] as const;
+
+/** Dates and the status. The server derives the status from the dates; the pick only counts where they can't decide. */
+function PermitDates({ permit, onSaved }: { permit: PermitItem; onSaved: (p: PermitItem) => void }) {
+  const [draft, setDraft] = useState({
+    applicationDate: permit.applicationDate ?? '',
+    acquisitionDate: permit.acquisitionDate ?? '',
+    expiryDate: permit.expiryDate ?? '',
+    // 만료임박·만료 are computed; as a pick they mean "취득함"
+    status: (permit.status === 'NEAR_EXPIRY' || permit.status === 'EXPIRED' ? 'COMPLETED' : permit.status) as PermitStatus,
+  });
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const dirty = DATE_FIELDS.some((f) => draft[f.key] !== (permit[f.key] ?? ''))
+    || draft.status !== (permit.status === 'NEAR_EXPIRY' || permit.status === 'EXPIRED' ? 'COMPLETED' : permit.status);
+
+  async function save() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const body = { ...permit, status: draft.status, ...Object.fromEntries(DATE_FIELDS.map((f) => [f.key, draft[f.key] || null])) };
+      const saved = await api<PermitItem>(`/api/projects/${permit.projectId}/permits/${permit.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      onSaved(saved);
+      if (saved.status !== draft.status) setMessage(`날짜에 따라 ${STATUS_LABEL[saved.status]}(으)로 저장했습니다.`);
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {DATE_FIELDS.map((f) => (
+        <label key={f.key} className="flex items-center gap-3 text-sm">
+          <span className="w-16 shrink-0 text-gray-500">{f.label}</span>
+          <input type="date" value={draft[f.key]} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
+            className="min-w-0 flex-1 rounded-lg border border-line px-3 py-1.5 text-gray-800 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
+        </label>
+      ))}
+      <label className="flex items-center gap-3 text-sm">
+        <span className="w-16 shrink-0 text-gray-500">상태</span>
+        <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as PermitStatus })}
+          className="min-w-0 flex-1 rounded-lg border border-line px-3 py-1.5 text-gray-800 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
+          <option value="NOT_APPLIED">미신청</option>
+          <option value="IN_PROGRESS">진행중</option>
+          <option value="COMPLETED">취득완료</option>
+        </select>
+      </label>
+      <p className="text-xs text-gray-500">날짜를 넣으면 상태는 날짜로 정해집니다.</p>
+      <div className="flex items-center justify-end gap-3">
+        {message && <span className="text-xs text-gray-500">{message}</span>}
+        <button type="button" onClick={save} disabled={!dirty || busy}
+          className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40">
+          저장
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// --- Report notes (design-schedule/08) -------------------------------------
+
+const NOTE_FIELDS = [
+  { key: 'progressNote', label: '진행 메모', max: 200, hint: '예: 가온시 도시과 검토 중(10/21)' },
+  { key: 'expectedCompletion', label: '예상완료', max: 50, hint: '예: 11월 중순, 착공 전' },
+  { key: 'issueNote', label: '현안 메모', max: 300, hint: '필요 조치, 선후 관계' },
+] as const;
+
+function ReportNotes({ permit, onSaved }: { permit: PermitItem; onSaved?: (p: PermitItem) => void }) {
+  const [draft, setDraft] = useState({
+    progressNote: permit.progressNote ?? '',
+    expectedCompletion: permit.expectedCompletion ?? '',
+    issueNote: permit.issueNote ?? '',
+  });
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const dirty = NOTE_FIELDS.some((f) => draft[f.key] !== (permit[f.key] ?? ''));
+
+  async function save() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const body = { ...permit, ...Object.fromEntries(NOTE_FIELDS.map((f) => [f.key, draft[f.key].trim() || null])) };
+      const saved = await api<PermitItem>(`/api/projects/${permit.projectId}/permits/${permit.id}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      onSaved?.(saved);
+      setMessage('저장했습니다.');
+    } catch (e) {
+      setMessage((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      {NOTE_FIELDS.map((f) => (
+        <label key={f.key} className="flex items-center gap-3 text-sm">
+          <span className="w-16 shrink-0 text-gray-500">{f.label}</span>
+          <input
+            value={draft[f.key]}
+            maxLength={f.max}
+            placeholder={f.hint}
+            readOnly={!onSaved}
+            onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
+            className="min-w-0 flex-1 rounded-lg border border-line px-3 py-1.5 text-gray-800 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+          />
+        </label>
+      ))}
+      {onSaved && (
+        <div className="flex items-center justify-end gap-3">
+          {message && <span className="text-xs text-gray-500">{message}</span>}
+          <button
+            type="button"
+            onClick={save}
+            disabled={!dirty || busy}
+            className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40"
+          >
+            저장
+          </button>
+        </div>
+      )}
     </div>
   );
 }

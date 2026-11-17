@@ -10,6 +10,7 @@ class LogMailer implements Mailer {
 
     @Override
     public void send(String to, String subject, String body) {
-        log.info("mail to={} subject={}\n{}", to, subject, body);
+        log.info("mail to={} subject={}", to, subject); // L11: the body (names, emails) only at DEBUG
+        log.debug("mail body:\n{}", body);
     }
 }

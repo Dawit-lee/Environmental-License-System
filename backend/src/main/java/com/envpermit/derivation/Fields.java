@@ -65,6 +65,9 @@ public final class Fields {
             opt("has_boiler_pressure_vessel", "보일러·압력용기", Type.BOOL, ""),
             opt("uses_hazardous_chemicals", "유해화학물질 사용", Type.BOOL, ""),
             opt("has_hazardous_material_storage", "위험물 저장", Type.BOOL, ""),
+            opt("sells_electricity", "전력 판매(전력시장 공급)", Type.BOOL, ""),
+            opt("receiving_capacity_kw", "수전 용량", Type.NUMBER, "kW"),
+            opt("has_elevator", "승강기 설치", Type.BOOL, ""),
             // derived (§2.3), computed by the server — not accepted as input
             opt("expansion_ratio", "증설 비율", Type.NUMBER, ""));
 

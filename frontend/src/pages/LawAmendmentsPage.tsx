@@ -16,8 +16,8 @@ import {
 // ---------------------------------------------------------------------------
 
 const LEVEL = {
-  DIRECT: { label: '직접 영향', cls: 'bg-red-100 text-[#991B1B]' },
-  REFERENCE: { label: '참고', cls: 'bg-gray-100 text-gray-600' },
+  DIRECT: { label: '직접 영향', cls: 'text-danger' },
+  REFERENCE: { label: '참고', cls: 'text-gray-600' },
 };
 
 const WHOLE_LAW = ['폐지', '타법개정', '일괄개정', '전부개정'];
@@ -78,7 +78,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
   }, [selectedId]);
 
   if (!items) {
-    return <div className={`text-sm text-gray-500 ${projectId ? '' : 'min-h-full bg-[#F8F7F2] p-8'}`}>{error ?? '불러오는 중…'}</div>;
+    return <div className={`text-sm text-gray-500 ${projectId ? '' : 'min-h-full bg-paper p-8'}`}>{error ?? '불러오는 중…'}</div>;
   }
 
   const projects = [...new Map(items.map((i) => [i.projectId, i.projectName])).entries()];
@@ -112,25 +112,25 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
   ];
 
   return (
-    <div className="min-h-full bg-[#F8F7F2]">
+    <div className="min-h-full bg-paper">
       <div className={projectId ? '' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6'}>
         <p className="text-xs font-semibold tracking-wide text-gray-500">매일 06:00 법제처 개정 목록 확인</p>
-        <h1 className="mt-1 text-2xl font-bold text-[#1F4E79]">법령 개정 알림</h1>
+        <h1 className="mt-1 text-2xl font-bold text-brand">법령 개정 알림</h1>
         <p className="mt-1 max-w-2xl text-sm text-gray-500">
           연결한 조문이나 하위 법령이 바뀌면 직접 영향, 같은 법의 다른 조문만 바뀌면 참고로 분류합니다.
         </p>
-        {error && <p className="mt-2 text-sm text-[#991B1B]">{error}</p>}
+        {error && <p className="mt-2 text-sm text-danger">{error}</p>}
 
         <div className="mt-5 flex flex-wrap items-center gap-2">
           {chips.map((c) => (
             <button key={c.key} type="button" onClick={() => setFilter(c.key)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === c.key ? 'bg-[#1F4E79] text-white' : 'bg-white text-gray-600 hover:bg-[#E5E3DC]'}`}>
+              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === c.key ? 'bg-brand text-white' : 'bg-white text-gray-600 hover:bg-line'}`}>
               {c.label} ({c.n})
             </button>
           ))}
           {projects.length > 1 && (
             <select aria-label="프로젝트" value={project} onChange={(e) => setProject(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
-              className="rounded-full border border-[#E5E3DC] bg-white px-3 py-1.5 text-sm text-gray-600">
+              className="rounded-full border border-line bg-white px-3 py-1.5 text-sm text-gray-600">
               <option value="ALL">모든 프로젝트</option>
               {projects.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
             </select>
@@ -138,14 +138,14 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
         </div>
 
         {items.length === 0 ? (
-          <p className="mt-6 rounded-xl border border-[#E5E3DC] bg-white p-8 text-center text-sm text-gray-500">
+          <p className="mt-6 rounded-xl border border-line bg-white p-8 text-center text-sm text-gray-500">
             아직 감지된 법령 개정 영향이 없습니다. 인허가 항목에 근거 법령을 연결하면 개정 시 알려 드립니다.
           </p>
         ) : (
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <section className="min-w-0 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-            <table className="w-full min-w-[560px] text-left text-sm">
-              <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
+          <section className="min-w-0 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+            <table className="w-full min-w-[480px] whitespace-nowrap text-left text-sm">
+              <thead className="bg-paper text-xs text-gray-500">
                 <tr>
                   <th className="px-3 py-2.5 font-medium">구분</th>
                   <th className="px-3 py-2.5 font-medium">법령</th>
@@ -154,22 +154,23 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
                   <th className="px-3 py-2.5 font-medium">상태</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DC]">
+              <tbody className="divide-y divide-line">
                 {rows.map((i) => (
                   <tr key={i.id} onClick={() => setParams({ id: String(i.id) })}
-                    className={`cursor-pointer transition ${i.id === selectedId ? 'bg-[#1F4E79]/5' : 'hover:bg-[#F8F7F2]'}`}>
+                    className={`cursor-pointer transition ${i.id === selectedId ? 'bg-brand/5' : 'hover:bg-paper'}`}>
                     <td className="px-3 py-2.5"><Badge {...LEVEL[i.level]} /></td>
-                    <td className="px-3 py-2.5">
-                      <div className="font-medium text-gray-800">{i.lawName}</div>
-                      <div className="text-xs text-gray-500">{i.revisionType} · 공포 {i.promulgatedOn ?? '-'}</div>
+                    {/* 개정 구분·공포일 are in the detail panel; the list keeps 시행일 in view */}
+                    <td className="max-w-[240px] px-3 py-2.5">
+                      <button type="button" className="block max-w-full truncate text-left font-medium text-gray-800"
+                        title={`${i.lawName} · ${i.revisionType} · 공포 ${i.promulgatedOn ?? '-'}`}>{i.lawName}</button>
                     </td>
                     <td className="px-3 py-2.5 text-gray-700">
                       {i.permitName}
-                      <div className="text-xs text-gray-400">{i.projectName}</div>
+                      {projectId === undefined && <span className="ml-2 text-xs text-gray-400">{i.projectName}</span>}
                     </td>
                     <td className="px-3 py-2.5 font-mono text-xs">{i.enforcedOn ?? '-'}</td>
                     <td className="px-3 py-2.5">
-                      <Badge label={i.status === 'REVIEWED' ? '확인함' : '미확인'} cls={i.status === 'REVIEWED' ? 'bg-emerald-100 text-[#0F6E56]' : 'bg-amber-100 text-[#B45309]'} />
+                      <Badge label={i.status === 'REVIEWED' ? '확인함' : '미확인'} cls={i.status === 'REVIEWED' ? 'text-ok' : 'text-warn'} />
                     </td>
                   </tr>
                 ))}
@@ -178,11 +179,11 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
           </section>
 
           {detail && sel ? (
-          <section className="min-w-0 space-y-4 rounded-xl border border-[#E5E3DC] bg-white p-5 shadow-sm">
+          <section className="min-w-0 space-y-4 rounded-xl border border-line bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-base font-semibold text-gray-800">{sel.lawName}</h2>
               <div className="flex gap-1.5">
-                {sel.replacementNeeded && <Badge label="대체 법령 확인 필요" cls="bg-amber-100 text-[#B45309]" />}
+                {sel.replacementNeeded && <Badge label="대체 법령 확인 필요" cls="text-warn" />}
                 <Badge {...LEVEL[sel.level]} />
               </div>
             </div>
@@ -200,18 +201,18 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
                 <div key={a.articleNo} className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-mono">{a.articleNo}</span><span>{a.changeReason}</span>
                   {a.enforcedOn && <span className="text-xs text-gray-500">시행 {a.enforcedOn}</span>}
-                  {a.mine && <Badge label="내가 지정한 조문" cls="bg-sky-100 text-sky-800" />}
+                  {a.mine && <Badge label="내가 지정한 조문" cls="text-sky-800" />}
                 </div>
               ))}
             </div>
             {detail.oldNew ? (
-              <div className="overflow-hidden rounded-lg border border-[#E5E3DC] text-sm">
-                <div className="grid grid-cols-2 bg-[#F8F7F2] text-xs font-semibold text-gray-500">
-                  <p className="border-r border-[#E5E3DC] px-3 py-1.5">현행</p><p className="px-3 py-1.5">개정</p>
+              <div className="overflow-hidden rounded-lg border border-line text-sm">
+                <div className="grid grid-cols-2 bg-paper text-xs font-semibold text-gray-500">
+                  <p className="border-r border-line px-3 py-1.5">현행</p><p className="px-3 py-1.5">개정</p>
                 </div>
                 {detail.oldNew.map((r, k) => (
-                  <div key={k} className="grid grid-cols-2 border-t border-[#E5E3DC]">
-                    <div className="border-r border-[#E5E3DC] bg-red-50/60 p-3"><Marked text={r.old} /></div>
+                  <div key={k} className="grid grid-cols-2 border-t border-line">
+                    <div className="border-r border-line bg-red-50/60 p-3"><Marked text={r.old} /></div>
                     <div className="bg-emerald-50/60 p-3"><Marked text={r.next} /></div>
                   </div>
                 ))}
@@ -230,23 +231,23 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
               </span>
               <textarea value={memo} disabled={reviewed} onChange={(e) => setMemo(e.target.value)}
                 placeholder="예: 운전기록 보존기간 3년으로 운영 매뉴얼 수정 필요"
-                className="min-h-[72px] w-full rounded-lg border border-[#E5E3DC] px-3 py-2 text-sm outline-none focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20" />
-              {memoError && <span className="text-xs text-[#991B1B]">확인 메모를 적어 주세요. 예: 영향 없음 / 조치 필요</span>}
+                className="min-h-[72px] w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
+              {memoError && <span className="text-xs text-danger">확인 메모를 적어 주세요. 예: 영향 없음 / 조치 필요</span>}
             </label>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={markReviewed} disabled={reviewed || saving}
-                className="rounded-lg bg-[#1F4E79] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#173a5c] disabled:cursor-not-allowed disabled:opacity-40">
+                className="rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40">
                 {reviewed ? '확인함' : '확인 처리'}
               </button>
               <a href={detail.sourceUrl} target="_blank" rel="noreferrer"
-                className="rounded-lg border border-[#E5E3DC] px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-[#F8F7F2]">
+                className="rounded-lg border border-line px-3.5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-paper">
                 법제처 원문 보기
               </a>
             </div>
-            <p className="border-t border-[#E5E3DC] pt-3 text-xs text-gray-400">{detail.source}</p>
+            <p className="border-t border-line pt-3 text-xs text-gray-400">{detail.source}</p>
           </section>
           ) : (
-            <section className="rounded-xl border border-[#E5E3DC] bg-white p-5 text-sm text-gray-500 shadow-sm">불러오는 중…</section>
+            <section className="rounded-xl border border-line bg-white p-5 text-sm text-gray-500 shadow-sm">불러오는 중…</section>
           )}
         </div>
         )}
@@ -256,5 +257,5 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
 }
 
 function Badge({ label, cls }: { label: string; cls: string }) {
-  return <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
+  return <span className={`whitespace-nowrap ${cls}`}>{label}</span>;
 }

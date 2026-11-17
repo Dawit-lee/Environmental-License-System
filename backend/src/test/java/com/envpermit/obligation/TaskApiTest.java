@@ -121,7 +121,7 @@ class TaskApiTest extends IntegrationTest {
 
         call(lee, json(post("/api/tasks/" + task + "/complete"), "{}"))
                 .andExpect(status().isUnprocessableEntity())
-                .andExpect(status().reason(ObligationTasks.NEEDS_EVIDENCE));
+                .andExpect(jsonPath("$.message").value(ObligationTasks.NEEDS_EVIDENCE));
 
         long doc = upload(permitId, "측정성적서-1월.pdf");
         call(lee, json(post("/api/tasks/" + task + "/evidence"), "{\"documentId\":" + doc + "}"))
@@ -189,7 +189,7 @@ class TaskApiTest extends IntegrationTest {
         long otherTask = openTask(other);
         attach(otherTask);
         call(lee, json(post("/api/tasks/" + otherTask + "/complete"), "{}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NEEDS_NEXT_DUE));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.NEEDS_NEXT_DUE));
         call(lee, get("/api/tasks/" + otherTask)).andExpect(jsonPath("$.task.status").value("OPEN"));
         call(lee, json(post("/api/tasks/" + otherTask + "/complete"), "{\"nextDueDate\":\"2026-07-01\"}"))
                 .andExpect(status().isOk());
@@ -205,7 +205,7 @@ class TaskApiTest extends IntegrationTest {
         long task = openTask(obligation);
 
         call(kim, post("/api/obligations/" + obligation + "/complete"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NEEDS_EVIDENCE));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.NEEDS_EVIDENCE));
         attach(task);
         call(kim, post("/api/obligations/" + obligation + "/complete"))
                 .andExpect(status().isOk())
@@ -222,7 +222,7 @@ class TaskApiTest extends IntegrationTest {
         long own = upload(permitId, "성적서.pdf");
 
         call(lee, json(post("/api/tasks/" + task + "/evidence"), "{\"documentId\":" + foreign + "}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.OTHER_PERMIT));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.OTHER_PERMIT));
         call(lee, json(post("/api/tasks/" + task + "/evidence"), "{\"documentId\":999999}"))
                 .andExpect(status().isUnprocessableEntity());
 
@@ -292,6 +292,46 @@ class TaskApiTest extends IntegrationTest {
         job.createDueNotifications();
         assertThat(notified(kimId)).containsExactly(30);
         call(lee, get("/api/tasks/mine")).andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void removing_a_member_unassigns_their_open_tasks_and_reminds_every_member_again() throws Exception {
+        long task = openTask(accepted("MONTHLY", "2026-01-31"));
+        long done = openTask(accepted("ONCE", "2026-01-20"));
+        call(kim, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + leeId + "}")).andExpect(status().isOk());
+        call(kim, json(patch("/api/tasks/" + done), "{\"assigneeId\":" + leeId + "}")).andExpect(status().isOk());
+        attach(done);
+        call(kim, json(post("/api/tasks/" + done + "/complete"), "{}")).andExpect(status().isOk());
+
+        call(kim, delete("/api/projects/" + projectId + "/members/" + leeId)).andExpect(status().isNoContent());
+
+        call(kim, get("/api/tasks/" + task))
+                .andExpect(jsonPath("$.task.assigneeId").doesNotExist())
+                .andExpect(jsonPath("$.events[*].type", contains("CREATED", "ASSIGNED", "ASSIGNED")))
+                .andExpect(jsonPath("$.events[2].data.from").value(leeId))
+                .andExpect(jsonPath("$.events[2].data.to").doesNotExist())
+                .andExpect(jsonPath("$.people." + leeId).value("이에이")); // the history still names who it was
+        call(kim, get("/api/tasks/" + done)).andExpect(jsonPath("$.task.assigneeName").value("이에이")); // closed work keeps who did it
+        job.createDueNotifications(); // D-26 → the D-30 reminder goes to the members that are left
+        assertThat(notified(kimId)).containsExactly(30);
+        assertThat(notified(leeId)).isEmpty();
+    }
+
+    @Test
+    void an_overdue_task_nobody_holds_is_in_the_admins_todo_list() throws Exception {
+        long task = openTask(accepted("MONTHLY", "2026-01-31"));
+        call(kim, get("/api/tasks/mine")).andExpect(jsonPath("$.length()").value(0)); // not overdue yet
+
+        clock.advance(Duration.ofDays(27)); // 2026-02-01
+        kim = login("kim@a.com"); // the old tokens expired meanwhile
+        lee = login("lee@a.com");
+        park = login("park@b.com");
+        call(kim, get("/api/tasks/mine")) // kim created the project: project admin
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].id").value(task))
+                .andExpect(jsonPath("$[0].assigneeId").doesNotExist());
+        call(lee, get("/api/tasks/mine")).andExpect(jsonPath("$.length()").value(0)); // plain member, not PM/EM
+        call(park, get("/api/tasks/mine")).andExpect(jsonPath("$.length()").value(0));
     }
 
     @Test
@@ -385,9 +425,9 @@ class TaskApiTest extends IntegrationTest {
         long task = openTask(obligation);
 
         call(kim, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + parkId + ",\"version\":0}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NOT_MEMBER));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.NOT_MEMBER));
         call(kim, json(patch("/api/obligations/" + obligation), "{\"defaultAssigneeId\":" + parkId + "}"))
-                .andExpect(status().isUnprocessableEntity()).andExpect(status().reason(ObligationTasks.NOT_MEMBER));
+                .andExpect(status().isUnprocessableEntity()).andExpect(jsonPath("$.message").value(ObligationTasks.NOT_MEMBER));
         call(park, json(patch("/api/tasks/" + task), "{\"assigneeId\":" + parkId + "}")).andExpect(status().isForbidden());
         call(park, json(patch("/api/obligations/" + obligation), "{\"defaultAssigneeId\":null}")).andExpect(status().isForbidden());
 

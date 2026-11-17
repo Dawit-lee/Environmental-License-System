@@ -10,6 +10,7 @@ import {
 import type { PermitDocument, PermitItem } from '../types';
 import { monthsBefore } from './ComplianceReportDraft';
 import { LEVEL, levelClass } from './PointMeasurements';
+import { useEscape } from './useEscape';
 
 /** Default report period of a 보고·제출 task: one cycle back from its due date (same months as the server's Frequency). */
 const CYCLE_MONTHS: Partial<Record<Obligation['frequency'], number>> = { MONTHLY: 1, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
@@ -38,6 +39,8 @@ function eventText(e: TaskEvent, name: (id: unknown) => string): string {
     case 'EVIDENCE_ADDED': return '증빙 연결';
     case 'EVIDENCE_REMOVED': return '증빙 해제';
     case 'MEASUREMENT_ADDED': return `같은 항목 재초과 ${String(d.title ?? '').replace('[초과] ', '')}`;
+    case 'MEASUREMENT_LINKED': return `측정값 연결 ${(d.measurement_ids as unknown[] | undefined)?.length ?? 1}건`;
+    case 'MEASUREMENT_REMOVED': return '측정값 삭제';
     case 'COMPLETED': return d.late ? '지연 완료' : '완료';
     case 'CANCELLED': return `취소 (${CANCELLED[String(d.reason)] ?? d.reason}${d.note ? `: ${d.note}` : ''})`;
   }
@@ -46,6 +49,7 @@ function eventText(e: TaskEvent, name: (id: unknown) => string): string {
 export default function ObligationTaskDrawer({ projectId, obligation, corrective, permit, onClose, onChanged }: {
   projectId: number; obligation?: Obligation; corrective?: Task; permit: PermitItem | undefined; onClose: () => void; onChanged: () => void;
 }) {
+  useEscape(onClose);
   const permitItemId = obligation?.permitItemId ?? corrective?.permitItemId ?? null;
   const [reason, setReason] = useState('');
   const [cycles, setCycles] = useState<Task[]>([]);
@@ -114,23 +118,24 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
     await load(task!.id); // stay on the finished cycle; the next one shows up in the list below
   });
 
-  const memberName = (id: unknown) => (id == null ? '미지정' : members.find((m) => m.userId === id)?.name ?? '멤버 아님');
+  const memberName = (id: unknown) => (id == null ? '미지정'
+    : members.find((m) => m.userId === id)?.name ?? `${detail?.people[id as number] ?? '알 수 없음'}(제외)`);
   const change = (body: { assigneeId?: number | null; dueDate?: string }) => run(async () => {
     await updateTask(task!.id, { ...body, version: task!.version });
     await load(task!.id);
   });
-  const field = 'rounded-lg border border-[#E5E3DC] px-2 py-1 text-sm';
+  const field = 'rounded-lg border border-line px-2 py-1 text-sm';
   const memberOptions = members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>);
 
   const row = 'flex justify-between gap-4 py-1 text-sm';
-  const button = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
+  const button = 'rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
 
   return (
     <div className="fixed inset-0 z-50">
       <div onClick={onClose} className="absolute inset-0 bg-black/40" />
       <aside role="dialog" aria-modal="true" aria-label="업무 상세"
         className="absolute right-0 top-0 flex h-full w-full max-w-[520px] flex-col bg-white shadow-xl">
-        <div className="flex items-start justify-between gap-4 border-b border-[#E5E3DC] px-6 py-4">
+        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="min-w-0">
             <p className="truncate text-xs text-gray-500" title={permit?.name}>{permit?.name ?? '인허가'}</p>
             <h2 className="mt-1 text-lg font-semibold text-gray-900">{obligation?.summary ?? corrective?.title}</h2>
@@ -139,7 +144,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-[#991B1B]">{error}</p>}
+          {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
           {!task && obligation?.status === 'ACTIVE' && (
             <section>
@@ -147,7 +152,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
               <p className="mt-1 text-sm text-gray-500">기한을 넣으면 첫 회차 업무가 생깁니다.</p>
               <div className="mt-2 flex items-center gap-2">
                 <input type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)} aria-label="첫 기한"
-                  className="rounded-lg border border-[#E5E3DC] px-2 py-1.5 text-sm" />
+                  className="rounded-lg border border-line px-2 py-1.5 text-sm" />
                 <button type="button" disabled={busy || !nextDue} className={button}
                   onClick={() => run(async () => { await completeObligation(obligation.id, nextDue); setNextDue(''); await load(); })}>
                   기한 입력
@@ -200,7 +205,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
                   )}
                   <div className={row}>
                     <dt className="text-gray-500">상태</dt>
-                    <dd className={isOverdue(task) ? 'font-semibold text-[#991B1B]' : ''}>
+                    <dd className={isOverdue(task) ? 'font-semibold text-danger' : ''}>
                       {taskStatusLabel(task)}{task.cancelledReason ? ` · ${CANCELLED[task.cancelledReason]}` : ''}
                     </dd>
                   </div>
@@ -216,10 +221,10 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
                   {detail.evidence.map((e) => (
                     <li key={e.documentId} className="flex items-center gap-3 py-1.5 text-sm">
                       <button type="button" onClick={() => download(e.documentId, e.fileName)} title={`${e.fileName} 내려받기`}
-                        className="min-w-0 flex-1 truncate text-left text-[#1F4E79] hover:underline">{e.fileName}</button>
+                        className="min-w-0 flex-1 truncate text-left text-brand hover:underline">{e.fileName}</button>
                       <span className="shrink-0 text-xs text-gray-500">{e.addedByName ?? '—'} · {day(e.addedAt)}</span>
                       {open && (
-                        <button type="button" disabled={busy} className="shrink-0 text-xs text-gray-500 hover:text-[#991B1B]"
+                        <button type="button" disabled={busy} className="shrink-0 text-xs text-gray-500 hover:text-danger"
                           onClick={() => run(async () => { await removeEvidence(task.id, e.documentId); await load(task.id); })}>해제</button>
                       )}
                     </li>
@@ -236,7 +241,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
                     {choices.length > 0 && (
                       <>
                         <select value={pick} onChange={(e) => setPick(e.target.value)} aria-label="이 인허가의 문서에서 선택"
-                          className="min-w-0 max-w-[220px] flex-1 truncate rounded-lg border border-[#E5E3DC] px-2 py-1.5 text-xs">
+                          className="min-w-0 max-w-[220px] flex-1 truncate rounded-lg border border-line px-2 py-1.5 text-xs">
                           <option value="">이 인허가의 문서에서 선택</option>
                           {choices.map((d) => <option key={d.id} value={d.id}>{d.fileName}</option>)}
                         </select>
@@ -290,22 +295,22 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
                 <section>
                   <h3 className="text-sm font-semibold text-gray-800">완료</h3>
                   <textarea value={note} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="완료 메모 (선택)"
-                    className="mt-2 w-full rounded-lg border border-[#E5E3DC] px-3 py-2 text-sm" />
+                    className="mt-2 w-full rounded-lg border border-line px-3 py-2 text-sm" />
                   {obligation && obligation.frequency !== 'ONCE' && (
                     <label className="mt-2 flex items-center gap-2 text-sm text-gray-600">
                       다음 기한
                       <input type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)}
-                        className="rounded-lg border border-[#E5E3DC] px-2 py-1 text-sm" />
+                        className="rounded-lg border border-line px-2 py-1 text-sm" />
                       <span className="text-xs text-gray-400">{obligation.frequency === 'OTHER' ? '필수' : '비우면 주기대로 계산'}</span>
                     </label>
                   )}
                   <div className="mt-3 flex items-center gap-3">
                     <button type="button" onClick={complete}
                       disabled={busy || proof === 0 || (obligation?.frequency === 'OTHER' && !nextDue)}
-                      className="rounded-lg bg-[#1F4E79] px-4 py-2 text-sm font-medium text-white hover:bg-[#173B5C] disabled:opacity-40">완료</button>
+                      className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-[#173B5C] disabled:opacity-40">완료</button>
                     {proof === 0 && <span className="text-xs text-gray-500">{NEEDS_EVIDENCE}</span>}
                     {proof > 0 && task.dueDate < new Date().toLocaleDateString('sv-SE')
-                      && <span className="text-xs text-[#991B1B]">기한이 지나 "지연 완료"로 기록됩니다.</span>}
+                      && <span className="text-xs text-danger">기한이 지나 "지연 완료"로 기록됩니다.</span>}
                   </div>
                 </section>
               )}
@@ -316,7 +321,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
                   <p className="mt-1 text-xs text-gray-400">초과 측정값을 삭제해도 조치 업무는 남습니다. 조치가 필요 없으면 사유를 남기고 취소하세요.</p>
                   <div className="mt-2 flex items-center gap-2">
                     <input value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} placeholder="취소 사유" aria-label="취소 사유"
-                      className="min-w-0 flex-1 rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-sm" />
+                      className="min-w-0 flex-1 rounded-lg border border-line px-3 py-1.5 text-sm" />
                     <button type="button" disabled={busy || !reason.trim()} className={button}
                       onClick={() => run(async () => { await cancelTask(task.id, reason, task.version); setReason(''); await load(task.id); })}>업무 취소</button>
                   </div>
@@ -333,9 +338,9 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
                   <tbody className="divide-y divide-[#F0EEE7]">
                     {[...cycles].reverse().map((c) => (
                       <tr key={c.id} onClick={() => run(async () => setDetail(await getTask(c.id)), false)}
-                        className={`cursor-pointer hover:bg-[#F8F7F2] ${c.id === task.id ? 'bg-[#F8F7F2] font-medium' : ''}`}>
-                        <td className="py-1.5">{c.dueDate}</td>
-                        <td className={`py-1.5 ${isOverdue(c) ? 'text-[#991B1B]' : ''}`}>{taskStatusLabel(c)}</td>
+                        className={`cursor-pointer hover:bg-paper ${c.id === task.id ? 'bg-paper font-medium' : ''}`}>
+                        <td className="py-1.5"><button type="button">{c.dueDate}</button></td>
+                        <td className={`py-1.5 ${isOverdue(c) ? 'text-danger' : ''}`}>{taskStatusLabel(c)}</td>
                         <td className="py-1.5 text-gray-600">{c.doneAt ? day(c.doneAt) : '—'}</td>
                         <td className="py-1.5 text-gray-600" title="증빙 문서 + 측정값">{c.evidenceCount + c.measurementCount}</td>
                         <td className="truncate py-1.5 text-gray-600" title={c.note ?? ''}>{c.note ?? '—'}</td>

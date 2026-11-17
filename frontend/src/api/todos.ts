@@ -1,11 +1,13 @@
 // "내 할 일": what waits on someone across projects. Built client-side from the existing lists.
-import { api } from './client';
+import { api, sessionUserId } from './client';
+import { EVENT_KIND_LABEL, getCalendar } from './events';
 import { getLawImpacts } from './lawImpacts';
 import { getDeadlines, ymd } from './notifications';
 import { listSiteImplementations } from './revisions';
 import { listMyTasks } from './tasks';
+import { DUE_SOON_DAYS } from '../terms';
 
-export type TodoKind = 'REVIEW' | 'LAW' | 'SITE' | 'TASK' | 'DEADLINE';
+export type TodoKind = 'REVIEW' | 'LAW' | 'SITE' | 'TASK' | 'DEADLINE' | 'EVENT';
 
 export interface Todo {
   key: string;
@@ -19,7 +21,7 @@ export interface Todo {
 }
 
 export const TODO_LABEL: Record<TodoKind, string> = {
-  REVIEW: 'AI 검토 대기', LAW: '법령 개정 미확인', SITE: '현장 반영 대기', TASK: '이행 업무', DEADLINE: '기한 임박',
+  REVIEW: 'AI 검토 대기', LAW: '법령 개정 미확인', SITE: '현장 반영 대기', TASK: '이행 업무', DEADLINE: '기한 임박', EVENT: '참석 일정',
 };
 
 interface OpenSuggestion {
@@ -35,23 +37,32 @@ interface OpenSuggestion {
  * (must be projects I am a member of), soonest due first, undated last.
  * shortcut: two calls per project; add a server-side inbox endpoint if project counts grow large.
  */
-export async function loadTodos(projects: { id: number; name: string }[], days = 30): Promise<Todo[]> {
+export async function loadTodos(projects: { id: number; name: string }[], days = DUE_SOON_DAYS): Promise<Todo[]> {
   const names = new Map(projects.map((p) => [p.id, p.name]));
   const today = new Date();
   const until = new Date(today);
   until.setDate(until.getDate() + days);
-  const [suggestions, site, impacts, deadlines, tasks] = await Promise.all([
+  const soon = new Date(today);
+  soon.setDate(soon.getDate() + 3);
+  const [suggestions, site, impacts, deadlines, tasks, calendar] = await Promise.all([
     Promise.all(projects.map((p) => api<OpenSuggestion[]>(`/api/projects/${p.id}/suggestions`).then((l) => l.map((s) => ({ ...s, projectId: p.id }))))),
     Promise.all(projects.map((p) => listSiteImplementations(p.id, 'open'))),
     getLawImpacts(),
     getDeadlines(ymd(today), ymd(until)),
     listMyTasks(),
+    getCalendar(ymd(today), ymd(soon)),
   ]);
+  const me = sessionUserId();
   // a task of mine is listed as 이행 업무, so its own D-day entry would be a duplicate
   const myObligations = new Set(tasks.filter((t) => t.kind === 'OBLIGATION').map((t) => t.obligationId));
   const myTasks = new Set(tasks.map((t) => t.id));
-  const mine = (d: { kind: string; targetId: number }) =>
-    (d.kind === 'OBLIGATION' && myObligations.has(d.targetId)) || (d.kind === 'CORRECTIVE_TASK' && myTasks.has(d.targetId));
+  // an unreviewed law impact is listed as 법령 개정 미확인 with the same 시행일, so its deadline entry would be a duplicate
+  const openImpacts = new Set(impacts.filter((i) => i.status === 'NEW').map((i) => i.id));
+  const skip = (d: { kind: string; targetId: number; assigneeId: number | null; dDay: number }) =>
+    // schedule items: only mine, from D-7 (design-schedule/04)
+    (d.kind === 'SCHEDULE_ITEM' && (d.assigneeId !== me || d.dDay > 7))
+    || (d.kind === 'OBLIGATION' && myObligations.has(d.targetId)) || (d.kind === 'CORRECTIVE_TASK' && myTasks.has(d.targetId))
+    || (d.kind === 'LAW_ENFORCEMENT' && openImpacts.has(d.targetId));
   const todos: Todo[] = [
     ...suggestions.flat()
       // same rows the review tab shows: obligations and version-diff revisions
@@ -71,11 +82,17 @@ export async function loadTodos(projects: { id: number; name: string }[], days =
     })),
     ...tasks.filter((t) => names.has(t.projectId)).map((t): Todo => ({
       key: `t${t.id}`, kind: 'TASK', projectId: t.projectId, projectName: names.get(t.projectId)!,
-      text: t.title, due: t.dueDate, to: `/projects/${t.projectId}/obligations`,
+      // an overdue task nobody holds comes to the PM/EM/admins too (server rule)
+      text: t.assigneeId == null ? `미지정 · ${t.title}` : t.title, due: t.dueDate, to: `/projects/${t.projectId}/obligations`,
     })),
-    ...deadlines.filter((d) => names.has(d.projectId) && !mine(d)).map((d): Todo => ({
+    ...deadlines.filter((d) => names.has(d.projectId) && !skip(d)).map((d): Todo => ({
       key: `d${d.id}`, kind: 'DEADLINE', projectId: d.projectId, projectName: d.projectName,
       text: d.title, due: d.dueDate, to: `/projects/${d.projectId}/${d.kind === 'OBLIGATION' || d.kind === 'CORRECTIVE_TASK' ? 'obligations' : 'schedule'}`,
+    })),
+    // events I attend within D-3
+    ...calendar.events.filter((e) => names.has(e.projectId) && e.attendees.some((a) => a.userId === me)).map((e): Todo => ({
+      key: `e${e.id}`, kind: 'EVENT', projectId: e.projectId, projectName: e.projectName,
+      text: `${EVENT_KIND_LABEL[e.kind]} · ${e.title}`, due: e.startsAt.slice(0, 10), to: `/projects/${e.projectId}/schedule`,
     })),
   ];
   return todos.sort((a, b) => (a.due ?? '9999').localeCompare(b.due ?? '9999'));

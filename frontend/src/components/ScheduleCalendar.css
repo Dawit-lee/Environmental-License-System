@@ -1,0 +1,35 @@
+/* FullCalendar themed through its own CSS variables with the app's tokens (no FullCalendar CSS overrides of layout). */
+.schedule-calendar {
+  --fc-border-color: var(--color-line);
+  --fc-page-bg-color: #fff;
+  --fc-neutral-bg-color: var(--color-paper);
+  --fc-today-bg-color: rgba(31, 78, 121, 0.06);
+  --fc-button-text-color: #374151;
+  --fc-button-bg-color: #fff;
+  --fc-button-border-color: var(--color-line);
+  --fc-button-hover-bg-color: var(--color-paper);
+  --fc-button-hover-border-color: var(--color-brand);
+  --fc-button-active-bg-color: var(--color-brand);
+  --fc-button-active-border-color: var(--color-brand);
+  --fc-event-bg-color: var(--color-brand);
+  --fc-event-border-color: var(--color-brand);
+  --fc-small-font-size: 0.75rem;
+  font-size: 0.8125rem;
+}
+.schedule-calendar .fc .fc-toolbar-title { font-size: 1rem; font-weight: 600; color: #111827; }
+.schedule-calendar .fc .fc-button { font-size: 0.75rem; padding: 0.3rem 0.65rem; box-shadow: none; }
+.schedule-calendar .fc .fc-button-primary:not(:disabled).fc-button-active { color: #fff; }
+.schedule-calendar .fc .fc-event { cursor: pointer; }
+.schedule-calendar .fc .fc-daygrid-event { white-space: normal; align-items: flex-start; }
+/* long names wrap to two lines in a day cell instead of being cut at one; the "+N" popover shows them whole */
+.schedule-calendar .fc .fc-daygrid-event .fc-event-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.schedule-calendar .fc .fc-popover .fc-daygrid-event .fc-event-title { -webkit-line-clamp: unset; }
+.schedule-calendar .fc .fc-daygrid-dot-event .fc-daygrid-event-dot { margin-top: 0.4em; }
+/* milestones: the ◆ in the title is the marker, so no list dot before it */
+.schedule-calendar .fc .is-milestone .fc-daygrid-event-dot { display: none; }

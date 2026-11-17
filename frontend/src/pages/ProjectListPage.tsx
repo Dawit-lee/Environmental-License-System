@@ -17,15 +17,6 @@ const FACILITY_LABEL: Record<FacilityType, string> = {
   WASTEWATER: '폐수처리',
 };
 
-// Badge colors by facility type per design system.
-const FACILITY_BADGE: Record<FacilityType, string> = {
-  INCINERATION: 'bg-red-100 text-red-700',
-  LANDFILL: 'bg-gray-200 text-gray-700',
-  BIOGAS: 'bg-emerald-100 text-emerald-700',
-  SEWAGE: 'bg-sky-100 text-sky-700',
-  WASTEWATER: 'bg-violet-100 text-violet-700',
-};
-
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   IN_PROGRESS: '진행중',
   COMPLETED: '완료',
@@ -33,9 +24,9 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 };
 
 const STATUS_BADGE: Record<ProjectStatus, string> = {
-  IN_PROGRESS: 'bg-[#1F4E79]/10 text-[#1F4E79]',
-  COMPLETED: 'bg-[#0F6E56]/10 text-[#0F6E56]',
-  ON_HOLD: 'bg-gray-200 text-gray-600',
+  IN_PROGRESS: 'text-brand',
+  COMPLETED: 'text-ok',
+  ON_HOLD: 'text-gray-600',
 };
 
 type SortKey = 'name' | 'facility' | 'team' | 'pm' | 'em' | 'status' | 'progress' | 'nearExpiry' | 'location';
@@ -55,19 +46,22 @@ const SORT_VALUE: Record<SortKey, (p: Project) => string | number> = {
   location: (p) => p.location,
 };
 
+/** Less important columns: hidden under 1280 px so the key ones fit without scrolling. */
+const WIDE = 'hidden xl:table-cell';
+
 const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'name', label: '프로젝트명' },
   { key: 'facility', label: '시설유형' },
-  { key: 'team', label: '부서/팀' },
+  { key: 'team', label: '부서/팀', className: WIDE },
   { key: 'pm', label: 'PM' },
-  { key: 'em', label: 'EM' },
+  { key: 'em', label: 'EM', className: WIDE },
   { key: 'status', label: '상태' },
   { key: 'progress', label: '취득 진행' },
   { key: 'nearExpiry', label: '만료임박', className: 'text-right' },
-  { key: 'location', label: '위치' },
+  { key: 'location', label: '위치', className: WIDE },
 ];
 
-/** scope filter value: 'MINE' (my team), 'ALL', 'd:<departmentId>' or 't:<teamId>' */
+/** scope filter value: 'ME' (projects I'm a member of), 'MINE' (my team), 'ALL', 'd:<departmentId>' or 't:<teamId>' */
 type Scope = string;
 
 export default function ProjectListPage() {
@@ -80,22 +74,25 @@ export default function ProjectListPage() {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [depts, setDepts] = useState<Department[]>([]);
   const [myTeam, setMyTeam] = useState<number | null>(null);
+  const [myIds, setMyIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([api<Project[]>('/api/projects?scope=company'), getDepartments(), getCompanyUsers()]).then(
-      ([ps, ds, us]) => {
+    Promise.all([api<Project[]>('/api/projects?scope=company'), getDepartments(), getCompanyUsers(), api<Project[]>('/api/projects')]).then(
+      ([ps, ds, us, mine]) => {
         const team = us.find((u) => u.id === sessionUserId())?.teamId ?? null;
         setProjects(ps);
         setDepts(ds);
         setMyTeam(team);
-        setScope((s) => s ?? (team ? 'MINE' : 'ALL'));
+        setMyIds(new Set(mine.map((p) => p.id)));
+        setScope((s) => s ?? (mine.length ? 'ME' : 'ALL'));
       },
       (e: Error) => setError(e.message),
     );
   }, []);
 
   const inScope = useMemo(() => {
+    if (scope === 'ME') return (p: Project) => myIds.has(p.id);
     if (scope === 'MINE') return (p: Project) => p.teamId === myTeam;
     if (scope?.startsWith('t:')) return (p: Project) => p.teamId === Number(scope.slice(2));
     if (scope?.startsWith('d:')) {
@@ -103,7 +100,7 @@ export default function ProjectListPage() {
       return (p: Project) => p.teamId !== null && teams.has(p.teamId);
     }
     return () => true;
-  }, [scope, myTeam, depts]);
+  }, [scope, myTeam, myIds, depts]);
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -127,18 +124,18 @@ export default function ProjectListPage() {
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, asc: s.key === key ? !s.asc : true }));
 
   const selectClasses =
-    'rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20';
+    'rounded-lg border border-line bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
   return (
-    <div className="min-h-full bg-[#F8F7F2]">
+    <div className="min-h-full bg-paper">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-[#1F4E79]">프로젝트 목록</h1>
+          <h1 className="text-2xl font-bold text-brand">프로젝트 목록</h1>
           <button
             type="button"
             onClick={() => navigate('/projects/new')}
-            className="rounded-lg bg-[#1F4E79] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40"
+            className="rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
           >
             + 새 프로젝트
           </button>
@@ -151,9 +148,10 @@ export default function ProjectListPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="프로젝트명 또는 위치 검색"
-            className="min-w-[220px] flex-1 rounded-lg border border-[#E5E3DC] bg-white px-3 py-2 text-sm outline-none transition focus:border-[#1F4E79] focus:ring-2 focus:ring-[#1F4E79]/20"
+            className="min-w-[220px] flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
           />
-          <select aria-label="부서/팀" value={scope ?? 'ALL'} onChange={(e) => setScope(e.target.value)} className={selectClasses}>
+          <select aria-label="부서/팀" value={scope ?? 'ME'} onChange={(e) => setScope(e.target.value)} className={selectClasses}>
+            <option value="ME">내 프로젝트</option>
             {myTeam !== null && <option value="MINE">내 팀</option>}
             <option value="ALL">부서/팀 전체</option>
             {depts.map((d) => (
@@ -190,25 +188,25 @@ export default function ProjectListPage() {
         </div>
 
         {error ? (
-          <p className="mt-16 text-center text-sm text-[#991B1B]">{error}</p>
+          <p className="mt-16 text-center text-sm text-danger">{error}</p>
         ) : projects === null ? (
           <p className="mt-16 text-center text-sm text-gray-400">불러오는 중…</p>
         ) : projects.length === 0 ? (
           <div className="mt-16 flex flex-col items-center justify-center text-center">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-[#E5E3DC] text-4xl">📁</div>
+            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-line text-4xl">📁</div>
             <p className="mt-4 text-sm text-gray-500">등록된 프로젝트가 없습니다</p>
             <button
               type="button"
               onClick={() => navigate('/projects/new')}
-              className="mt-4 rounded-lg bg-[#1F4E79] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#173a5c] focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/40"
+              className="mt-4 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
             >
               첫 프로젝트 추가하기
             </button>
           </div>
         ) : (
-          <div className="mt-6 overflow-x-auto rounded-xl border border-[#E5E3DC] bg-white shadow-sm">
-            <table className="w-full min-w-[1080px] whitespace-nowrap text-left text-sm">
-              <thead className="bg-[#F8F7F2] text-xs text-gray-500">
+          <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+            <table className="w-full min-w-[640px] whitespace-nowrap xl:min-w-[1080px] text-left text-sm">
+              <thead className="bg-paper text-xs text-gray-500">
                 <tr>
                   {COLUMNS.map((c) => (
                     <th
@@ -218,7 +216,7 @@ export default function ProjectListPage() {
                     >
                       <button type="button" onClick={() => toggleSort(c.key)} className="inline-flex items-center gap-1 hover:text-gray-800">
                         {c.label}
-                        <span aria-hidden className={sort.key === c.key ? 'text-[#1F4E79]' : 'text-gray-300'}>
+                        <span aria-hidden className={sort.key === c.key ? 'text-brand' : 'text-gray-300'}>
                           {sort.key === c.key && !sort.asc ? '▼' : '▲'}
                         </span>
                       </button>
@@ -226,50 +224,50 @@ export default function ProjectListPage() {
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#E5E3DC]">
+              <tbody className="divide-y divide-line">
                 {rows.map((p) => {
                   const progress = Math.round(progressOf(p) * 100);
                   return (
                     <tr
                       key={p.id}
                       onClick={() => navigate(`/projects/${p.id}`)}
-                      className="cursor-pointer transition hover:bg-[#F8F7F2]"
+                      className="cursor-pointer transition hover:bg-paper"
                     >
-                      <td className="max-w-[260px] px-4 py-3">
+                      <td className="max-w-[220px] px-4 py-3 xl:max-w-[260px]">
                         <Link
                           to={`/projects/${p.id}`}
                           onClick={(e) => e.stopPropagation()}
                           title={p.name}
-                          className="block truncate font-medium text-gray-800 hover:text-[#1F4E79] hover:underline"
+                          className="block truncate font-medium text-gray-800 hover:text-brand hover:underline"
                         >
                           {p.name}
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${FACILITY_BADGE[p.facilityType]}`}>
+                        <span className="whitespace-nowrap text-gray-700">
                           {FACILITY_LABEL[p.facilityType]}
                         </span>
                       </td>
-                      <Cell text={teamOf(p)} max="max-w-[200px]" />
+                      <Cell text={teamOf(p)} max={`max-w-[200px] ${WIDE}`} />
                       <Cell text={p.pmName ?? ''} max="max-w-[100px]" />
-                      <Cell text={p.emName ?? ''} max="max-w-[100px]" />
+                      <Cell text={p.emName ?? ''} max={`max-w-[100px] ${WIDE}`} />
                       <td className="px-4 py-3">
-                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE[p.status]}`}>
+                        <span className={`whitespace-nowrap ${STATUS_BADGE[p.status]}`}>
                           {STATUS_LABEL[p.status]}
                         </span>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2" title={`${progress}%`}>
-                          <div className="h-2 w-24 overflow-hidden rounded-full bg-[#E5E3DC]">
-                            <div className="h-full rounded-full bg-[#0F6E56]" style={{ width: `${progress}%` }} />
+                          <div className="h-2 w-24 overflow-hidden rounded-full bg-line">
+                            <div className="h-full rounded-full bg-ok" style={{ width: `${progress}%` }} />
                           </div>
                           <span className="text-xs text-gray-500">{p.acquiredCount}/{p.permitCount}</span>
                         </div>
                       </td>
-                      <td className={`px-4 py-3 text-right ${p.nearExpiryCount ? 'font-semibold text-[#991B1B]' : 'text-gray-400'}`}>
+                      <td className={`px-4 py-3 text-right ${p.nearExpiryCount ? 'font-semibold text-danger' : 'text-gray-400'}`}>
                         {p.nearExpiryCount || '—'}
                       </td>
-                      <Cell text={p.location} max="max-w-[240px]" muted />
+                      <Cell text={p.location} max={`max-w-[240px] ${WIDE}`} muted />
                     </tr>
                   );
                 })}

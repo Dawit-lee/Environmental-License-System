@@ -19,7 +19,7 @@ function Revision({ promulgated, enforced }: { promulgated: string | null; enfor
   return (
     <span className="text-xs text-gray-500">
       최근 개정 {promulgated ?? '—'} ·{' '}
-      <span className={upcoming ? 'font-semibold text-[#B45309]' : ''}>
+      <span className={upcoming ? 'font-semibold text-warn' : ''}>
         {upcoming ? '시행 예정' : '시행'} {enforced ?? '—'}
       </span>
     </span>
@@ -107,7 +107,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
       setLinks((prev) => prev.filter((l) => l.id !== id));
     });
 
-  const input = 'w-full rounded-lg border border-[#E5E3DC] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#1F4E79]/30';
+  const input = 'w-full rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30';
 
   return (
     <div className="space-y-3">
@@ -116,13 +116,13 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
       ) : (
         <ul className="space-y-2">
           {links.map((l) => (
-            <li key={l.id} className="flex items-start justify-between gap-2 rounded-lg border border-[#E5E3DC] px-3 py-2">
+            <li key={l.id} className="flex items-start justify-between gap-2 rounded-lg border border-line px-3 py-2">
               <div className="min-w-0">
-                <a href={lawUrl(l.name)} target="_blank" rel="noreferrer" className="text-sm font-medium text-[#1F4E79] hover:underline">
+                <a href={lawUrl(l.name)} target="_blank" rel="noreferrer" className="text-sm font-medium text-brand hover:underline">
                   {l.name}
                   {l.articleNo && ` ${l.articleNo}`}
                 </a>
-                <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">{SOURCE_LABEL[l.source]}</span>
+                <span className="ml-2 whitespace-nowrap text-xs text-gray-600">{SOURCE_LABEL[l.source]}</span>
                 <div>
                   <Revision promulgated={l.lastPromulgatedOn} enforced={l.lastEnforcedOn} />
                 </div>
@@ -132,7 +132,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
                 onClick={() => unlink(l.id)}
                 disabled={busy}
                 aria-label={`${l.name} 연결 삭제`}
-                className="shrink-0 rounded p-1 text-gray-400 hover:bg-[#F8F7F2] hover:text-[#991B1B]"
+                className="shrink-0 rounded p-1 text-gray-400 hover:bg-paper hover:text-danger"
               >
                 ✕
               </button>
@@ -155,11 +155,11 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
           className={input}
         />
         {query.trim() && !selected && candidates === null && (
-          <div className="absolute z-10 mt-1 w-full rounded-lg border border-[#E5E3DC] bg-white shadow-lg">
+          <div className="absolute z-10 mt-1 w-full rounded-lg border border-line bg-white shadow-lg">
             <ul role="listbox" aria-label="카탈로그 법령">
               {suggestions.map((s) => (
                 <li key={s.id}>
-                  <button type="button" onClick={() => pick(s)} className="flex w-full justify-between px-3 py-2 text-left text-sm hover:bg-[#F8F7F2]">
+                  <button type="button" onClick={() => pick(s)} className="flex w-full justify-between px-3 py-2 text-left text-sm hover:bg-paper">
                     <span>{s.name}</span>
                     <span className="text-xs text-gray-400">{KIND_LABEL[s.kind]}</span>
                   </button>
@@ -171,7 +171,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
               type="button"
               onClick={searchLawGoKr}
               disabled={busy}
-              className="w-full border-t border-[#E5E3DC] px-3 py-2 text-left text-sm font-medium text-[#1F4E79] hover:bg-[#F8F7F2]"
+              className="w-full border-t border-line px-3 py-2 text-left text-sm font-medium text-brand hover:bg-paper"
             >
               법제처에서 '{query.trim()}' 검색
             </button>
@@ -180,7 +180,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
       </div>
 
       {candidates !== null && (
-        <div className="rounded-lg border border-[#E5E3DC] p-2">
+        <div className="rounded-lg border border-line p-2">
           <p className="px-1 pb-1 text-xs text-gray-500">
             법제처 검색 결과 (이름이 정확히 같은 현행 법령과 그 시행령·시행규칙)
           </p>
@@ -189,7 +189,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
           ) : (
             <ul className="space-y-1">
               {candidates.map((c) => (
-                <li key={c.lawId} className="flex items-center justify-between gap-2 rounded px-1 py-1 hover:bg-[#F8F7F2]">
+                <li key={c.lawId} className="flex items-center justify-between gap-2 rounded px-1 py-1 hover:bg-paper">
                   <div className="min-w-0">
                     <div className="text-sm text-gray-800">
                       {c.name} <span className="text-xs text-gray-400">{KIND_LABEL[c.kind]}</span>
@@ -200,7 +200,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
                     type="button"
                     onClick={() => addCandidate(c)}
                     disabled={busy}
-                    className="shrink-0 rounded-lg border border-[#1F4E79] px-2.5 py-1 text-xs font-medium text-[#1F4E79] hover:bg-[#1F4E79] hover:text-white"
+                    className="shrink-0 rounded-lg border border-brand px-2.5 py-1 text-xs font-medium text-brand hover:bg-brand hover:text-white"
                   >
                     {c.catalogId ? '선택' : '카탈로그에 추가'}
                   </button>
@@ -212,7 +212,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
       )}
 
       {selected && (
-        <div className="space-y-2 rounded-lg bg-[#F8F7F2] p-3">
+        <div className="space-y-2 rounded-lg bg-paper p-3">
           <div>
             <div className="text-sm font-medium text-gray-900">
               {selected.name} <span className="text-xs font-normal text-gray-400">{KIND_LABEL[selected.kind]}</span>
@@ -231,7 +231,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
               type="button"
               onClick={link}
               disabled={busy}
-              className="rounded-lg bg-[#1F4E79] px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#173b5c] disabled:opacity-50"
+              className="rounded-lg bg-brand px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#173b5c] disabled:opacity-50"
             >
               연결
             </button>
@@ -242,7 +242,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
         </div>
       )}
 
-      {error && <p className="text-sm text-[#991B1B]">{error}</p>}
+      {error && <p className="text-sm text-danger">{error}</p>}
       <p className="text-xs text-gray-400">출처: 법제처 국가법령정보센터</p>
     </div>
   );

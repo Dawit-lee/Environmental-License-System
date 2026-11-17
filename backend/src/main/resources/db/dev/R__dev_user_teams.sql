@@ -1,9 +1,9 @@
 -- Local dev only: sample org chart, team members and project PM/EM (runs after R__dev_user). All names are fictional.
 --   에너지환경사업부 1·2·3팀 / 수처리사업부 1·2팀 / 플랜트사업부 1팀
--- Extra logins (password dev1234!): lee@envpermit.local 이담당, choi@envpermit.local 최담당 (회사 A, no project membership)
+-- Extra logins (password = DEV_SEED_PASSWORD): lee@envpermit.local 이담당, choi@envpermit.local 최담당 (회사 A, no project membership)
 DO $$
 DECLARE
-    pw  CONSTANT TEXT := '$2a$10$LmSvVrFIpIK00B6QLKhF9uj7n.mYazuToeyq6LsET0JtD8qcZMz3S';
+    pw  CONSTANT TEXT := crypt('${dev_seed_password}', gen_salt('bf', 10));
     co  BIGINT := (SELECT id FROM company WHERE name = '(가상) 푸른환경엔지니어링');
     energy BIGINT; water BIGINT; plant BIGINT;
     e1 BIGINT; e2 BIGINT; e3 BIGINT; w1 BIGINT; w2 BIGINT; p1 BIGINT;
