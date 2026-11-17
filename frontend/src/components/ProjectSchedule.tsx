@@ -28,6 +28,8 @@ interface Member { userId: number; name: string }
 
 const btn = 'rounded-lg border border-[#E5E3DC] px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-[#1F4E79] hover:text-[#1F4E79] disabled:opacity-40';
 const field = 'w-full rounded-lg border border-[#E5E3DC] px-2.5 py-1.5 text-sm outline-none focus:border-[#1F4E79]';
+/** An item linked to a base date, offsets left out: the server computes them back from its dates. */
+const UNLINK_OFFSETS = { offsetDays: null, offsetMonths: null, durationDays: null };
 const seg = (on: boolean) => `px-3 py-1.5 text-xs font-medium ${on ? 'bg-[#1F4E79] text-white' : 'text-gray-600 hover:bg-[#F8F7F2]'}`;
 
 export default function ProjectSchedule({ projectId }: { projectId: number }) {
@@ -75,7 +77,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
     setError(null);
     try {
       // a relative item stays on its base date: no offsets = computed back from the dragged dates
-      const relative = item.anchor ? { offsetDays: null, offsetMonths: null, durationDays: null } : {};
+      const relative = item.anchor ? UNLINK_OFFSETS : {};
       await updateItem(projectId, id, { ...toInput(item, schedule!.dependencies), ...dates, ...relative, reason });
     } catch (e) {
       setError((e as Error).message);
@@ -180,6 +182,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
             </label>
             <div className="ml-auto flex items-center gap-2">
               <div className="inline-flex overflow-hidden rounded-lg border border-[#E5E3DC] bg-white">
+                <button type="button" className={seg(scale === 'day')} onClick={() => setScale('day')}>일</button>
                 <button type="button" className={seg(scale === 'week')} onClick={() => setScale('week')}>주</button>
                 <button type="button" className={seg(scale === 'month')} onClick={() => setScale('month')}>월</button>
               </div>
@@ -341,19 +344,21 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
               <input type="number" min={1} required className={field} value={form.durationDays ?? ''}
                 onChange={(e) => set({ durationDays: num(e.target.value) })} /></label>
           )}
-          {relative ? (
+          {relative && (
             <p className="text-xs text-gray-500">
               {offsetLabel({ anchor: form.anchor, offsetDays: form.offsetDays, offsetMonths: form.offsetMonths })} · 기준일이 바뀌면 함께 이동합니다.
-              {item?.endDate && ` 지금 ${item.kind === 'TASK' ? `${item.startDate} ~ ` : ''}${item.endDate}`}
+              {' '}날짜를 고르면 오프셋을 그 날짜에 맞춰 다시 계산합니다.
             </p>
-          ) : (<>
-            {form.kind === 'TASK' && (
-              <label className={row}><span className="text-sm text-gray-500">시작</span>
-                <input type="date" required className={field} value={form.startDate ?? ''} onChange={(e) => set({ startDate: e.target.value })} /></label>
-            )}
-            <label className={row}><span className="text-sm text-gray-500">{form.kind === 'TASK' ? '종료' : '날짜'}</span>
-              <input type="date" required className={field} value={form.endDate ?? ''} onChange={(e) => set({ endDate: e.target.value })} /></label>
-          </>)}
+          )}
+          {/* exact days for linked items too: a picked date drops the offsets, the server computes them back (as a drag does) */}
+          {form.kind === 'TASK' && (
+            <label className={row}><span className="text-sm text-gray-500">시작</span>
+              <input type="date" required className={field} value={form.startDate ?? ''}
+                onChange={(e) => set({ startDate: e.target.value, ...(relative ? UNLINK_OFFSETS : {}) })} /></label>
+          )}
+          <label className={row}><span className="text-sm text-gray-500">{form.kind === 'TASK' ? '종료' : '날짜'}</span>
+            <input type="date" required className={field} value={form.endDate ?? ''}
+              onChange={(e) => set({ endDate: e.target.value, ...(relative ? UNLINK_OFFSETS : {}) })} /></label>
           <label className={row}><span className="text-sm text-gray-500">담당</span>
             <select className={field} value={form.ownerUserId ?? ''} onChange={(e) => set({ ownerUserId: num(e.target.value) })}>
               <option value="">미지정</option>

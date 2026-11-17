@@ -24,11 +24,15 @@ const EVENT = '#1F4E79';
 
 /** FullCalendar's all-day end is exclusive; ours is the last day. */
 export function toCalendarEvents(data: CalendarData, opts: { showDeadlines: boolean; showProject: boolean }): EventInput[] {
-  const prefix = (projectName: string) => (opts.showProject ? `[${projectName}] ` : '');
+  // a short project tag in the cell, the whole name in the hover text (title attribute, see eventDidMount)
+  // shortcut: the tag is the name's first word ("가람시 하수처리장…" → "가람시"); use Project.shortName once the calendar API returns it
+  const prefix = (projectName: string) => (opts.showProject ? `[${projectName.split(' ')[0]}] ` : '');
+  const full = (projectName: string, text: string) => (opts.showProject ? `[${projectName}] ${text}` : text);
   return [
     ...data.events.map((e): EventInput => ({
       id: `e${e.id}`,
       title: `${prefix(e.projectName)}${EVENT_KIND_LABEL[e.kind]} · ${e.title}`,
+      full: full(e.projectName, `${EVENT_KIND_LABEL[e.kind]} · ${e.title}`),
       start: e.allDay ? e.startsAt.slice(0, 10) : e.startsAt,
       end: e.allDay ? format(addDays(parseISO(e.endsAt.slice(0, 10)), 1), 'yyyy-MM-dd') : e.endsAt,
       allDay: e.allDay,
@@ -39,6 +43,7 @@ export function toCalendarEvents(data: CalendarData, opts: { showDeadlines: bool
     ...data.milestones.map((m): EventInput => ({
       id: `m${m.id}`,
       title: `${prefix(m.projectName)}◆ ${m.title}${m.done ? ' (완료)' : ''}`,
+      full: full(m.projectName, `◆ ${m.title}${m.done ? ' (완료)' : ''}`),
       start: m.date,
       allDay: true,
       display: 'list-item',
@@ -48,6 +53,7 @@ export function toCalendarEvents(data: CalendarData, opts: { showDeadlines: bool
     ...(opts.showDeadlines ? data.deadlines : []).map((d): EventInput => ({
       id: `d${d.id}`,
       title: `${prefix(d.projectName)}기한 · ${d.title}`,
+      full: full(d.projectName, `기한 · ${d.title}`),
       start: d.dueDate,
       allDay: true,
       display: 'list-item',
@@ -77,6 +83,8 @@ export default function ScheduleCalendar({ data, showDeadlines, showProject, onR
         dayMaxEvents={4}
         events={toCalendarEvents(data, { showDeadlines, showProject })}
         datesSet={(arg: DatesSetArg) => onRange(format(arg.start, 'yyyy-MM-dd'), format(addDays(arg.end, -1), 'yyyy-MM-dd'))}
+        // cells wrap to two lines (ScheduleCalendar.css); the whole text is on hover
+        eventDidMount={(info) => { info.el.title = info.event.extendedProps.full as string; }}
         eventClick={(info) => onOpen(info.event.extendedProps.entry as CalendarEntry)}
       />
     </div>
