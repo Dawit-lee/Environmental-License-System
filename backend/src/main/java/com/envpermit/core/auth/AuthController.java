@@ -110,7 +110,9 @@ public class AuthController {
     @Transactional
     ResponseEntity<Void> logout(@AuthenticationPrincipal Jwt jwt) {
         if (jwt != null) {
-            users.findById(Long.parseLong(jwt.getSubject())).ifPresent(User::revokeTokens);
+            users.findById(Long.parseLong(jwt.getSubject()))
+                    .filter(u -> !DemoReadOnly.EMAIL.equals(u.getEmail())) // the shared demo login must not log out other visitors
+                    .ifPresent(User::revokeTokens);
         }
         return ResponseEntity.noContent().build();
     }

@@ -47,6 +47,7 @@ services:
       # Cap the JVM so this stack can share Docker Desktop memory with other projects (default heap = 25% of the VM).
       JAVA_TOOL_OPTIONS: ${API_JAVA_OPTS:--Xms128m -Xmx512m -XX:+UseSerialGC}
       DEV_SEED_PASSWORD: ${DEV_SEED_PASSWORD:-dev1234!} # dev seed logins; default is for solo local only (README)
+      DEMO_USER_ENABLED: ${DEMO_USER_ENABLED:-false} # true = read-only demo@envpermit.local login (README)
       # Flyway out-of-order is on in the dev profile only (application-dev.yml).
       DB_URL: jdbc:postgresql://db:5432/envpermit
       DB_USERNAME: ${DB_USERNAME}
