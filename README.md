@@ -142,6 +142,7 @@ PostgreSQL 16, S3 호환 저장소(SeaweedFS, 8333), API가 뜹니다. Flyway가
 | `dev@envpermit.local` | A사 회사 관리자, 예시 프로젝트 4개의 프로젝트 관리자(승인·일괄 승인 권한) |
 | `kim@envpermit.local` | A사, 프로젝트 1의 일반 멤버(승인 권한 없음 → 승인 요청만) |
 | `other@envpermit.local` | B사. A사 프로젝트 API는 403 |
+| `demo@envpermit.local` | 공개 데모용(`DEMO_USER_ENABLED=true`일 때만 생김, 비밀번호 `demo1234!`). `dev@`의 프로젝트를 조회만 할 수 있고 쓰기 요청은 403 |
 
 ### 3. 웹
 ```bash

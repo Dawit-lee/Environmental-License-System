@@ -28,6 +28,7 @@ import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.BearerTokenAuthenticationEntryPoint;
 import org.springframework.security.oauth2.server.resource.web.access.BearerTokenAccessDeniedHandler;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -36,7 +37,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    SecurityFilterChain filterChain(HttpSecurity http, JdbcTemplate jdbc) throws Exception {
         // same {code, message} body as core.ApiErrors; the bearer handlers keep the WWW-Authenticate header
         BearerTokenAuthenticationEntryPoint bearer = new BearerTokenAuthenticationEntryPoint();
         AuthenticationEntryPoint unauthorized = (req, res, ex) -> {
@@ -61,6 +62,7 @@ public class SecurityConfig {
                 .exceptionHandling(e -> e.authenticationEntryPoint(unauthorized).accessDeniedHandler(forbidden))
                 .oauth2ResourceServer(o -> o.jwt(j -> {}).authenticationEntryPoint(unauthorized)
                         .accessDeniedHandler(forbidden))
+                .addFilterAfter(new DemoReadOnly(jdbc), BearerTokenAuthenticationFilter.class)
                 .build();
     }
 
