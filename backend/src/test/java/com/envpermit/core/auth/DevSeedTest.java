@@ -74,6 +74,29 @@ class DevSeedTest extends IntegrationTest {
                 Boolean.class)).isTrue();
     }
 
+    @Test
+    void demo_profile_seeds_schedules_and_events_for_every_demo_project_once() {
+        jdbc.execute("DROP DATABASE IF EXISTS devseed");
+        jdbc.execute("CREATE DATABASE devseed");
+        DriverManagerDataSource ds = new DriverManagerDataSource(
+                db.getJdbcUrl().replaceFirst("/[^/?]+(\\?|$)", "/devseed$1"), db.getUsername(), db.getPassword());
+        JdbcTemplate seeded = new JdbcTemplate(ds);
+        Flyway demo = Flyway.configure().dataSource(ds)
+                .locations("classpath:db/migration", "classpath:db/dev", "classpath:db/demo")
+                .placeholders(Map.of("dev_seed_password", "seed-pw-1", "demo_user_enabled", "true")).load();
+        demo.migrate();
+        String perProject = "SELECT count(*) FROM project_member m JOIN users u ON u.id = m.user_id "
+                + "WHERE u.email = 'demo@envpermit.local' AND EXISTS (SELECT 1 FROM schedule_item s WHERE s.project_id = m.project_id)";
+        assertThat(seeded.queryForObject(perProject, Long.class)).isEqualTo(5);
+        long items = seeded.queryForObject("SELECT count(*) FROM schedule_item", Long.class);
+        assertThat(seeded.queryForObject("SELECT count(*) FROM schedule_item WHERE kind = 'MILESTONE'", Long.class)).isPositive();
+        assertThat(seeded.queryForObject("SELECT count(*) FROM project_event", Long.class)).isPositive();
+
+        seeded.update("UPDATE flyway_schema_history SET checksum = 0 WHERE script = 'R__seed_demo_schedule.sql'"); // force a rerun
+        demo.migrate();
+        assertThat(seeded.queryForObject("SELECT count(*) FROM schedule_item", Long.class)).isEqualTo(items);
+    }
+
     private static void migrate(DriverManagerDataSource ds, String password) {
         migrate(ds, password, "false");
     }

@@ -1,0 +1,9 @@
+# Ingress for the public demo tunnel (same rules as the old Mac config). The tunnel id comes from setup.sh (.env.prod).
+credentials-file: /etc/cloudflared/creds.json
+ingress:
+  # no self-signup and no paid LLM calls from the public address
+  - path: ^/api/auth/(signup|join)
+    service: http_status:403
+  - path: ^/api/(company/ai-extraction|.*/(extractions|revisions|schedule-extractions))
+    service: http_status:403
+  - service: http://web:80

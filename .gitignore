@@ -35,3 +35,6 @@ dist/
 .gradle/
 build/
 !backend/gradle/wrapper/gradle-wrapper.jar
+
+# deploy/oracle secrets (written on the server by setup.sh)
+.env.prod
