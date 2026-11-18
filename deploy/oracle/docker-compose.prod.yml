@@ -1,0 +1,85 @@
+# Public demo server (Oracle Always Free, arm64). Run through the scripts here, which pass --env-file .env.prod.
+# No port is open to the internet: cloudflared connects out to Cloudflare. web listens on 127.0.0.1 only, for checks.
+name: envpermit
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: envpermit
+      POSTGRES_USER: envpermit
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?run setup.sh}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U envpermit -d envpermit"]
+      interval: 2s
+      retries: 30
+
+  s3:
+    image: chrislusf/seaweedfs:4.50
+    restart: unless-stopped
+    command: server -s3 -dir=/data
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:?run setup.sh}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:?run setup.sh}
+    volumes:
+      - s3-data:/data
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "8333"]
+      interval: 2s
+      retries: 30
+
+  api:
+    build: ../../backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
+    environment:
+      # dev = fictional seed projects (logins get the random DEV_SEED_PASSWORD), demo = schedules + calendar for them
+      SPRING_PROFILES_ACTIVE: dev,demo
+      JAVA_TOOL_OPTIONS: ${API_JAVA_OPTS:--Xms128m -Xmx512m -XX:+UseSerialGC}
+      DEV_SEED_PASSWORD: ${DEV_SEED_PASSWORD:?run setup.sh}
+      DEMO_USER_ENABLED: "true"
+      DB_URL: jdbc:postgresql://db:5432/envpermit
+      DB_USERNAME: envpermit
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?run setup.sh}
+      S3_ENDPOINT: http://s3:8333
+      S3_BUCKET: envpermit-documents
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      LAW_API_OC: ${LAW_API_OC:-}
+      APP_BASE_URL: ${APP_BASE_URL:-https://permit.rema.sarl}
+      # No AI keys, no Google OAuth, no SMTP: AI extraction is blocked at the tunnel, calendar sync off, mail only logged.
+
+  web:
+    build:
+      context: ../../frontend
+      dockerfile: ../deploy/oracle/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - api
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+    ports:
+      - "127.0.0.1:${WEB_PORT:-8088}:80"
+
+  cloudflared:
+    image: cloudflare/cloudflared:2025.11.1
+    restart: unless-stopped
+    depends_on:
+      - web
+    user: "${HOST_UID:-1000}"
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run ${TUNNEL_ID:?run setup.sh}
+    volumes:
+      - ./cloudflared.yml:/etc/cloudflared/config.yml:ro
+      - ${TUNNEL_CREDENTIALS:?run setup.sh}:/etc/cloudflared/creds.json:ro
+
+volumes:
+  db-data:
+  s3-data:

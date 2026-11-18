@@ -1,0 +1,5 @@
+# Public demo server (deploy/oracle): use together with dev ("dev,demo"). Adds db/demo, the fictional schedules and
+# calendar events the read-only demo login browses. Never on a server with real data.
+spring:
+  flyway:
+    locations: classpath:db/migration,classpath:db/dev,classpath:db/demo
