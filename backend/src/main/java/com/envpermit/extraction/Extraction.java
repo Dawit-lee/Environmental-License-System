@@ -304,8 +304,13 @@ public class Extraction {
                             .filter(p -> rowKind(p) == kind).toList());
                 }
             } else if (payloads != null) {
-                review.addAi(run, permitId, run.getKind() != Kind.OBLIGATION_REVISION ? payloads
-                        : revisions.payloads(permitId, run.getInputRef().get("prev_document_id").asLong(), payloads));
+                try {
+                    review.addAi(run, permitId, run.getKind() != Kind.OBLIGATION_REVISION ? payloads
+                            : revisions.payloads(permitId, run.getInputRef().get("prev_document_id").asLong(), payloads));
+                } catch (RevisionDiff.TooFewRows e) {
+                    run.finish(e.getMessage(), rawKey, inTokens, outTokens, clock.instant());
+                    return;
+                }
             }
             run.finish(payloads != null ? null : error, rawKey, inTokens, outTokens, clock.instant());
         });

@@ -159,6 +159,20 @@ class RevisionApiTest extends IntegrationTest {
     }
 
     @Test
+    void a_new_version_with_no_obligations_fails_instead_of_removing_everything() throws Exception {
+        approveV1();
+        long v2 = id(upload(permitId, "변경신고.pdf", v1, null));
+
+        llm.answer("obligations-empty.json");
+        long runId = runId(call(kim, post(base(v2) + "/revisions")).andExpect(status().isAccepted()));
+
+        call(kim, get("/api/ai-runs/" + runId)).andExpect(jsonPath("$.status").value("FAILED"))
+                .andExpect(jsonPath("$.errorMessage").value("새 문서에서 찾은 조건이 너무 적습니다(이전 3건 → 0건). "
+                        + "일부만 바꾼 변경신고나 변경 이력표로 보입니다. 허가 전체본을 올려 주세요."));
+        assertThat(suggestions(runId)).isEmpty();
+    }
+
+    @Test
     void approving_v1_records_its_source_document() throws Exception {
         approveV1();
 
