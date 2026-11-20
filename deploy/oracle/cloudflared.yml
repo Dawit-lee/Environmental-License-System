@@ -4,6 +4,5 @@ ingress:
   # no self-signup and no paid LLM calls from the public address
   - path: ^/api/auth/(signup|join)
     service: http_status:403
-  - path: ^/api/(company/ai-extraction|.*/(extractions|revisions|schedule-extractions))
-    service: http_status:403
+  # AI 주소 차단은 2026-11-20 사용자 결정으로 풀었다(테스터 회사만 AI 켬, 회사별 스위치가 막음)
   - service: http://web:80

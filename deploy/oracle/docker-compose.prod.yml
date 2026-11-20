@@ -54,8 +54,9 @@ services:
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
       LAW_API_OC: ${LAW_API_OC:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-} # 테스터 회사 AI 추출용(2026-11-20). 회사별 AI 스위치가 꺼진 회사는 호출 안 됨
       APP_BASE_URL: ${APP_BASE_URL:-https://permit.rema.sarl}
-      # No AI keys, no Google OAuth, no SMTP: AI extraction is blocked at the tunnel, calendar sync off, mail only logged.
+      # AI key only for the tester company (company AI switch, demo account is read-only); no Google OAuth, no SMTP: calendar sync off, mail only logged.
 
   web:
     build:
