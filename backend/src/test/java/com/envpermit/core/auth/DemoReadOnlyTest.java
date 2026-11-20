@@ -57,6 +57,17 @@ class DemoReadOnlyTest extends IntegrationTest {
     }
 
     @Test
+    void demo_user_opening_a_cited_page_gets_a_quiet_204_and_nothing_is_recorded() throws Exception {
+        String access = field(login(DemoReadOnly.EMAIL, "demo1234!"), "accessToken");
+        mvc.perform(post("/api/suggestions/1/page-views").header("Authorization", "Bearer " + access)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"pageNo\":1}"))
+                .andExpect(status().isNoContent());
+        mvc.perform(post("/api/suggestions/1/page-views/x").header("Authorization", "Bearer " + access)
+                        .contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isForbidden()); // only that exact path
+    }
+
+    @Test
     void other_users_writes_are_not_affected() throws Exception {
         String access = field(login("kim@example.com", "correct-pw"), "accessToken");
         mvc.perform(post("/api/projects").header("Authorization", "Bearer " + access)

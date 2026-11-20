@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,6 +22,8 @@ public class DemoReadOnly extends OncePerRequestFilter {
 
     public static final String EMAIL = "demo@envpermit.local";
     private static final Set<String> READS = Set.of("GET", "HEAD", "OPTIONS");
+    /** Opening a cited page on the review screen logs a view; for the demo it is skipped quietly, not a red 403. */
+    private static final Pattern PAGE_VIEW = Pattern.compile("/api/suggestions/\\d+/page-views");
 
     private final JdbcTemplate jdbc;
 
@@ -41,6 +44,10 @@ public class DemoReadOnly extends OncePerRequestFilter {
                 && SecurityContextHolder.getContext().getAuthentication() != null
                 && SecurityContextHolder.getContext().getAuthentication().getPrincipal() instanceof Jwt jwt
                 && isDemo(jdbc, Long.parseLong(jwt.getSubject()))) {
+            if (PAGE_VIEW.matcher(req.getRequestURI()).matches()) {
+                res.setStatus(HttpStatus.NO_CONTENT.value());
+                return;
+            }
             ApiErrors.write(res, HttpStatus.FORBIDDEN, "데모 계정은 조회만 가능합니다.");
             return;
         }
