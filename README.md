@@ -173,7 +173,7 @@ DB 포트를 바꿨다면 `DB_URL=jdbc:postgresql://localhost:5435/envpermit`도
 | Frontend | React 18, TypeScript, Vite, Tailwind CSS 4, 간트: [SVAR React Gantt](https://svar.dev/react/gantt/) 2.8.2 (MIT) |
 | AI | Claude(anthropic-java SDK) / Gemini / OpenAI 중 서버당 하나 — PDF 입력 + JSON 스키마 구조화 출력. PDFBox(글자층 확인·원문 대조), Apache POI(XLSX) |
 | 외부 데이터 | [법제처 국가법령정보 Open API](https://open.law.go.kr/LSO/openApi/guideList.do) — 개정 목록, 조문, 신구조문 |
-| 인프라 | Docker Compose (로컬). 배포는 아직 없음 |
+| 인프라 | Docker Compose. 공개 데모는 클라우드 서버 1대 + Cloudflare Tunnel(`deploy/oracle`) |
 | 테스트 | JUnit 5, Testcontainers(PostgreSQL), 녹화한 외부 API 응답 픽스처(JDK `HttpServer` 대역) |
 
 ---
@@ -183,7 +183,7 @@ DB 포트를 바꿨다면 `DB_URL=jdbc:postgresql://localhost:5435/envpermit`도
 ```bash
 cd backend && ./gradlew test     # Docker가 켜져 있어야 함
 ```
-2026-11-16 `dev`(#61) 기준 887개 통과, 실패 0, 건너뜀 3(실제 API 녹화용 2개 + 레포 밖 골든 사례 1개).
+2026-11-20 `dev`(#88) 기준 940개 중 937개 통과, 실패 0, 건너뜀 3(실제 API 녹화용 2개 + 레포 밖 골든 사례 1개).
 
 | 방식 | 내용 |
 |---|---|
@@ -193,7 +193,8 @@ cd backend && ./gradlew test     # Docker가 켜져 있어야 함
 | **골든 하네스 (자동 도출)** | 규칙 세트를 실제 사업의 인허가 목록과 대조해 재현율·정밀도·보류를 잽니다. 저장소에는 지어낸 사례만 있고, 실제 사례는 `GOLDEN_DIR`이 가리키는 레포 밖 폴더에서만 읽습니다 → [golden-accuracy.md](docs/golden-accuracy.md) |
 | **추출 품질 평가 (수동)** | 공개 협의내용 문서와 정답표로 3사 추출 재현율·정밀도를 잽니다. 비용이 들어 CI에서는 돌지 않습니다 → [방법](docs/EXTRACTION_EVAL.md), [결과](docs/EXTRACTION_EVAL_RESULTS.md) |
 
-프론트엔드는 테스트 러너가 없고 `vite build`와 브라우저 확인으로 검증합니다.
+프론트엔드는 Vitest 단위 테스트 12개(`cd frontend && npm test`)가 있습니다.
+CI는 PR마다 타입 검사(`tsc`), ESLint, Vitest, `vite build`를 돌립니다. 화면 동작은 브라우저로 확인합니다.
 
 ---
 
@@ -222,7 +223,7 @@ cd backend && ./gradlew test     # Docker가 켜져 있어야 함
 | 통합 QA (브라우저 전 구간, 타 회사 접근 점검) | ✅ (#48) |
 | 운영단계 선택 모듈 (기본 꺼짐) | ✅ (#32–#35, #37–#40, #42, #49) |
 | **분야별 설계 일정** 01 운영 모듈 선택화 · 02 분야·일정 항목·간트 · 03 기준일·오프셋, 기준 확정, 지연 현황 · 04 이벤트·출장 달력 · 05 협력사 읽기 전용 공유 · 06 Google 캘린더 단방향 동기화 · 07 문서 → 일정 제안(AI + 사람 검토) · 08 인허가 진행 현황 보고 1쪽 | ✅ (#49, #50, #53–#59) · ⏳ 실제 Google 연결 확인, 별도 세트로 AI 일정 추출 측정 |
-| CI (GitHub Actions), 배포 | ⏳ |
+| CI (GitHub Actions), 배포 | ✅ PR마다 백엔드 테스트·프론트 검사, 공개 데모 서버(`deploy/oracle`) |
 
 ---
 
