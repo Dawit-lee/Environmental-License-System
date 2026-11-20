@@ -201,6 +201,7 @@ cd backend && ./gradlew test     # Docker가 켜져 있어야 함
 
 - [아키텍처](docs/ARCHITECTURE.md) — 모듈, AI 제안 + 사람 검토 통로, 법령 배치, 권한, 기밀 처리, 주요 결정
 - [포트폴리오](docs/PORTFOLIO.md) — 기능별 문제·해결·실측 성과
+- [시연용 가상 문서 4종](docs/samples/README.md) — 입찰공고, 허가서 v1·v2, 협의의견서 PDF. 내려받아 직접 올려 볼 수 있습니다
 - [자동 도출 골든 측정](docs/golden-accuracy.md) · [추출 품질 평가 방법](docs/EXTRACTION_EVAL.md) · [추출 품질 실측 결과](docs/EXTRACTION_EVAL_RESULTS.md)
 
 ---
