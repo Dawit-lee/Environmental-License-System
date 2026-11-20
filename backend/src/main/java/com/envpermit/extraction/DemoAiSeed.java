@@ -95,6 +95,14 @@ class DemoAiSeed {
 
     @EventListener(value = ApplicationReadyEvent.class, condition = "@environment.matchesProfiles('demo')")
     public void seed() {
+        try { // an exception from a ready listener fails startup: the demo must come up without the AI flow instead
+            seedOnce();
+        } catch (RuntimeException e) {
+            log.warn("Demo AI review seed failed; the demo runs without it and the next start retries", e);
+        }
+    }
+
+    private void seedOnce() {
         List<Map<String, Object>> found = jdbc.queryForList("""
                 SELECT pr.id, pr.company_id, u.id AS dev FROM project pr
                 JOIN project_member m ON m.project_id = pr.id AND m.can_self_approve
@@ -114,12 +122,8 @@ class DemoAiSeed {
         }
         long co = ((Number) found.get(0).get("company_id")).longValue();
         long dev = ((Number) found.get(0).get("dev")).longValue();
-        try {
-            tx.executeWithoutResult(s -> seed(pid, co, dev)); // all or nothing: a half-seeded demo would never retry
-            log.info("Demo AI review flow seeded on {}", PROJECT);
-        } catch (RuntimeException e) {
-            log.error("Demo AI review seed failed; the demo runs without it", e);
-        }
+        tx.executeWithoutResult(s -> seed(pid, co, dev)); // all or nothing: a half-seeded demo would never retry
+        log.info("Demo AI review flow seeded on {}", PROJECT);
     }
 
     private void seed(long pid, long co, long dev) {

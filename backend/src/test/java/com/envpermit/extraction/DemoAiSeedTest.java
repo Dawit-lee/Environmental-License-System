@@ -6,6 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.envpermit.core.company.Company;
+import com.envpermit.core.document.DocumentStorage;
+import com.envpermit.support.InMemoryDocumentStorage;
 import com.envpermit.core.company.CompanyRepository;
 import com.envpermit.core.user.User;
 import com.envpermit.core.user.UserRepository;
@@ -27,6 +29,12 @@ class DemoAiSeedTest extends IntegrationTest {
     @Autowired CompanyRepository companies;
     @Autowired UserRepository users;
     @Autowired PasswordEncoder encoder;
+    @Autowired Extraction extraction;
+    @Autowired com.envpermit.review.AiRunRepository runs;
+    @Autowired com.envpermit.review.Review review;
+    @Autowired jakarta.persistence.EntityManager em;
+    @Autowired org.springframework.transaction.support.TransactionTemplate tx;
+    @Autowired java.time.Clock appClock;
 
     long projectId;
     String demo;
@@ -72,6 +80,25 @@ class DemoAiSeedTest extends IntegrationTest {
         seed.seed(); // the server runs it on every start
         assertThat((List<?>) JsonPath.read(body(get("/api/projects/" + projectId + "/suggestions")), "$"))
                 .hasSize(rows.size());
+    }
+
+    @Test
+    void a_storage_failure_leaves_no_partial_seed_and_does_not_throw_so_startup_goes_on_and_the_next_start_retries()
+            throws Exception {
+        DocumentStorage down = new InMemoryDocumentStorage() {
+            @Override
+            public void put(String key, java.io.InputStream content, long size, String contentType) {
+                throw new IllegalStateException("Not enough data nodes found"); // SeaweedFS out of volume slots
+            }
+        };
+        new DemoAiSeed(jdbc, down, extraction, runs, review, em, tx, appClock).seed(); // must not throw
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM ai_suggestion", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM document", Long.class)).isZero();
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM permit_item", Long.class)).isZero();
+
+        seed.seed(); // storage back up on the next start
+        assertThat((List<?>) JsonPath.read(body(get("/api/projects/" + projectId + "/suggestions")), "$")).isNotEmpty();
     }
 
     private String body(MockHttpServletRequestBuilder req) throws Exception {
