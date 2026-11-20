@@ -229,6 +229,11 @@ public class Extraction {
 
     /** The slow part. Never throws: every outcome ends as SUCCEEDED or FAILED on the run. */
     public void run(long runId) {
+        run(runId, llm);
+    }
+
+    /** Same, answered by the given client (the demo seed replays recorded responses through it). */
+    void run(long runId, LlmClient llm) {
         AiRun run = runs.findById(runId).orElseThrow();
         boolean schedule = run.getKind() == Kind.SCHEDULE_ITEM;
         String docType = run.getInputRef().path("doc_type").asText();

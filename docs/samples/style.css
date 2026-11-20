@@ -1,0 +1,14 @@
+@page { size: A4; margin: 22mm 20mm; }
+body { font-family: "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; font-size: 10.5pt; line-height: 1.65; color: #111; }
+h1 { text-align: center; font-size: 18pt; letter-spacing: 4pt; margin: 0 0 6mm; }
+h2 { font-size: 12pt; margin: 6mm 0 2mm; border-bottom: 1px solid #333; padding-bottom: 1mm; }
+table { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; }
+th, td { border: 1px solid #555; padding: 1.5mm 2.5mm; vertical-align: top; }
+th { background: #eee; width: 28%; text-align: left; font-weight: 600; }
+ol, ul { margin: 1mm 0 3mm; padding-left: 7mm; }
+li { margin-bottom: 1.5mm; }
+.no { font-size: 9.5pt; color: #333; }
+.sign { text-align: center; margin-top: 12mm; font-size: 13pt; letter-spacing: 2pt; }
+.date { text-align: center; margin-top: 8mm; }
+.note { margin-top: 10mm; font-size: 8.5pt; color: #666; border-top: 1px dashed #999; padding-top: 2mm; }
+.break { page-break-before: always; }
