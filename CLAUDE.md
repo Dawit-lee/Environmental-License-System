@@ -15,3 +15,7 @@
 ### Domain docs
 
 single-context: 루트의 `GLOSSARY.md`와 `docs/adr/`. See `docs/agents/domain.md`.
+
+### Design
+
+화면 작업은 루트의 `DESIGN.md`(KRDS 바탕 + Carbon 데이터 화면 규칙)를 따른다.
