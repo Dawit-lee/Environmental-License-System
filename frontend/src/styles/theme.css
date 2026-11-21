@@ -1,16 +1,14 @@
 @import './globals.css';
 
-@custom-variant dark (&:is(.dark *));
-
 :root {
   --font-size: 16px;
-  --canvas-soft: #fafafa;
+  --canvas-soft: #f4f5f6; /* KRDS surface-gray-subtler */
   --canvas: #ffffff;
-  --ink: #171717;
-  --body: #4d4d4d;
-  --mute: #888888;
-  --hairline: #ebebeb;
-  --background: var(--canvas-soft);
+  --ink: #1e2124;
+  --body: #464c53;
+  --mute: #6d7882;
+  --hairline: #cdd1d5;
+  --background: var(--canvas);
   --foreground: var(--ink);
   --card: #ffffff;
   --card-foreground: var(--ink);
@@ -27,19 +25,19 @@
   --destructive: #d4183d;
   --destructive-foreground: #ffffff;
   --border: var(--hairline);
-  --input: var(--hairline);
+  --input: #58616a; /* KRDS input-border, 4.5:1 */
   --input-background: var(--canvas);
   --switch-background: #d4d4d4;
   --font-weight-semibold: 600;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #171717;
+  --ring: #256ef4;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
+  --radius: 4px;
   --sidebar: var(--canvas);
   --sidebar-foreground: var(--ink);
   --sidebar-primary: var(--ink);
@@ -47,75 +45,57 @@
   --sidebar-accent: var(--canvas-soft);
   --sidebar-accent-foreground: var(--ink);
   --sidebar-border: var(--hairline);
-  --sidebar-ring: #171717;
+  --sidebar-ring: #256ef4;
 }
 
-.dark {
-  --background: #000000;
-  --foreground: #ededed;
-  --card: #0a0a0a;
-  --card-foreground: #ededed;
-  --popover: #0a0a0a;
-  --popover-foreground: #ededed;
-  --primary: #ededed;
-  --primary-foreground: #171717;
-  --secondary: #111111;
-  --secondary-foreground: #ededed;
-  --muted: #111111;
-  --muted-foreground: #a1a1a1;
-  --accent: #111111;
-  --accent-foreground: #ededed;
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: #333333;
-  --input: #333333;
-  --input-background: #0a0a0a;
-  --ring: #ededed;
-  --font-weight-semibold: 600;
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #0a0a0a;
-  --sidebar-foreground: #ededed;
-  --sidebar-primary: #ededed;
-  --sidebar-primary-foreground: #171717;
-  --sidebar-accent: #111111;
-  --sidebar-accent-foreground: #ededed;
-  --sidebar-border: #333333;
-  --sidebar-ring: #ededed;
-}
 
 /*
- * Design tokens — the app's own colors. Use the utilities (bg-brand, border-line, text-danger,
- * hover:bg-brand-hover, focus:ring-brand/20 …), or var(--color-*) in plain CSS and inline styles.
+ * Design tokens — the app's own colors, values from DESIGN.md (KRDS). Use the utilities (bg-brand, border-line,
+ * text-danger, bg-danger-bg …), or var(--color-*) in plain CSS and inline styles.
  * Never write a hex value in className; add a token here instead.
- *   brand       navy primary: buttons, links, active tab, focus ring
+ *   brand(-hover/-pressed)  KRDS primary blue: buttons, active tab, focus ring
+ *   brand-text              links and blue text (6.8:1 on white)
+ *   brand-subtle/-border    info box, selected row
+ *   inverse                 dark utility bar
  *   line        default border and table divider
- *   line-soft   lighter divider inside dialogs and lists
- *   paper       warm gray: row hover, table header, soft panels
- *   danger      overdue, expired, destructive
- *   warn        due soon, needs action
- *   ok          done, acquired
+ *   line-soft   lighter row divider inside tables and lists
+ *   paper       neutral gray: row hover, table header, soft panels
+ *   danger      overdue, expired, destructive      (-bg/-border for boxes)
+ *   warn        due soon, needs action            (-bg/-border)
+ *   ok          done, acquired                    (-bg/-border)
+ *   information neutral notice                    (-bg/-border)
  * The shadcn tokens in @theme inline below (primary, border, muted …) are the Figma Make
  * defaults the app barely uses; `border` there still sets the default border color.
  * `static` keeps every variable in the output, since library CSS (Gantt, FullCalendar) reads them.
  */
 @theme static {
-  --color-brand: #1F4E79;
-  --color-brand-hover: #173a5c;
-  --color-line: #E5E3DC;
-  --color-line-soft: #F0EEE8;
-  --color-paper: #F8F7F2;
-  --color-danger: #991B1B;
-  --color-danger-hover: #7f1616;
-  --color-warn: #B45309;
-  --color-warn-hover: #92400e;
-  --color-ok: #0F6E56;
-  --color-ok-hover: #0b5a46;
+  --color-brand: #256ef4;
+  --color-brand-hover: #0b50d0;
+  --color-brand-pressed: #083891;
+  --color-brand-text: #0b50d0;
+  --color-brand-subtle: #ecf2fe;
+  --color-brand-border: #d8e5fd;
+  --color-inverse: #1e2124;
+  --color-line: #cdd1d5;
+  --color-line-soft: #e6e8ea;
+  --color-paper: #f4f5f6;
+  --color-danger: #bd2c0f;
+  --color-danger-hover: #9a2309;
+  --color-danger-bg: #fdefec;
+  --color-danger-border: #fcdfd9;
+  --color-warn: #8a5c00;
+  --color-warn-hover: #6e4900;
+  --color-warn-bg: #fff3db;
+  --color-warn-border: #ffe0a3;
+  --color-ok: #267337;
+  --color-ok-hover: #1e5c2c;
+  --color-ok-bg: #eaf6ec;
+  --color-ok-border: #d8eedd;
+  --color-information: #096ab3;
+  --color-information-bg: #e7f4fe;
+  --color-information-border: #d3ebfd;
+  /* DESIGN.md typography.size.body-sm: table and secondary text 15px */
+  --text-sm: 15px;
 }
 
 @theme inline {
@@ -145,10 +125,11 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  /* DESIGN.md radius: xs 2px for badges, sm 4px for everything else (rounded-lg/xl too, until step 2) */
+  --radius-sm: 2px;
+  --radius-md: var(--radius);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: var(--radius);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -166,7 +147,7 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Pretendard GOV Variable", "Pretendard GOV", -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
     font-size: 16px;
     font-weight: var(--font-weight-normal);
     line-height: 1.5;
