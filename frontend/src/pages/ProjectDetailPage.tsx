@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Navigate, useParams } from 'react-router';
-import type { FacilityType, PermitCategory, PermitItem, PermitStatus, Project } from '../types';
+import type { PermitCategory, PermitItem, PermitStatus, Project } from '../types';
+import { CATEGORY_LABEL, FACILITY_LABEL, PERMIT_STATUS, filterPermits } from './listFilters';
+import { Badge, dueBadge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Select } from '../components/ui/Field';
+import { Table } from '../components/ui/Table';
+import { cn, focusRing } from '../components/ui/cn';
+import { EmptyBlock, FilterChips, type ActiveFilter } from '../components/ListParts';
 import { api, apiBlob } from '../api/client';
 import { latestDerivation, type DerivationWarning } from '../api/derivation';
 import PermitDetailDrawer from '../components/PermitDetailDrawer';
@@ -16,59 +23,13 @@ import ProjectOperations from '../components/ProjectOperations';
 import ProjectModules from '../components/ProjectModules';
 import ProjectMembers from '../components/ProjectMembers';
 import ProjectDelete from '../components/ProjectDelete';
-import { EmptyState, Tip, primaryBtn } from '../components/Onboarding';
+import { Tip } from '../components/Onboarding';
 import { Alert } from '../components/ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ProjectDetailPage — the project hub: summary + lifecycle stage + routed tabs
 // (/projects/:id/:tab). 인허가 tab = permit table; each row opens the drawer.
 // ---------------------------------------------------------------------------
-
-const FACILITY_LABEL: Record<FacilityType, string> = {
-  INCINERATION: '소각시설',
-  LANDFILL: '매립시설',
-  BIOGAS: '통합바이오가스',
-  SEWAGE: '하수처리',
-  WASTEWATER: '폐수처리',
-};
-
-const CATEGORY_LABEL: Record<PermitCategory, string> = {
-  LOCATION: '입지',
-  FACILITY: '시설',
-  CONSTRUCTION: '건축',
-  ELECTRICAL: '전기',
-  ENVIRONMENT: '환경평가',
-};
-
-const STATUS_LABEL: Record<PermitStatus, string> = {
-  NOT_APPLIED: '미신청',
-  IN_PROGRESS: '진행중',
-  COMPLETED: '취득완료',
-  NEAR_EXPIRY: '만료임박',
-  EXPIRED: '만료',
-};
-
-const STATUS_BADGE: Record<PermitStatus, string> = {
-  NOT_APPLIED: 'text-body',
-  IN_PROGRESS: 'text-brand',
-  COMPLETED: 'text-ok',
-  NEAR_EXPIRY: 'text-warn',
-  EXPIRED: 'text-danger',
-};
-
-function dDayClasses(dDay: number | null): string {
-  if (dDay === null) return 'text-mute';
-  if (dDay <= 7) return 'text-danger font-semibold';
-  if (dDay <= 30) return 'text-warn font-semibold';
-  if (dDay <= 60) return 'text-amber-500 font-medium';
-  return 'text-mute';
-}
-
-function dDayLabel(dDay: number | null): string {
-  if (dDay === null) return '—';
-  if (dDay === 0) return 'D-DAY';
-  return dDay > 0 ? `D-${dDay}` : `D+${Math.abs(dDay)}`;
-}
 
 /** Less important columns: hidden under 1280 px (the drawer shows them) so the key ones fit without scrolling. */
 const WIDE = 'hidden xl:table-cell';
@@ -140,15 +101,13 @@ export default function ProjectDetailPage() {
     return { total, completed, nearExpiry, notApplied };
   }, [permits]);
 
-  const visible = useMemo(
-    () =>
-      permits.filter(
-        (p) =>
-          (activeCategory === 'ALL' || p.category === activeCategory) &&
-          (statusFilter === 'ALL' || p.status === statusFilter),
-      ),
-    [permits, activeCategory, statusFilter],
-  );
+  const visible = useMemo(() => filterPermits(permits, { category: activeCategory, status: statusFilter }), [permits, activeCategory, statusFilter]);
+
+  const permitFilters: ActiveFilter[] = [
+    activeCategory !== 'ALL' && { key: 'category', label: `분야: ${CATEGORY_LABEL[activeCategory]}`, clear: () => setActiveCategory('ALL') },
+    statusFilter !== 'ALL' && { key: 'status', label: `상태: ${PERMIT_STATUS[statusFilter].text}`, clear: () => setStatusFilter('ALL') },
+  ].filter((f): f is ActiveFilter => Boolean(f));
+  const clearPermitFilters = () => { setActiveCategory('ALL'); setStatusFilter('ALL'); };
 
   if (error || !project) {
     return (
@@ -157,9 +116,14 @@ export default function ProjectDetailPage() {
           <Link to="/projects" className="text-sm text-mute transition hover:text-brand hover:underline">
             ← 프로젝트 목록
           </Link>
-          <p className={`mt-16 text-center text-sm ${error ? 'text-danger' : 'text-mute'}`}>
-            {error ?? '불러오는 중…'}
-          </p>
+          {error ? (
+            <Alert tone="danger" title="프로젝트를 불러오지 못했습니다." className="mt-6">
+              <p>{error}</p>
+              <Button variant="tertiary" size="sm" className="mt-3" onClick={() => setReloads((n) => n + 1)}>다시 시도</Button>
+            </Alert>
+          ) : (
+            <p className="mt-16 text-center text-sm text-mute">불러오는 중…</p>
+          )}
         </div>
       </div>
     );
@@ -270,111 +234,102 @@ export default function ProjectDetailPage() {
 
         {tab === 'permits' && (<>
 
-        {/* Category chips + status filter */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap gap-2">
-            <Tab label="전체" active={activeCategory === 'ALL'} onClick={() => setActiveCategory('ALL')} />
-            {CATEGORY_TAB_ORDER.map((cat) => (
-              <Tab
-                key={cat}
-                label={CATEGORY_LABEL[cat]}
-                active={activeCategory === cat}
-                onClick={() => setActiveCategory(cat)}
-              />
-            ))}
-          </div>
-          <div className="flex items-center gap-2">
-          <Tip k="report"><button
-            type="button"
-            disabled={reporting}
-            onClick={() => {
-              setReporting(true);
-              downloadReport(project.id).catch((e: Error) => window.alert(e.message)).finally(() => setReporting(false));
-            }}
-            className="rounded border border-line bg-white px-3 py-2 text-sm text-body transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
-          >
-            {reporting ? '만드는 중…' : '진행 현황 보고 ⬇'}
-          </button></Tip>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'ALL' | PermitStatus)}
-            className="rounded border border-line bg-white px-3 py-2 text-sm text-body outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-          >
-            <option value="ALL">상태 전체</option>
-            {Object.entries(STATUS_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+        {/* 필터 줄: 분야·상태 + 오른쪽 내보내기 */}
+        <div className="flex flex-wrap items-end gap-3">
+          <Select label="분야" className="w-full sm:w-44" value={activeCategory} onChange={(e) => setActiveCategory(e.target.value as 'ALL' | PermitCategory)}>
+            <option value="ALL">전체</option>
+            {CATEGORY_TAB_ORDER.map((cat) => <option key={cat} value={cat}>{CATEGORY_LABEL[cat]}</option>)}
+          </Select>
+          <Select label="상태" className="w-full sm:w-44" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'ALL' | PermitStatus)}>
+            <option value="ALL">전체</option>
+            {Object.entries(PERMIT_STATUS).map(([value, s]) => <option key={value} value={value}>{s.text}</option>)}
+          </Select>
+          <div className="sm:ml-auto">
+            <Tip k="report"><Button
+              variant="tertiary"
+              disabled={reporting}
+              onClick={() => {
+                setReporting(true);
+                downloadReport(project.id).catch((e: Error) => window.alert(e.message)).finally(() => setReporting(false));
+              }}
+            >
+              {reporting ? '만드는 중…' : '진행 현황 보고 내려받기'}
+            </Button></Tip>
           </div>
         </div>
+        <FilterChips filters={permitFilters} onClearAll={clearPermitFilters} />
 
-        {permits.length === 0 && (
-          <div className="mt-4">
-            <EmptyState text={project.member
-              ? '시설 종류·용량·입지로 필요한 인허가를 규칙에 따라 찾습니다. 도출 결과에서 맞는 항목을 승인하면 여기에 나옵니다.'
-              : '아직 등록된 인허가가 없습니다.'}>
-              {project.member && <Link to={`/projects/${project.id}/settings`} className={primaryBtn}>인허가 도출하기</Link>}
-            </EmptyState>
-          </div>
-        )}
-
-        {/* Permit table */}
-        {permits.length > 0 && <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
-          <table className="w-full min-w-[600px] whitespace-nowrap xl:min-w-[860px] text-left text-sm">
-            <thead className="bg-paper text-xs uppercase text-body">
-              <tr>
-                <th className="px-4 py-3 font-medium">인허가명</th>
-                <th className="px-4 py-3 font-medium">카테고리</th>
-                <th className={`px-4 py-3 font-medium ${WIDE}`}>관련 법규</th>
-                <th className={`px-4 py-3 font-medium ${WIDE}`}>승인기관</th>
-                <th className="px-4 py-3 font-medium">만료일</th>
-                <th className="px-4 py-3 font-medium">D-day</th>
-                <th className="px-4 py-3 font-medium">상태</th>
-                <th className="px-4 py-3 text-right font-medium">액션</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {visible.map((p) => (
-                <tr key={p.id} className="transition hover:bg-paper">
-                  <td className="px-4 py-3 font-medium text-ink">{p.name}</td>
-                  <td className="px-4 py-3">
-                    <span className="whitespace-nowrap text-body">
-                      {CATEGORY_LABEL[p.category]}
-                    </span>
-                  </td>
-                  <td className={`px-4 py-3 ${WIDE}`}>
-                    <a href={p.regulationUrl ?? undefined} target="_blank" rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-brand transition hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30">
-                      {p.regulation}<span aria-hidden>↗</span>
-                    </a>
-                  </td>
-                  <td className={`px-4 py-3 ${WIDE}`}>
-                    <a href={p.authorityUrl ?? undefined} target="_blank" rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-body transition hover:text-brand hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30">
-                      {p.authority}<span aria-hidden>↗</span>
-                    </a>
-                  </td>
-                  <td className="px-4 py-3 text-body">{p.expiryDate ?? '—'}</td>
-                  <td className={`px-4 py-3 ${dDayClasses(p.dDay)}`}>{dDayLabel(p.dDay)}</td>
-                  <td className="px-4 py-3">
-                    <span className={`whitespace-nowrap ${STATUS_BADGE[p.status]}`}>
-                      {STATUS_LABEL[p.status]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setSelected(p)}
-                      className="rounded border border-line px-3 py-1.5 text-xs font-medium text-body transition hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
-                    >
-                      상세보기
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>}
+        <div className="mt-6">
+          {permits.length === 0 ? (
+            <EmptyBlock
+              title="등록된 인허가가 없습니다."
+              description={project.member
+                ? '시설 종류·용량·입지로 필요한 인허가를 찾습니다. 도출 결과에서 맞는 항목을 승인하면 여기에 나옵니다.'
+                : '프로젝트 멤버가 인허가를 도출하면 여기에 나옵니다.'}
+              action={project.member && (
+                <Link to={`/projects/${project.id}/settings`} className={cn('inline-flex h-12 items-center rounded bg-brand px-4 text-[17px] font-bold text-white hover:bg-brand-hover', focusRing)}>
+                  인허가 도출하기
+                </Link>
+              )}
+            />
+          ) : visible.length === 0 ? (
+            <EmptyBlock title="조건에 맞는 항목이 없습니다." action={<Button variant="tertiary" onClick={clearPermitFilters}>필터 모두 지우기</Button>} />
+          ) : (
+            <>
+              <p className="mb-2 text-[15px] text-body" aria-live="polite"><span className="tabular-nums font-bold text-ink">{visible.length}</span>건</p>
+              <Table caption="인허가 목록" className="min-w-[640px] whitespace-nowrap xl:min-w-[960px]">
+                <thead>
+                  <tr>
+                    <th>인허가명</th>
+                    <th>상태</th>
+                    <th>분야</th>
+                    <th className={WIDE}>관련 법규</th>
+                    <th className={WIDE}>승인기관</th>
+                    <th className="text-right">만료일</th>
+                    <th className="text-right">남은 기간</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visible.map((p) => {
+                    const status = PERMIT_STATUS[p.status];
+                    const due = p.dDay === null ? null : dueBadge(p.dDay);
+                    return (
+                      <tr key={p.id} onClick={() => setSelected(p)} className={cn('cursor-pointer', selected?.id === p.id && 'bg-brand-subtle')}>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setSelected(p); }}
+                            className={cn('rounded-sm text-left font-bold text-brand-text hover:underline', focusRing)}
+                          >
+                            {p.name}
+                          </button>
+                        </td>
+                        <td><Badge tone={status.tone}>{status.text}</Badge></td>
+                        <td className="text-body">{CATEGORY_LABEL[p.category]}</td>
+                        <td className={WIDE}>
+                          <a href={p.regulationUrl ?? undefined} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                            className={cn('inline-flex items-center gap-1 rounded-sm text-brand-text hover:underline', focusRing)}>
+                            {p.regulation}<span aria-hidden>↗</span>
+                          </a>
+                        </td>
+                        <td className={WIDE}>
+                          <a href={p.authorityUrl ?? undefined} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}
+                            className={cn('inline-flex items-center gap-1 rounded-sm text-body hover:text-brand-text hover:underline', focusRing)}>
+                            {p.authority}<span aria-hidden>↗</span>
+                          </a>
+                        </td>
+                        <td className="text-right tabular-nums text-body">{p.expiryDate ?? '—'}</td>
+                        <td className="text-right">
+                          {due ? <Badge tone={due.tone} className="tabular-nums">{due.text}</Badge> : <span className="text-mute">—</span>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </Table>
+            </>
+          )}
+        </div>
         </>)}
       </div>
 
@@ -419,20 +374,6 @@ function Stat({ label, value, tone }: { label: string; value: number; tone: stri
       <div className={`text-2xl font-bold ${tone}`}>{value}</div>
       <div className="mt-1 text-xs text-mute">{label}</div>
     </div>
-  );
-}
-
-function Tab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
-        active ? 'bg-brand text-white' : 'bg-white text-body hover:bg-line'
-      }`}
-    >
-      {label}
-    </button>
   );
 }
 

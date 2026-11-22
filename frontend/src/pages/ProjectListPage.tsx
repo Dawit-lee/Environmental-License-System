@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { FacilityType, Project, ProjectStatus } from '../types';
+import { FACILITY_LABEL, PROJECT_STATUS, filterProjects } from './listFilters';
+import { Badge } from '../components/ui/Badge';
+import { Select, Input } from '../components/ui/Field';
+import { Table } from '../components/ui/Table';
+import { Alert } from '../components/ui/Alert';
+import { cn, focusRing } from '../components/ui/cn';
+import { EmptyBlock, FilterChips, SkeletonRows, type ActiveFilter } from '../components/ListParts';
 import { api, sessionUserId } from '../api/client';
 import { Button } from '../components/ui/Button';
 import { getCompanyUsers, getDepartments, type Department } from '../api/org';
@@ -10,26 +17,6 @@ import { PageHeader } from '../components/ui/PageHeader';
 // ProjectListPage — company-wide project table: search, facility/status/department/team filters,
 // sortable columns, one line per row. Defaults to my team.
 // ---------------------------------------------------------------------------
-
-const FACILITY_LABEL: Record<FacilityType, string> = {
-  INCINERATION: '소각시설',
-  LANDFILL: '매립시설',
-  BIOGAS: '통합바이오가스',
-  SEWAGE: '하수처리',
-  WASTEWATER: '폐수처리',
-};
-
-const STATUS_LABEL: Record<ProjectStatus, string> = {
-  IN_PROGRESS: '진행중',
-  COMPLETED: '완료',
-  ON_HOLD: '보류',
-};
-
-const STATUS_BADGE: Record<ProjectStatus, string> = {
-  IN_PROGRESS: 'text-brand',
-  COMPLETED: 'text-ok',
-  ON_HOLD: 'text-body',
-};
 
 type SortKey = 'name' | 'facility' | 'team' | 'pm' | 'em' | 'status' | 'progress' | 'nearExpiry' | 'location';
 
@@ -42,7 +29,7 @@ const SORT_VALUE: Record<SortKey, (p: Project) => string | number> = {
   team: teamOf,
   pm: (p) => p.pmName ?? '',
   em: (p) => p.emName ?? '',
-  status: (p) => STATUS_LABEL[p.status],
+  status: (p) => PROJECT_STATUS[p.status].text,
   progress: progressOf,
   nearExpiry: (p) => p.nearExpiryCount,
   location: (p) => p.location,
@@ -51,14 +38,15 @@ const SORT_VALUE: Record<SortKey, (p: Project) => string | number> = {
 /** Less important columns: hidden under 1280 px so the key ones fit without scrolling. */
 const WIDE = 'hidden xl:table-cell';
 
+// DESIGN.md 목록 화면: name first (link), status badge second; numbers right-aligned.
 const COLUMNS: { key: SortKey; label: string; className?: string }[] = [
   { key: 'name', label: '프로젝트명' },
+  { key: 'status', label: '상태' },
   { key: 'facility', label: '시설유형' },
   { key: 'team', label: '부서/팀', className: WIDE },
   { key: 'pm', label: 'PM' },
   { key: 'em', label: 'EM', className: WIDE },
-  { key: 'status', label: '상태' },
-  { key: 'progress', label: '취득 진행' },
+  { key: 'progress', label: '취득 진행', className: 'text-right' },
   { key: 'nearExpiry', label: '만료임박', className: 'text-right' },
   { key: 'location', label: '위치', className: WIDE },
 ];
@@ -78,8 +66,10 @@ export default function ProjectListPage() {
   const [myTeam, setMyTeam] = useState<number | null>(null);
   const [myIds, setMyIds] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [loads, setLoads] = useState(0); // 다시 시도
 
   useEffect(() => {
+    setError(null);
     Promise.all([api<Project[]>('/api/projects?scope=company'), getDepartments(), getCompanyUsers(), api<Project[]>('/api/projects')]).then(
       ([ps, ds, us, mine]) => {
         const team = us.find((u) => u.id === sessionUserId())?.teamId ?? null;
@@ -91,7 +81,7 @@ export default function ProjectListPage() {
       },
       (e: Error) => setError(e.message),
     );
-  }, []);
+  }, [loads]);
 
   const inScope = useMemo(() => {
     if (scope === 'ME') return (p: Project) => myIds.has(p.id);
@@ -105,163 +95,153 @@ export default function ProjectListPage() {
   }, [scope, myTeam, myIds, depts]);
 
   const rows = useMemo(() => {
-    const q = query.trim().toLowerCase();
     const value = SORT_VALUE[sort.key];
-    return (projects ?? [])
-      .filter(
-        (p) =>
-          inScope(p) &&
-          (q === '' || p.name.toLowerCase().includes(q) || p.location.toLowerCase().includes(q)) &&
-          (facilityFilter === 'ALL' || p.facilityType === facilityFilter) &&
-          (statusFilter === 'ALL' || p.status === statusFilter),
-      )
-      .sort((a, b) => {
-        const x = value(a);
-        const y = value(b);
-        const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko');
-        return sort.asc ? c : -c;
-      });
+    return filterProjects(projects ?? [], { query, facility: facilityFilter, status: statusFilter, inScope }).sort((a, b) => {
+      const x = value(a);
+      const y = value(b);
+      const c = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko');
+      return sort.asc ? c : -c;
+    });
   }, [projects, query, facilityFilter, statusFilter, inScope, sort]);
 
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, asc: s.key === key ? !s.asc : true }));
 
-  const selectClasses =
-    'rounded border border-line bg-white px-3 py-2 text-sm text-body outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
+  const scopeLabel = (s: Scope) => {
+    if (s === 'ME') return '내 프로젝트';
+    if (s === 'MINE') return '내 팀';
+    const d = s.startsWith('d:') ? depts.find((x) => x.id === Number(s.slice(2))) : depts.find((x) => x.teams.some((t) => t.id === Number(s.slice(2))));
+    if (!d) return s;
+    return s.startsWith('d:') ? `${d.name} 전체` : `${d.name} / ${d.teams.find((t) => t.id === Number(s.slice(2)))?.name}`;
+  };
+  const active: ActiveFilter[] = [
+    query.trim() && { key: 'q', label: `검색: ${query.trim()}`, clear: () => setQuery('') },
+    scope && scope !== 'ALL' && { key: 'scope', label: `부서/팀: ${scopeLabel(scope)}`, clear: () => setScope('ALL') },
+    facilityFilter !== 'ALL' && { key: 'facility', label: `시설유형: ${FACILITY_LABEL[facilityFilter]}`, clear: () => setFacilityFilter('ALL') },
+    statusFilter !== 'ALL' && { key: 'status', label: `상태: ${PROJECT_STATUS[statusFilter].text}`, clear: () => setStatusFilter('ALL') },
+  ].filter((f): f is ActiveFilter => Boolean(f));
+  const clearAll = () => { setQuery(''); setScope('ALL'); setFacilityFilter('ALL'); setStatusFilter('ALL'); };
+
+  const head = (
+    <thead>
+      <tr>
+        {COLUMNS.map((c) => {
+          const on = sort.key === c.key;
+          return (
+            <th key={c.key} aria-sort={on ? (sort.asc ? 'ascending' : 'descending') : 'none'} className={c.className}>
+              <button type="button" onClick={() => toggleSort(c.key)} className={cn('group inline-flex items-center gap-1 rounded-sm font-bold hover:text-brand-text', focusRing)}>
+                {c.label}
+                <span aria-hidden className={on ? 'text-brand-text' : 'invisible group-hover:visible text-body'}>{on && !sort.asc ? '▼' : '▲'}</span>
+              </button>
+            </th>
+          );
+        })}
+      </tr>
+    </thead>
+  );
 
   return (
-    <div className="min-h-full bg-paper">
-      <div className="py-8">
-        {/* Header */}
-        <PageHeader title="프로젝트 목록" actions={<Button onClick={() => navigate('/projects/new')}>+ 새 프로젝트</Button>} />
+    <div className="py-8">
+      <PageHeader
+        title="프로젝트 목록"
+        description="회사의 프로젝트와 인허가 취득 진행을 한눈에 봅니다."
+        actions={<Button onClick={() => navigate('/projects/new')}>+ 새 프로젝트</Button>}
+      />
 
-        {/* Search + filters */}
-        <div className="mt-6 flex flex-wrap gap-3">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="프로젝트명 또는 위치 검색"
-            className="min-w-[220px] flex-1 rounded border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
-          />
-          <select aria-label="부서/팀" value={scope ?? 'ME'} onChange={(e) => setScope(e.target.value)} className={selectClasses}>
-            <option value="ME">내 프로젝트</option>
-            {myTeam !== null && <option value="MINE">내 팀</option>}
-            <option value="ALL">부서/팀 전체</option>
-            {depts.map((d) => (
-              <optgroup key={d.id} label={d.name}>
-                <option value={`d:${d.id}`}>{d.name} 전체</option>
-                {d.teams.map((t) => (
-                  <option key={t.id} value={`t:${t.id}`}>{d.name} / {t.name}</option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-          <select
-            aria-label="시설유형"
-            value={facilityFilter}
-            onChange={(e) => setFacilityFilter(e.target.value as 'ALL' | FacilityType)}
-            className={selectClasses}
-          >
-            <option value="ALL">시설유형 전체</option>
-            {Object.entries(FACILITY_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-          <select
-            aria-label="상태"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'ALL' | ProjectStatus)}
-            className={selectClasses}
-          >
-            <option value="ALL">상태 전체</option>
-            {Object.entries(STATUS_LABEL).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        </div>
+      {/* 필터 줄: 검색 + 자주 쓰는 필터를 한 줄에 */}
+      <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(220px,2fr)_repeat(3,minmax(0,1fr))]">
+        <Input label="검색" type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="프로젝트명 또는 위치" />
+        <Select label="부서/팀" value={scope ?? 'ME'} onChange={(e) => setScope(e.target.value)}>
+          <option value="ME">내 프로젝트</option>
+          {myTeam !== null && <option value="MINE">내 팀</option>}
+          <option value="ALL">부서/팀 전체</option>
+          {depts.map((d) => (
+            <optgroup key={d.id} label={d.name}>
+              <option value={`d:${d.id}`}>{d.name} 전체</option>
+              {d.teams.map((t) => (
+                <option key={t.id} value={`t:${t.id}`}>{d.name} / {t.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </Select>
+        <Select label="시설유형" value={facilityFilter} onChange={(e) => setFacilityFilter(e.target.value as 'ALL' | FacilityType)}>
+          <option value="ALL">전체</option>
+          {Object.entries(FACILITY_LABEL).map(([value, label]) => (
+            <option key={value} value={value}>{label}</option>
+          ))}
+        </Select>
+        <Select label="상태" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'ALL' | ProjectStatus)}>
+          <option value="ALL">전체</option>
+          {Object.entries(PROJECT_STATUS).map(([value, s]) => (
+            <option key={value} value={value}>{s.text}</option>
+          ))}
+        </Select>
+      </div>
+      <FilterChips filters={active} onClearAll={clearAll} />
 
+      <div className="mt-6">
         {error ? (
-          <p className="mt-16 text-center text-sm text-danger">{error}</p>
+          <Alert tone="danger" title="프로젝트 목록을 불러오지 못했습니다.">
+            <p>{error}</p>
+            <Button variant="tertiary" size="sm" className="mt-3" onClick={() => setLoads((n) => n + 1)}>다시 시도</Button>
+          </Alert>
         ) : projects === null ? (
-          <p className="mt-16 text-center text-sm text-mute">불러오는 중…</p>
+          <Table density="compact" caption="프로젝트 목록 불러오는 중" className="min-w-[720px] whitespace-nowrap">
+            {head}
+            <SkeletonRows cols={COLUMNS.length} />
+          </Table>
         ) : projects.length === 0 ? (
-          <div className="mt-16 flex flex-col items-center justify-center text-center">
-            <div className="flex h-24 w-24 items-center justify-center rounded-full bg-line text-4xl">📁</div>
-            <p className="mt-4 text-sm text-mute">등록된 프로젝트가 없습니다</p>
-            <Button onClick={() => navigate('/projects/new')} className="mt-4">첫 프로젝트 추가하기</Button>
-          </div>
+          <EmptyBlock
+            title="등록된 프로젝트가 없습니다."
+            description="프로젝트를 만들면 필요한 인허가가 자동으로 채워집니다."
+            action={<Button onClick={() => navigate('/projects/new')}>새 프로젝트 만들기</Button>}
+          />
+        ) : rows.length === 0 ? (
+          <EmptyBlock title="조건에 맞는 항목이 없습니다." action={<Button variant="tertiary" onClick={clearAll}>필터 모두 지우기</Button>} />
         ) : (
-          <div className="mt-6 overflow-x-auto rounded border border-line bg-white shadow-sm">
-            <table className="w-full min-w-[640px] whitespace-nowrap xl:min-w-[1080px] text-left text-sm">
-              <thead className="bg-paper text-xs text-body">
-                <tr>
-                  {COLUMNS.map((c) => (
-                    <th
-                      key={c.key}
-                      aria-sort={sort.key === c.key ? (sort.asc ? 'ascending' : 'descending') : 'none'}
-                      className={`px-4 py-3 font-medium ${c.className ?? ''}`}
-                    >
-                      <button type="button" onClick={() => toggleSort(c.key)} className="inline-flex items-center gap-1 hover:text-ink">
-                        {c.label}
-                        <span aria-hidden className={sort.key === c.key ? 'text-brand' : 'text-line'}>
-                          {sort.key === c.key && !sort.asc ? '▼' : '▲'}
-                        </span>
-                      </button>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line">
+          <>
+            {/* 도구 막대: 결과 건수 */}
+            <p className="mb-2 text-[15px] text-body" aria-live="polite"><span className="tabular-nums font-bold text-ink">{rows.length}</span>건</p>
+            <Table density="compact" caption="프로젝트 목록" className="min-w-[720px] whitespace-nowrap xl:min-w-[1080px]">
+              {head}
+              <tbody>
                 {rows.map((p) => {
                   const progress = Math.round(progressOf(p) * 100);
+                  const status = PROJECT_STATUS[p.status];
                   return (
-                    <tr
-                      key={p.id}
-                      onClick={() => navigate(`/projects/${p.id}`)}
-                      className="cursor-pointer transition hover:bg-paper"
-                    >
-                      <td className="max-w-[220px] px-4 py-3 xl:max-w-[260px]">
+                    <tr key={p.id} onClick={() => navigate(`/projects/${p.id}`)} className="cursor-pointer">
+                      <td className="max-w-[220px] xl:max-w-[260px]">
                         <Link
                           to={`/projects/${p.id}`}
                           onClick={(e) => e.stopPropagation()}
                           title={p.name}
-                          className="block truncate font-medium text-ink hover:text-brand hover:underline"
+                          className={cn('block truncate rounded-sm font-bold text-brand-text hover:underline', focusRing)}
                         >
                           {p.name}
                         </Link>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="whitespace-nowrap text-body">
-                          {FACILITY_LABEL[p.facilityType]}
-                        </span>
-                      </td>
+                      <td><Badge tone={status.tone}>{status.text}</Badge></td>
+                      <td className="text-body">{FACILITY_LABEL[p.facilityType]}</td>
                       <Cell text={teamOf(p)} max={`max-w-[200px] ${WIDE}`} />
                       <Cell text={p.pmName ?? ''} max="max-w-[100px]" />
                       <Cell text={p.emName ?? ''} max={`max-w-[100px] ${WIDE}`} />
-                      <td className="px-4 py-3">
-                        <span className={`whitespace-nowrap ${STATUS_BADGE[p.status]}`}>
-                          {STATUS_LABEL[p.status]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2" title={`${progress}%`}>
-                          <div className="h-2 w-24 overflow-hidden rounded-full bg-line">
-                            <div className="h-full rounded-full bg-ok" style={{ width: `${progress}%` }} />
+                      <td className="text-right">
+                        <div className="inline-flex items-center gap-2" title={`${progress}%`}>
+                          <div className="h-1.5 w-16 overflow-hidden rounded-sm bg-line-soft" aria-hidden>
+                            <div className="h-full bg-ok" style={{ width: `${progress}%` }} />
                           </div>
-                          <span className="text-xs text-mute">{p.acquiredCount}/{p.permitCount}</span>
+                          <span className="w-12 tabular-nums text-body">{p.acquiredCount}/{p.permitCount}</span>
                         </div>
                       </td>
-                      <td className={`px-4 py-3 text-right ${p.nearExpiryCount ? 'font-semibold text-danger' : 'text-mute'}`}>
-                        {p.nearExpiryCount || '—'}
+                      <td className="text-right">
+                        {p.nearExpiryCount ? <Badge tone="warning" className="tabular-nums">{p.nearExpiryCount}건</Badge> : <span className="text-mute">—</span>}
                       </td>
-                      <Cell text={p.location} max={`max-w-[240px] ${WIDE}`} muted />
+                      <Cell text={p.location} max={`max-w-[180px] ${WIDE}`} muted />
                     </tr>
                   );
                 })}
               </tbody>
-            </table>
-            {rows.length === 0 && <p className="py-10 text-center text-sm text-mute">조건에 맞는 프로젝트가 없습니다</p>}
-          </div>
+            </Table>
+          </>
         )}
       </div>
     </div>
@@ -271,7 +251,7 @@ export default function ProjectListPage() {
 /** One-line cell: long text is cut with … and shown in full on hover. */
 function Cell({ text, max, muted }: { text: string; max: string; muted?: boolean }) {
   return (
-    <td className={`${max} px-4 py-3 ${muted ? 'text-mute' : 'text-body'}`}>
+    <td className={`${max} ${muted ? 'text-mute' : 'text-body'}`}>
       <span className="block truncate" title={text || undefined}>{text || '—'}</span>
     </td>
   );
