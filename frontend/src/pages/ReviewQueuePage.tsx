@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
-import { api, sessionUserId } from '../api/client';
+import { api, isDemo, sessionUserId } from '../api/client';
 import {
-  acceptSuggestion, addSuggestion, bulkAccept, editSuggestion, effective, listSuggestions, pageImage, recordPageView,
-  rejectSuggestion, reopenSuggestion, returnSuggestion, submitSuggestion, suggestionEvents,
-  type Frequency, type ObligationPayload, type QuoteCheck, type Suggestion, type SuggestionEvent, type SuggestionStatus,
+  addSuggestion, bulkAccept, editSuggestion, effective, listSuggestions, pageImage, recordPageView, suggestionEvents,
+  type ObligationPayload, type QuoteCheck, type Suggestion, type SuggestionEvent, type SuggestionStatus,
 } from '../api/review';
 import type { PermitItem, Project } from '../types';
 import RevisionSuggestions from '../components/RevisionSuggestions';
@@ -11,6 +10,11 @@ import ScheduleSuggestionReview from '../components/ScheduleSuggestionReview';
 import { usePrompt } from '../components/PromptDialog';
 import { Help } from '../components/Onboarding';
 import { Alert } from '../components/ui/Alert';
+import { Badge, type Tone } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { Input, Textarea } from '../components/ui/Field';
+import { ActionBar, DetailHead, QuoteBox, ReviewItem } from '../components/ReviewParts';
+import { conditionActions, decidable, FREQ, READ_ONLY, type Run } from '../components/reviewActions';
 
 // ---------------------------------------------------------------------------
 // ReviewQueuePage — ③ human review of permit conditions (obligations).
@@ -20,23 +24,20 @@ import { Alert } from '../components/ui/Alert';
 
 interface Member { userId: number; canSelfApprove: boolean; canBulkApprove: boolean }
 
-const QC: Record<QuoteCheck, { label: string; cls: string }> = {
-  MISMATCH: { label: '원문 불일치', cls: 'text-danger' },
-  UNVERIFIABLE: { label: '원문 대조 필요', cls: 'text-body' },
-  VERIFIED: { label: '원문 확인됨', cls: 'text-ok' },
+const QC: Record<QuoteCheck, { label: string; tone: Tone; cls: string }> = {
+  MISMATCH: { label: '원문과 불일치', tone: 'danger', cls: 'text-danger' },
+  UNVERIFIABLE: { label: '원문 대조 필요', tone: 'warning', cls: 'text-warn' },
+  VERIFIED: { label: '원문과 일치', tone: 'success', cls: 'text-ok' },
 };
-const MANUAL_BADGE = { label: '직접 추가', cls: 'text-body' };
+const MANUAL_BADGE = { label: '직접 추가', tone: 'neutral' as Tone, cls: 'text-body' };
 const ST: Record<SuggestionStatus, { label: string; cls: string }> = {
   PENDING: { label: '검토 대기', cls: 'text-body' },
-  SUBMITTED: { label: '승인 요청됨', cls: 'text-sky-800' },
+  SUBMITTED: { label: '승인 요청됨', cls: 'text-information' },
   ACCEPTED: { label: '승인', cls: 'text-ok' },
   EDITED_ACCEPTED: { label: '수정 후 승인', cls: 'text-ok' },
-  REJECTED: { label: '거절', cls: 'text-danger' },
+  REJECTED: { label: '반려', cls: 'text-danger' },
 };
 const QC_ORDER: Record<QuoteCheck | 'NONE', number> = { MISMATCH: 0, UNVERIFIABLE: 1, VERIFIED: 2, NONE: 3 };
-const FREQ: Record<Frequency, string> = {
-  ONCE: '1회', MONTHLY: '월', QUARTERLY: '분기', SEMIANNUAL: '반기', ANNUAL: '연', OTHER: '기타',
-};
 const TYPE: Record<string, string> = {
   MEASURE_SURVEY: '측정·조사', REPORT_SUBMIT: '보고·제출', FACILITY_OPERATION: '시설·운영기준', RECORD_KEEP: '기록·보존', OTHER: '기타',
 };
@@ -52,8 +53,8 @@ const CATEGORY: Record<string, [string, string]> = {
 };
 const categoryLabel = (c: string) => (CATEGORY[c] ? `${CATEGORY[c][0]} › ${CATEGORY[c][1]}` : c);
 const EVENT: Record<SuggestionEvent['type'], string> = {
-  CREATED: '등록', EDITED: '수정', PAGE_VIEWED: '원문 열람', SUBMITTED: '승인 요청', RETURNED: '반려',
-  ACCEPTED: '승인', REJECTED: '거절', REOPENED: '재검토',
+  CREATED: '등록', EDITED: '수정', PAGE_VIEWED: '원문 열람', SUBMITTED: '승인 요청', RETURNED: '돌려보냄',
+  ACCEPTED: '승인', REJECTED: '반려', REOPENED: '재검토',
   UNPAIRED: '나눔', PAIRED: '합침', REDIFFED: '변경분 다시 계산',
 };
 
@@ -61,10 +62,7 @@ const EMPTY: ObligationPayload = {
   citation_raw: '', summary: '', requirement_text: '', type: 'MEASURE_SURVEY', category: 'AIR_QUALITY', frequency: 'MONTHLY',
 };
 
-const btn = 'rounded px-3.5 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-40';
-const btnPrimary = `${btn} bg-brand text-white hover:bg-brand-hover`;
-const btnGhost = `${btn} border border-line text-body hover:bg-paper`;
-const input = 'w-full rounded border border-line px-3 py-1.5 text-sm';
+const input = 'w-full rounded border border-input bg-white px-3 py-2 text-[15px]';
 
 /** With `projectId` (project tab) the project dropdown is hidden. */
 export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: number }) {
@@ -80,6 +78,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
   const [toast, setToast] = useState('');
   const [bulkResults, setBulkResults] = useState<{ id: number; ok: boolean; reason: string | null }[] | null>(null);
   const [error, setError] = useState('');
+  const readOnly = isDemo();
 
   const notify = (m: string) => {
     setToast(m);
@@ -117,14 +116,17 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
   }, [projectId]);
 
   // Runs an action; on failure (403/409/422) shows the server's reason and refreshes to the latest version.
-  const run = async (action: () => Promise<unknown>, done: string) => {
+  const run: Run = async (action, done) => {
+    let ok = true;
     try {
       await action();
       notify(done);
     } catch (e) {
+      ok = false;
       notify((e as Error).message);
     }
     await reload();
+    return ok;
   };
 
   const qc = (s: Suggestion) => effective(s).quote_check ?? 'NONE';
@@ -135,9 +137,16 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
   const keyCount = new Map<string, number>();
   items.forEach((s) => { const k = `${s.runId}:${effective(s).citation_key}`; if (effective(s).citation_key) keyCount.set(k, (keyCount.get(k) ?? 0) + 1); });
   const dupKeys = new Set([...keyCount].filter(([, n]) => n > 1).map(([k]) => k));
-  const sel = items.find((s) => s.id === selectedId) ?? rows[0] ?? null;
+  const sel = items.find((s) => s.id === selectedId) ?? rows.find(decidable) ?? rows[0] ?? null;
   const lead = !!me?.canSelfApprove;
   const project = projects.find((p) => p.id === projectId);
+  const remaining = items.filter(decidable).length;
+  // 승인하고 다음: the next open row below this one, else the first open row left
+  const nextAfter = (id: number) => {
+    const i = rows.findIndex((r) => r.id === id);
+    const next = rows.slice(i + 1).find(decidable) ?? rows.find((r) => r.id !== id && decidable(r));
+    if (next) setSelectedId(next.id);
+  };
 
   const bulk = async () => {
     const ids = items.filter((s) => checked.has(s.id) && s.status === 'PENDING').map((s) => s.id);
@@ -155,63 +164,68 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
   };
 
   return (
-    <div className="min-h-full bg-paper">
-      <div className={fixedId ? '' : 'py-8'}>
-        <div className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            {!fixedId && <p className="text-xs font-semibold tracking-wide text-mute">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>}
-            <h1 className="mt-1 flex items-center text-2xl font-bold text-brand">AI 검토<Help k="review" /></h1>
-            <p className="mt-1 max-w-2xl text-sm text-mute">
-              검토 중인 조건은 승인 전까지 인허가 대장과 기한 알림에 들어가지 않습니다. 원문과 다른 항목이 맨 위에 옵니다.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            {!fixedId && <label className="flex items-center gap-2 text-sm text-body">
+    <div className="min-h-full">
+      <div className={fixedId ? 'space-y-5' : 'space-y-5 py-8'}>
+        {!fixedId && (
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold tracking-wide text-mute">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>
+              <h1 className="mt-1 text-2xl font-bold text-ink">AI 검토</h1>
+            </div>
+            <label className="flex items-center gap-2 text-sm text-body">
               프로젝트
               <select
                 value={projectId ?? ''}
                 onChange={(e) => setProjectId(Number(e.target.value))}
-                className="rounded border border-line bg-white px-2.5 py-1.5 text-sm"
+                className="rounded border border-input bg-white px-2.5 py-1.5 text-sm"
               >
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-            </label>}
-            {me && (
-              <span className="text-xs text-mute">
-                내 권한: {lead ? '혼자 승인' : '승인 요청만'}{me.canBulkApprove && ' · 일괄 승인'}
-              </span>
-            )}
+            </label>
           </div>
-        </div>
+        )}
 
-        {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
+        <Alert tone="info">
+          <p>
+            AI가 찾은 조건은 <b>승인 전까지 인허가 대장과 기한 알림에 들어가지 않습니다.</b> 원문과 다른 항목은 맨 위에 표시합니다.
+          </p>
+          {me && (
+            <p className="mt-1 flex items-center text-sm text-body">
+              내 권한: {lead ? '혼자 승인' : '승인 요청만'}{me.canBulkApprove && ' · 일괄 승인'}{readOnly && ' · 조회 전용'}
+              <Help k="review" />
+            </p>
+          )}
+        </Alert>
 
-        {projectId && <RevisionSuggestions projectId={projectId} />}
-        {projectId && <ScheduleSuggestionReview key={projectId} projectId={projectId} />}
+        {error && <Alert tone="danger">{error}</Alert>}
 
-        <div className="mt-5 flex flex-wrap gap-2">
+        {projectId && <RevisionSuggestions projectId={projectId} readOnly={readOnly} />}
+        {projectId && <ScheduleSuggestionReview key={projectId} projectId={projectId} readOnly={readOnly} />}
+
+        <div className="flex flex-wrap gap-2" role="group" aria-label="상태로 거르기">
           {(['ALL', 'PENDING', 'SUBMITTED', 'ACCEPTED', 'REJECTED'] as const).map((f) => (
             <button
               key={f}
               type="button"
+              aria-pressed={filter === f}
               onClick={() => setFilter(f)}
-              className={`rounded px-3.5 py-1.5 text-sm font-medium transition ${filter === f ? 'bg-brand text-white' : 'bg-white text-body hover:bg-line'}`}
+              className={`h-10 rounded border px-3.5 text-[15px] transition ${filter === f ? 'border-brand bg-brand-subtle font-bold text-brand-text' : 'border-line bg-white text-body hover:bg-paper'}`}
             >
-              {f === 'ALL' ? '전체' : ST[f].label} ({f === 'ALL' ? items.length : items.filter((s) => s.status === f).length})
+              {f === 'ALL' ? '전체' : ST[f].label} {f === 'ALL' ? items.length : items.filter((s) => s.status === f).length}
             </button>
           ))}
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           {/* List */}
-          <section className="min-w-0 rounded border border-line bg-white shadow-sm">
+          <section aria-label="검토 대상 조건" className="min-w-0 rounded border border-line bg-white">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
-              <h2 className="text-sm font-semibold text-ink">검토 대상 조건 {rows.length}건</h2>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setMode('add')} disabled={!permits.length} className={btnGhost}
-                  title={permits.length ? undefined : '인허가 항목을 먼저 등록하세요'}>+ 직접 추가</button>
+              <h2 className="text-[17px] font-bold text-ink">검토 대상 조건 {rows.length}건</h2>
+              <div className="flex flex-wrap gap-2">
+                <Button size="sm" variant="tertiary" onClick={() => setMode('add')} disabled={readOnly || !permits.length}
+                  title={readOnly ? READ_ONLY : permits.length ? undefined : '인허가 항목을 먼저 등록하세요'}>+ 직접 추가</Button>
                 {me?.canBulkApprove && (
-                  <button type="button" onClick={bulk} className={btnGhost}>선택 항목 일괄 승인</button>
+                  <Button size="sm" variant="tertiary" onClick={bulk} disabled={readOnly} title={readOnly ? READ_ONLY : undefined}>선택 항목 일괄 승인</Button>
                 )}
               </div>
             </div>
@@ -236,67 +250,52 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                 </ul>
               </div>
             )}
-            <div className="overflow-x-auto">
-              <table className="w-full table-fixed text-left text-sm">
-                <thead className="bg-paper text-xs text-body">
-                  <tr>
-                    {me?.canBulkApprove && <th className="w-10 px-3 py-2.5" />}
-                    <th className="w-24 px-3 py-2.5 font-medium">조건번호</th>
-                    <th className="px-3 py-2.5 font-medium">요약</th>
-                    <th className="w-16 px-3 py-2.5 font-medium">주기</th>
-                    <th className="w-28 px-3 py-2.5 font-medium">원문 대조</th>
-                    <th className="w-24 px-3 py-2.5 font-medium">상태</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {rows.map((s) => {
-                    const p = effective(s);
-                    return (
-                      <tr
-                        key={s.id}
-                        onClick={() => { setSelectedId(s.id); setMode('view'); }}
-                        className={`cursor-pointer transition ${s.id === sel?.id && mode !== 'add' ? 'bg-brand/5' : 'hover:bg-paper'}`}
-                      >
-                        {me?.canBulkApprove && (
-                          <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
-                            <input
-                              type="checkbox"
-                              aria-label={`${p.citation_raw || p.summary} 선택`}
-                              disabled={s.status !== 'PENDING'}
-                              checked={checked.has(s.id)}
-                              onChange={(e) => setChecked((prev) => {
-                                const next = new Set(prev);
-                                if (e.target.checked) next.add(s.id); else next.delete(s.id);
-                                return next;
-                              })}
-                              className="h-4 w-4 accent-brand"
-                            />
-                          </td>
-                        )}
-                        <td className="truncate px-3 py-2.5 font-mono text-xs" title={p.citation_raw ?? undefined}>
-                          {p.citation_key || p.citation_raw || '—'}
-                          {p.citation_synthetic && <span className="ml-1 font-sans text-warn" title="문서에 번호가 없어 시스템이 만든 키">*</span>}
-                          {dupKeys.has(`${s.runId}:${p.citation_key}`) && <span className="ml-1 font-sans text-danger" title="같은 문서 안에서 조건번호가 겹칩니다">중복</span>}
-                        </td>
-                        <td className="truncate px-3 py-2.5 text-ink" title={p.summary}>{p.summary}</td>
-                        <td className="truncate px-3 py-2.5 text-body">{FREQ[p.frequency]}</td>
-                        <td className="truncate px-3 py-2.5 text-xs"><Badge {...(p.quote_check ? QC[p.quote_check] : MANUAL_BADGE)} /></td>
-                        <td className="truncate px-3 py-2.5 text-xs"><Badge {...ST[s.status]} /></td>
-                      </tr>
-                    );
-                  })}
-                  {!rows.length && (
-                    <tr><td colSpan={6} className="whitespace-normal px-3 py-8 text-center text-sm text-mute">
-                      검토할 조건이 없습니다.<br />인허가 상세에서 허가증을 올리면 AI가 조건을 뽑아 여기에 올립니다.<br />직접 넣으려면 [+ 직접 추가]를 누르세요.
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            <ul className="lg:max-h-[760px] lg:overflow-y-auto">
+              {rows.map((s) => {
+                const p = effective(s);
+                const q = p.quote_check ? QC[p.quote_check] : MANUAL_BADGE;
+                return (
+                  <ReviewItem
+                    key={s.id}
+                    active={s.id === sel?.id && mode !== 'add'}
+                    onClick={() => { setSelectedId(s.id); setMode('view'); }}
+                    leading={me?.canBulkApprove && (
+                      <input
+                        type="checkbox"
+                        aria-label={`${p.citation_raw || p.summary} 선택`}
+                        disabled={s.status !== 'PENDING'}
+                        checked={checked.has(s.id)}
+                        onChange={(e) => setChecked((prev) => {
+                          const next = new Set(prev);
+                          if (e.target.checked) next.add(s.id); else next.delete(s.id);
+                          return next;
+                        })}
+                        className="ml-3 mt-4 h-4 w-4 shrink-0 accent-brand"
+                      />
+                    )}
+                    kind={<b className={ST[s.status].cls}>{ST[s.status].label}</b>}
+                    where={<>
+                      <span title={p.citation_raw ?? undefined}>{p.citation_key || p.citation_raw || '번호 없음'}</span>
+                      {p.page_no != null && ` · ${p.page_no}쪽`}
+                      {p.citation_synthetic && <span className="ml-1 text-warn" title="문서에 번호가 없어 시스템이 만든 키">*</span>}
+                      {dupKeys.has(`${s.runId}:${p.citation_key}`) && <span className="ml-1 text-danger" title="같은 문서 안에서 조건번호가 겹칩니다">중복</span>}
+                    </>}
+                    title={p.summary}
+                    sub={<>주기 {FREQ[p.frequency]} · <span className={q.cls}>{q.label}</span></>}
+                  />
+                );
+              })}
+              {!rows.length && (
+                <li className="px-4 py-10 text-center text-[15px] text-body">
+                  <p className="font-bold text-ink">검토할 조건이 없습니다.</p>
+                  <p className="mt-1">인허가 상세에서 허가증을 올리면 AI가 조건을 뽑아 여기에 올립니다. 직접 넣으려면 [+ 직접 추가]를 누르세요.</p>
+                </li>
+              )}
+            </ul>
           </section>
 
           {/* Detail */}
-          <section className="min-w-0 rounded border border-line bg-white p-5 shadow-sm">
+          <section aria-label="선택한 조건" className="flex min-w-0 flex-col rounded border border-line bg-white">
             {mode === 'add' && projectId != null ? (
               <PayloadForm
                 title="조건 직접 추가"
@@ -322,127 +321,114 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                 key={sel.id}
                 s={sel}
                 lead={lead}
+                readOnly={readOnly}
+                remaining={remaining}
                 permitName={permits.find((p) => p.id === sel.targetParentId)?.name ?? '—'}
                 onEdit={() => setMode('edit')}
+                onNext={() => nextAfter(sel.id)}
                 run={run}
               />
             ) : (
-              <p className="text-sm text-mute">왼쪽에서 조건을 선택하세요.</p>
+              <p className="px-5 py-6 text-[15px] text-body">왼쪽에서 조건을 선택하세요.</p>
             )}
           </section>
         </div>
       </div>
       {toast && (
-        <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded bg-inverse px-4 py-2 text-sm text-white shadow-lg">{toast}</div>
+        <div role="status" className="fixed bottom-6 left-1/2 z-20 -translate-x-1/2 rounded bg-inverse px-4 py-2 text-sm text-white shadow-lg">{toast}</div>
       )}
     </div>
   );
 }
 
-function Detail({ s, lead, permitName, onEdit, run }: {
+function Detail({ s, lead, readOnly, remaining, permitName, onEdit, onNext, run }: {
   s: Suggestion;
   lead: boolean;
+  readOnly: boolean;
+  remaining: number;
   permitName: string;
   onEdit: () => void;
-  run: (action: () => Promise<unknown>, done: string) => Promise<void>;
+  onNext: () => void;
+  run: Run;
 }) {
   const p = effective(s);
   const [firstDue, setFirstDue] = useState('');
+  const [memo, setMemo] = useState('');
   const [ask, promptUi] = usePrompt();
   const [events, setEvents] = useState<SuggestionEvent[]>([]);
   useEffect(() => {
     suggestionEvents(s.id).then(setEvents, () => setEvents([]));
   }, [s.id, s.version]);
 
-  const decidable = s.status === 'PENDING' || s.status === 'SUBMITTED';
+  const open = decidable(s);
   // D7: a scan can only be approved after someone opened its page (the server refuses otherwise)
   const unviewedScan = p.quote_check === 'UNVERIFIABLE'
     && !events.some((e) => e.type === 'PAGE_VIEWED' && e.data?.page_no === p.page_no);
+  const q = p.quote_check ? QC[p.quote_check] : MANUAL_BADGE;
+  const actions = conditionActions({ s, lead, unviewedScan, firstDue, memo, ask, run, onEdit, onNext });
 
   return (
     <>
       {promptUi}
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-ink">
-          {p.citation_raw && <><span className="font-mono">{p.citation_raw}</span> · </>}{p.summary}
-        </h2>
-        <Badge {...ST[s.status]} />
-      </div>
+      <DetailHead
+        state={<span className={ST[s.status].cls}>{s.origin === 'MANUAL' ? '직접 추가' : 'AI 추출'} · {ST[s.status].label}</span>}
+        title={p.summary}
+        badge={<Badge tone={q.tone}>{q.label}</Badge>}
+      />
 
-      <div className="mt-4 space-y-3">
+      <div className="flex flex-col gap-5 px-5 py-5">
         {p.quote_check === 'MISMATCH' && (
-          <Callout tone="red" title="환각 의심">AI 인용문이 원문과 다릅니다. 원문과 대조해 수정하거나 거절하세요.</Callout>
+          <Alert tone="danger" title="환각 의심">AI 인용문이 원문과 다릅니다. 원문과 대조해 고치거나 반려하세요.</Alert>
         )}
-        {unviewedScan && decidable && (
-          <Callout tone="amber" title="원문 미열람 스캔본">아래 원문 페이지를 열어 확인해야 승인할 수 있습니다.</Callout>
+        {unviewedScan && open && (
+          <Alert tone="warning" title="원문 미열람 스캔본">아래 원문 페이지를 열어 확인해야 승인할 수 있습니다.</Alert>
         )}
         {s.status === 'SUBMITTED' && (
-          <Callout tone="sky" title={s.proposedDecision === 'REJECT' ? '거절 요청됨' : '승인 요청됨'}>
+          <Alert tone="info" title={s.proposedDecision === 'REJECT' ? '반려 요청됨' : '승인 요청됨'}>
             혼자 승인 권한이 있는 사람이 최종 확정합니다.
-          </Callout>
+          </Alert>
         )}
-        {s.status === 'REJECTED' && s.rejectReason && <Callout tone="red" title="거절 사유">{s.rejectReason}</Callout>}
+        {s.editedPayload && open && <Alert tone="info">고친 내용으로 승인됩니다. 수정 기록이 남습니다.</Alert>}
+        {s.status === 'REJECTED' && s.rejectReason && <Alert tone="danger" title="반려 사유">{s.rejectReason}</Alert>}
 
-        <div>
-          <p className="mb-1 text-xs font-semibold text-mute">{p.source_quote ? `원문 인용 (${p.page_no ?? '?'}쪽)` : '조건 전문'}</p>
-          <blockquote className="rounded-r border-l-4 border-brand bg-paper px-3 py-2 text-sm">{p.source_quote || p.requirement_text}</blockquote>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse text-[15px]">
+            <tbody>
+              <InfoRow label="조건번호" value={p.citation_key || p.citation_raw || '—'} />
+              <InfoRow label="인허가 항목" value={permitName} />
+              <InfoRow label="분야" value={categoryLabel(p.category)} />
+              <InfoRow label="주기" value={`${FREQ[p.frequency]}${p.frequency_text ? ` (${p.frequency_text})` : ''}`} />
+              <InfoRow label="유형" value={TYPE[p.type] ?? p.type} />
+              {p.responsible_party && <InfoRow label="이행 담당" value={p.responsible_party} />}
+            </tbody>
+          </table>
         </div>
+
+        <QuoteBox caption={p.source_quote ? `원문 인용 · ${p.page_no ?? '?'}쪽` : '조건 전문'}>
+          {p.source_quote || p.requirement_text}
+        </QuoteBox>
 
         {s.origin === 'AI' && p.page_no && (
           <PageViewer id={s.id} pageNo={p.page_no}
             onViewed={() => suggestionEvents(s.id).then(setEvents, () => undefined)} />
         )}
 
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Info label="인허가 항목" value={permitName} />
-          <Info label="분야 (평가항목)" value={categoryLabel(p.category)} />
-          <Info label="주기" value={FREQ[p.frequency]} />
-          <Info label="유형" value={TYPE[p.type] ?? p.type} />
-          {lead && decidable && (
-            <label className="text-sm">
-              <span className="mb-1 block text-xs font-medium text-mute">첫 기한일 (선택, 없으면 기한 미정)</span>
-              <input type="date" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} className={input} />
-            </label>
-          )}
-          {p.responsible_party && <Info label="이행 담당" value={p.responsible_party} />}
-        </div>
+        {lead && open && (
+          <Input type="date" label="첫 기한일 (선택)" hint="비우면 기한 미정으로 등록합니다." value={firstDue}
+            onChange={(e) => setFirstDue(e.target.value)} className="max-w-xs" />
+        )}
+        {actions.length > 0 && (
+          <Textarea label="검토 메모 (선택)" hint="반려할 때 사유 칸에 미리 채워집니다." rows={3} value={memo}
+            onChange={(e) => setMemo(e.target.value)} maxLength={500} />
+        )}
 
-        <div className="flex flex-wrap gap-2">
-          {lead && decidable && (
-            <>
-              <button type="button" className={btnPrimary} disabled={unviewedScan}
-                title={unviewedScan ? '원문 페이지를 연 뒤 승인할 수 있습니다' : undefined}
-                onClick={() => run(() => acceptSuggestion(s, firstDue || null),
-                  s.editedPayload ? '수정 내용으로 승인했습니다. 수정 기록이 남습니다.' : '승인했습니다. 인허가 대장과 기한 알림에 등록됩니다.')}>
-                {s.editedPayload ? '수정 후 승인' : '승인'}
-              </button>
-              <button type="button" className={`${btnGhost} text-danger`}
-                onClick={async () => { const r = (await ask('거절 사유'))?.trim(); if (r) run(() => rejectSuggestion(s, r), '거절했습니다.'); }}>거절</button>
-            </>
-          )}
-          {lead && s.status === 'SUBMITTED' && (
-            <button type="button" className={btnGhost}
-              onClick={async () => { const r = (await ask('반려 사유 (요청자에게 돌려보냅니다)'))?.trim(); if (r) run(() => returnSuggestion(s, r), '반려했습니다.'); }}>반려</button>
-          )}
-          {!lead && s.status === 'PENDING' && (
-            <>
-              <button type="button" className={btnPrimary}
-                onClick={() => run(() => submitSuggestion(s, 'ACCEPT'), '승인 요청을 보냈습니다.')}>승인 요청</button>
-              <button type="button" className={btnGhost}
-                onClick={async () => { const r = (await ask('거절 요청 사유'))?.trim(); if (r) run(() => submitSuggestion(s, 'REJECT', r), '거절 요청을 보냈습니다.'); }}>거절 요청</button>
-            </>
-          )}
-          {s.status === 'PENDING' && <button type="button" className={btnGhost} onClick={onEdit}>수정</button>}
-          {lead && s.status === 'REJECTED' && (
-            <button type="button" className={btnGhost} onClick={() => run(() => reopenSuggestion(s), '검토 대기로 되돌렸습니다.')}>재검토</button>
-          )}
-        </div>
-
-        <p className="text-xs text-mute">
+        <p className="text-sm text-mute">
           기록: {s.origin === 'MANUAL' ? '직접 추가' : 'AI 추출'}
           {events.slice(1).map((e) => ` → ${e.actorId == null ? '시스템 ' : ''}${EVENT[e.type]}`).join('')}
         </p>
       </div>
+
+      <ActionBar remaining={remaining} actions={actions} readOnly={readOnly} />
     </>
   );
 }
@@ -462,7 +448,7 @@ function PageViewer({ id, pageNo, onViewed }: { id: number; pageNo: number; onVi
   }, [id, pageNo]);
   return (
     <div>
-      <p className="mb-1 text-xs font-semibold text-mute">원문 {pageNo}쪽</p>
+      <p className="mb-2 text-sm text-body">원문 이미지 · {pageNo}쪽</p>
       <div className="max-h-[480px] overflow-auto rounded border border-line bg-paper">
         {url ? (
           <img src={url} alt={`원문 ${pageNo}쪽`} className="w-full"
@@ -490,8 +476,8 @@ function PayloadForm({ title, permits, initial, onSave, onCancel }: {
     onSave(permitId, { ...p, citation_raw: p.citation_raw || null });
   };
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <h2 className="text-base font-semibold text-ink">{title}</h2>
+    <form onSubmit={submit} className="space-y-3 p-5">
+      <h2 className="text-[19px] font-bold text-ink">{title}</h2>
       {permits && (
         <Field label="인허가 항목">
           <select value={permitId ?? ''} onChange={(e) => setPermitId(Number(e.target.value))} className={input}>
@@ -523,9 +509,9 @@ function PayloadForm({ title, permits, initial, onSave, onCancel }: {
           </select>
         </Field>
       </div>
-      <div className="flex gap-2">
-        <button type="submit" className={btnPrimary}>저장</button>
-        <button type="button" onClick={onCancel} className={btnGhost}>취소</button>
+      <div className="flex justify-end gap-2">
+        <Button variant="tertiary" onClick={onCancel}>취소</Button>
+        <Button type="submit">저장</Button>
       </div>
     </form>
   );
@@ -540,25 +526,11 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function Badge({ label, cls }: { label: string; cls: string }) {
-  return <span className={`whitespace-nowrap ${cls}`}>{label}</span>;
-}
-
-function Info({ label, value }: { label: string; value: string }) {
+function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="text-sm">
-      <span className="mb-1 block text-xs font-medium text-mute">{label}</span>
-      <span className="text-ink">{value}</span>
-    </div>
-  );
-}
-
-const TONE = { red: 'bg-red-50 text-danger', amber: 'bg-amber-50 text-warn', sky: 'bg-sky-50 text-sky-800' };
-function Callout({ tone, title, children }: { tone: keyof typeof TONE; title: string; children: ReactNode }) {
-  return (
-    <div className={`flex gap-2 rounded px-3 py-2 text-sm ${TONE[tone]}`}>
-      <b className="shrink-0">{title}</b>
-      <span className="text-body">{children}</span>
-    </div>
+    <tr className="border-b border-line-soft last:border-0">
+      <th scope="row" className="w-28 py-2.5 pr-3 text-left align-top font-normal text-body">{label}</th>
+      <td className="py-2.5 text-ink">{value}</td>
+    </tr>
   );
 }

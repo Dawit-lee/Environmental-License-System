@@ -6,6 +6,8 @@ import {
 } from '../api/review';
 import { ANCHOR_LABEL } from '../api/schedule';
 import { usePrompt } from './PromptDialog';
+import { READ_ONLY } from './reviewActions';
+import { Button } from './ui/Button';
 
 // ---------------------------------------------------------------------------
 // ScheduleSuggestionReview — design-schedule/07: dates found in a project document (프로젝트 › 문서 [일정 추출]),
@@ -24,9 +26,8 @@ const ANCHOR: Record<string, string> = ANCHOR_LABEL;
 const INTERVAL: Record<string, string> = { WEEKLY: '매주', BIWEEKLY: '격주', MONTHLY: '매월', QUARTERLY: '분기마다' };
 const CHECK: Record<string, string> = { YEAR_INFERRED: '연도 추정', RELATIVE_RULE: '상대 규칙', BASE_DATE_MISSING: '기준일 미입력' };
 const STATUS: Record<string, string> = {
-  PENDING: '검토 대기', SUBMITTED: '승인 요청됨', ACCEPTED: '승인', EDITED_ACCEPTED: '수정 후 승인', REJECTED: '거절',
+  PENDING: '검토 대기', SUBMITTED: '승인 요청됨', ACCEPTED: '승인', EDITED_ACCEPTED: '수정 후 승인', REJECTED: '반려',
 };
-const btn = 'rounded border border-line px-2 py-1 text-xs font-medium text-body hover:bg-paper disabled:opacity-40';
 
 function when(p: ScheduleRowPayload): string {
   const rule = p.anchor
@@ -40,7 +41,7 @@ function when(p: ScheduleRowPayload): string {
   }
 }
 
-export default function ScheduleSuggestionReview({ projectId }: { projectId: number }) {
+export default function ScheduleSuggestionReview({ projectId, readOnly = false }: { projectId: number; readOnly?: boolean }) {
   const [ask, promptUi] = usePrompt();
   const [items, setItems] = useState<ScheduleSuggestion[]>([]);
   const [lead, setLead] = useState(false);
@@ -69,20 +70,23 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
   if (!items.length) return null;
   const rows = items.filter((s) => (kind === 'ALL' || s.kind === kind)
     && (!pendingOnly || s.status === 'PENDING' || s.status === 'SUBMITTED'));
+  // compact table buttons; the demo login only reads
+  const act = { size: 'sm', variant: 'tertiary', disabled: readOnly, title: readOnly ? READ_ONLY : undefined } as const;
   const dateField = (p: ScheduleRowPayload) => (p.type === 'EVENT' && p.startsAt ? 'startsAt' : 'date');
 
   return (
-    <section className="mt-5 rounded border border-line bg-white shadow-sm">
+    <section aria-label="문서에서 찾은 일정" className="rounded border border-line bg-white">
       {promptUi}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold text-ink">문서에서 찾은 일정 {rows.length}건</h2>
-          <p className="text-xs text-mute">승인한 행만 일정·달력에 들어갑니다. 근거 문장을 원문과 대조하세요.</p>
+          <h2 className="text-[17px] font-bold text-ink">문서에서 찾은 일정 {rows.length}건</h2>
+          <p className="text-sm text-body">승인한 행만 일정·달력에 들어갑니다. 근거 문장을 원문과 대조하세요.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {(['ALL', 'SCHEDULE_ITEM', 'PROJECT_EVENT'] as const).map((k) => (
             <button key={k} type="button" onClick={() => setKind(k)}
-              className={`rounded px-3 py-1 font-medium ${kind === k ? 'bg-brand text-white' : 'bg-paper text-body'}`}>
+              aria-pressed={kind === k}
+              className={`h-8 rounded border px-3 text-sm ${kind === k ? 'border-brand bg-brand-subtle font-bold text-brand-text' : 'border-line bg-white text-body hover:bg-paper'}`}>
               {k === 'ALL' ? '전체' : k === 'SCHEDULE_ITEM' ? '일정 항목' : '이벤트'}
             </button>
           ))}
@@ -95,7 +99,7 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
       {message && <p role="status" className="border-b border-line bg-paper px-4 py-2 text-xs text-body">{message}</p>}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-paper text-xs text-body">
+          <thead className="bg-paper text-sm text-body">
             <tr>
               <th className="px-3 py-2 font-medium">종류</th>
               <th className="px-3 py-2 font-medium">제목</th>
@@ -141,41 +145,41 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
                   <td className="px-3 py-2 text-right">
                     {open && isEditing && (
                       <span className="flex justify-end gap-1">
-                        <button type="button" className={btn} onClick={() => run(async () => {
+                        <Button {...act} onClick={() => run(async () => {
                           await editSuggestion(s, { ...p, title: editing.title.trim() || p.title,
                             ...(editing.date ? { [dateField(p)]: editing.date } : {}) });
                           setEditing(null);
-                        }, '수정했습니다. 승인하면 수정 후 승인으로 기록됩니다.')}>저장</button>
-                        <button type="button" className={btn} onClick={() => setEditing(null)}>취소</button>
+                        }, '수정했습니다. 승인하면 수정 후 승인으로 기록됩니다.')}>저장</Button>
+                        <Button {...act} onClick={() => setEditing(null)}>취소</Button>
                       </span>
                     )}
                     {open && !isEditing && (
                       <span className="flex justify-end gap-1">
                         {lead ? (
                           <>
-                            <button type="button" className={`${btn} border-brand text-brand`}
+                            <Button {...act} variant="secondary"
                               onClick={() => run(() => acceptSuggestion(s, null), similar ? '기존 항목을 갱신했습니다.' : '일정에 추가했습니다.')}>
                               {similar ? '갱신 승인' : s.editedPayload ? '수정 후 승인' : '승인'}
-                            </button>
+                            </Button>
                             {similar && (
-                              <button type="button" className={btn} onClick={() => run(async () => {
+                              <Button {...act} onClick={() => run(async () => {
                                 const { matchId: _drop, ...rest } = p;
                                 await acceptSuggestion(await editSuggestion(s, { ...rest, createNew: true }), null);
-                              }, '새 항목으로 추가했습니다.')}>새로 추가</button>
+                              }, '새 항목으로 추가했습니다.')}>새로 추가</Button>
                             )}
-                            <button type="button" className={`${btn} text-danger`} onClick={async () => {
-                              const r = (await ask('거절 사유'))?.trim();
-                              if (r) run(() => rejectSuggestion(s, r), '거절했습니다.');
-                            }}>거절</button>
+                            <Button {...act} onClick={async () => {
+                              const r = (await ask('반려 사유'))?.trim();
+                              if (r) run(() => rejectSuggestion(s, r), '반려했습니다.');
+                            }}>반려</Button>
                           </>
                         ) : s.status === 'PENDING' && (
-                          <button type="button" className={btn} onClick={() => run(() => submitSuggestion(s, 'ACCEPT'), '승인 요청을 보냈습니다.')}>승인 요청</button>
+                          <Button {...act} onClick={() => run(() => submitSuggestion(s, 'ACCEPT'), '승인 요청을 보냈습니다.')}>승인 요청</Button>
                         )}
                         {s.status === 'PENDING' && (
-                          <button type="button" className={btn}
+                          <Button {...act}
                             onClick={() => setEditing({ id: s.id, title: p.title, date: (dateField(p) === 'startsAt' ? p.startsAt : p.date) ?? '' })}>
                             수정
-                          </button>
+                          </Button>
                         )}
                       </span>
                     )}

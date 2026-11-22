@@ -35,6 +35,8 @@ async function doRefresh(s: Session): Promise<Session | null> {
 export const sessionUserId = (): number | null => session()?.user.id ?? null;
 /** Company master (ADMIN) may change company settings. */
 export const isMaster = (): boolean => session()?.user.role === 'ADMIN';
+/** The shared public demo login: the server refuses its writes (DemoReadOnly), so screens disable write buttons. */
+export const isDemo = (): boolean => session()?.user.email === 'demo@envpermit.local';
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
