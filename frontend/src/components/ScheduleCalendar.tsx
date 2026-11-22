@@ -21,6 +21,16 @@ export type CalendarEntry =
 
 const TRIP = 'var(--color-ok)';
 const EVENT = 'var(--color-brand)';
+const MILESTONE = 'var(--color-body)';
+const DEADLINE = 'var(--color-warn)';
+
+/** Colour key under the toolbar; every entry also says its kind in words (출장 · …, ◆, 기한 · …), never colour alone. */
+export const calendarLegend = (showDeadlines: boolean) => [
+  { key: 'event', label: '이벤트(회의·심의 등)', color: EVENT, mark: 'bar' },
+  { key: 'trip', label: '출장', color: TRIP, mark: 'bar' },
+  { key: 'milestone', label: '◆ 마일스톤', color: MILESTONE, mark: 'none' },
+  ...(showDeadlines ? [{ key: 'deadline', label: '기한 · 인허가 기한', color: DEADLINE, mark: 'dot' }] : []),
+] as const;
 
 /** FullCalendar's all-day end is exclusive; ours is the last day. */
 export function toCalendarEvents(data: CalendarData, opts: { showDeadlines: boolean; showProject: boolean }): EventInput[] {
@@ -48,7 +58,7 @@ export function toCalendarEvents(data: CalendarData, opts: { showDeadlines: bool
       allDay: true,
       display: 'list-item',
       classNames: ['is-milestone'], // the ◆ in the title marks it; no list dot
-      color: '#4B5563',
+      color: MILESTONE,
       extendedProps: { entry: { type: 'milestone', milestone: m } satisfies CalendarEntry },
     })),
     ...(opts.showDeadlines ? data.deadlines : []).map((d): EventInput => ({
@@ -58,7 +68,7 @@ export function toCalendarEvents(data: CalendarData, opts: { showDeadlines: bool
       start: d.dueDate,
       allDay: true,
       display: 'list-item',
-      color: 'var(--color-warn)',
+      color: DEADLINE,
       extendedProps: { entry: { type: 'deadline', deadline: d } satisfies CalendarEntry },
     })),
   ];
@@ -74,6 +84,16 @@ export default function ScheduleCalendar({ data, showDeadlines, showProject, onR
 }) {
   return (
     <div className="schedule-calendar rounded border border-line bg-white p-4">
+      <ul aria-label="달력 범례" className="mb-3 flex flex-wrap gap-x-5 gap-y-1 text-[15px] text-body">
+        {calendarLegend(showDeadlines).map((l) => (
+          <li key={l.key} className="flex items-center gap-2">
+            {l.mark !== 'none' && (
+              <span aria-hidden="true" className={l.mark === 'bar' ? 'h-3 w-5 rounded-sm' : 'size-2.5 rounded-full'} style={{ background: l.color }} />
+            )}
+            {l.label}
+          </li>
+        ))}
+      </ul>
       <FullCalendar
         plugins={[dayGridPlugin, listPlugin]}
         locale={koLocale}
