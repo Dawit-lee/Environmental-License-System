@@ -185,6 +185,19 @@ sudo docker compose -f docker-compose.prod.yml logs --tail 100 api
 ~/envpermit/deploy/oracle/reset-demo.sh
 ```
 
+## 배포 시 주의
+
+V71 마이그레이션 파일의 출처 표기를 2026-11-22에 고쳤다.
+그 전에 만든 DB는 API가 뜰 때 Flyway 체크섬 검증에서 멈춘다.
+`update.sh` 전에 이 폴더에서 한 번만 실행한다(다시 실행해도 같다).
+
+```bash
+sudo docker compose -f docker-compose.prod.yml exec -T db psql -U envpermit -d envpermit -c "UPDATE flyway_schema_history SET checksum = -768518334 WHERE version = '71';"
+```
+
+`reset-demo.sh`로 DB를 새로 만들었다면 필요 없다.
+로컬 DB도 같은 SQL을 한 번 실행한다.
+
 ## 알아 둘 것
 
 - 서버 로그인은 데모 계정(조회 전용)만 쓴다. 다른 예시 계정의 비밀번호는 무작위라 아무도 모른다.

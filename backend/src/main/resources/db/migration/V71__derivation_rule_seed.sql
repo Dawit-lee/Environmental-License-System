@@ -108,28 +108,28 @@ VALUES
  jsonb_build_array(pg_temp.ref('001771', NULL)),
  '폐기물관리법', 'OPERATION_START',
  '{"gate":"OPERATION_START","offset_days":0,"text":"사용개시 전"}', NULL,
- 'wiki/광명-소각시설-인허가.md, wiki/인허가-생애주기-단계.md', '폐기물(소각)처리시설 사용개시신고', 1),
+ 'wiki/소각시설-인허가-사례.md, wiki/인허가-생애주기-단계.md', '폐기물(소각)처리시설 사용개시신고', 1),
 
 ('INCINERATOR_INSPECTION', 1, 'ACTIVE', '{INCINERATION}', '{NEW}', '소각시설 설치검사', '기계', 'FACILITY',
  NULL, '소각시설 신설 시 항상',
  jsonb_build_array(pg_temp.ref('001771', NULL)),
  '폐기물관리법', 'COMMISSIONING',
  '{"gate":"COMMISSIONING_START","offset_days":0,"text":"시운전 시"}', NULL,
- 'wiki/광명-소각시설-인허가.md, wiki/인허가-생애주기-단계.md', '시운전 단계 — 소각시설 설치검사', 1),
+ 'wiki/소각시설-인허가-사례.md, wiki/인허가-생애주기-단계.md', '시운전 단계 — 소각시설 설치검사', 1),
 
 ('BUILDING_PERMIT', 1, 'ACTIVE', '{}', '{NEW}', '건축허가', '건축', 'FACILITY',
  NULL, '시설 신설 시 항상',
  jsonb_build_array(pg_temp.ref('001823', NULL)),
  '건축법', 'DESIGN',
  '{"gate":"CONSTRUCTION_START","offset_days":0,"text":"착공 전"}', '공공 건축물은 공용건축물 협의.',
- 'wiki/광명-소각시설-인허가.md, wiki/인허가-생애주기-단계.md', '건축인허가(공용건축물 협의)', 1),
+ 'wiki/소각시설-인허가-사례.md, wiki/인허가-생애주기-단계.md', '건축인허가(공용건축물 협의)', 1),
 
 ('BUILDING_USE_APPROVAL', 1, 'ACTIVE', '{}', '{NEW}', '건축물 사용승인', '건축', 'FACILITY',
  NULL, '시설 신설 시 항상',
  jsonb_build_array(pg_temp.ref('001823', NULL)),
  '건축법', 'OPERATION_START',
  '{"gate":"OPERATION_START","offset_days":0,"text":"사용개시 전"}', NULL,
- 'wiki/광명-소각시설-인허가.md, wiki/인허가-생애주기-단계.md', '사용개시 | 사용개시신고 | 폐기물처리시설 사용개시신고, 건축물 사용승인', 1);
+ 'wiki/소각시설-인허가-사례.md, wiki/인허가-생애주기-단계.md', '사용개시 | 사용개시신고 | 폐기물처리시설 사용개시신고, 건축물 사용승인', 1);
 
 DO $$
 BEGIN
