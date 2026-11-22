@@ -141,27 +141,31 @@ export function GettingStarted({ projects, permits }: { projects: Project[]; per
     { label: '협력사와 일정 공유', desc: '읽기 전용 링크를 보냅니다.', to: p ? `${p}/schedule?tool=share` : null, done: f.shares > 0 },
   ];
   const doneCount = steps.filter((s) => s.done).length;
+  const next = steps.find((s) => !s.done && s.to);
 
   return (
-    <section aria-label="시작하기" className="mt-6 rounded border border-brand/20 bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-semibold text-ink">시작하기 <span className="text-sm font-normal text-mute">{doneCount}/{steps.length}</span></h2>
-          <p className="mt-1 text-sm text-mute">
-            {target ? <>“{target.name}” 기준으로 확인합니다.</> : '첫 프로젝트를 만들면 다음 단계가 열립니다.'}
-          </p>
+    <section aria-label="시작하기" className="rounded border border-line bg-white px-5 py-3">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <h2 className="text-[17px] font-bold text-ink">시작하기 <span className="text-[15px] font-normal text-body">{doneCount}/{steps.length}</span></h2>
+        <div className="h-1.5 w-24 overflow-hidden rounded-full bg-line-soft" role="progressbar" aria-label="시작하기 진행률"
+          aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={doneCount}>
+          <div className="h-full bg-ok transition-all" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
         </div>
-        <div className="flex items-center gap-3 text-xs">
-          <Link to="/guide" className="text-brand hover:underline">사용 가이드</Link>
-          <button type="button" onClick={() => setOnboardingDismissed(true)} className="text-mute hover:text-ink">
+        <p className="min-w-0 flex-1 basis-60 truncate text-[15px] text-body">
+          {next?.to ? <>다음: <Link to={next.to} className="text-brand-text hover:underline">{next.label}</Link>
+            {target && <span className="text-mute"> · “{target.name}” 기준</span>}</>
+            : target ? <>“{target.name}” 기준으로 모든 단계를 마쳤습니다.</> : '첫 프로젝트를 만들면 다음 단계가 열립니다.'}
+        </p>
+        <div className="flex items-center gap-3 text-[15px]">
+          <Link to="/guide" className="text-brand-text hover:underline">사용 가이드</Link>
+          <button type="button" onClick={() => setOnboardingDismissed(true)} className="text-body hover:text-ink hover:underline">
             {doneCount === steps.length ? '닫기' : '숨기기'}
           </button>
         </div>
       </div>
-      <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#F3F2EC]">
-        <div className="h-full bg-ok transition-all" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
-      </div>
-      <ol className="mt-4 grid gap-2 sm:grid-flow-col sm:grid-cols-2 sm:grid-rows-4">
+      <details className="mt-1">
+        <summary className="cursor-pointer text-[15px] text-body hover:text-ink">단계 모두 보기</summary>
+      <ol className="mt-2 grid gap-1 sm:grid-flow-col sm:grid-cols-2 sm:grid-rows-4">
         {steps.map((s, i) => {
           const body = (
             <>
@@ -170,10 +174,10 @@ export function GettingStarted({ projects, permits }: { projects: Project[]; per
                 {s.done ? '✓' : i + 1}
               </span>
               <span className="min-w-0">
-                <span className={`block text-sm font-medium ${s.done ? 'text-mute line-through' : 'text-ink'}`}>
+                <span className={`block text-[15px] font-medium ${s.done ? 'text-mute line-through' : 'text-ink'}`}>
                   {s.label}<span className="sr-only">{s.done ? ' (완료)' : ''}</span>
                 </span>
-                <span className="block text-xs text-mute">{s.desc}</span>
+                <span className="block text-sm text-mute">{s.desc}</span>
               </span>
             </>
           );
@@ -189,6 +193,7 @@ export function GettingStarted({ projects, permits }: { projects: Project[]; per
           );
         })}
       </ol>
+      </details>
     </section>
   );
 }

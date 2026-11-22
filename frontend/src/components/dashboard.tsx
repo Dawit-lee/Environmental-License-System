@@ -1,4 +1,10 @@
+import { useState } from 'react';
 import { Link } from 'react-router';
+import { Badge, dueBadge } from './ui/Badge';
+import { Table } from './ui/Table';
+import type { SummaryItem } from './ui/SummaryStrip';
+import { Help } from './Onboarding';
+import { DUE_SOON_DAYS } from '../terms';
 import type { PermitCategory, PermitItem, PermitStatus, Project } from '../types';
 import { ymd, type Deadline } from '../api/notifications';
 
@@ -13,13 +19,13 @@ export function dDayClasses(dDay: number): string {
   return 'text-mute';
 }
 
-// Adjacent pairs pass the dataviz CVD / normal-vision separation check; every chart also shows a text legend.
+// Colours are the DESIGN.md state tokens; colour is never alone — every chart also shows a text legend with counts.
 export const STATUSES: { status: PermitStatus; label: string; color: string }[] = [
-  { status: 'COMPLETED', label: '취득완료', color: '#0F6E56' },
-  { status: 'IN_PROGRESS', label: '진행중', color: '#3B82C4' },
-  { status: 'NOT_APPLIED', label: '미신청', color: '#D1D5DB' },
-  { status: 'NEAR_EXPIRY', label: '만료임박', color: '#E8A33D' },
-  { status: 'EXPIRED', label: '만료', color: '#991B1B' },
+  { status: 'COMPLETED', label: '취득완료', color: 'var(--color-ok)' },
+  { status: 'IN_PROGRESS', label: '진행중', color: 'var(--color-information)' },
+  { status: 'NOT_APPLIED', label: '미신청', color: 'var(--color-line)' },
+  { status: 'NEAR_EXPIRY', label: '만료임박', color: 'var(--color-warn-border)' },
+  { status: 'EXPIRED', label: '만료', color: 'var(--color-danger)' },
 ];
 
 export const STAGES = ['입지', '설계', '착공', '준공', '운영'] as const;
@@ -133,7 +139,7 @@ export function DeadlineTimeline({ deadlines }: { deadlines: Deadline[] }) {
           <div key={i} className="flex h-full flex-1 flex-col justify-end"
             title={`${w.start.getMonth() + 1}/${w.start.getDate()} 주 — ${w.items.length}건${w.items.map((d) => `\n· ${d.projectName}: ${d.title}`).join('')}`}>
             {w.items.length > 0 && <span className="mb-1 text-center text-xs text-body">{w.items.length}</span>}
-            <div className="rounded-t bg-[#3B82C4]" style={{ height: `${(w.items.length / max) * 80}%` }} />
+            <div className="rounded-t bg-information" style={{ height: `${(w.items.length / max) * 80}%` }} />
           </div>
         ))}
       </div>
@@ -157,4 +163,82 @@ export function PendingRow({ to, label, value }: { to: string; label: string; va
       </Link>
     </li>
   );
+}
+
+/**
+ * 「30일 안에 닥치는 기한」: overdue first, then the next DUE_SOON_DAYS days, with a project filter.
+ * `deadlines` comes sorted by date from /api/deadlines.
+ */
+const SHOWN = 10;
+
+export function UpcomingDeadlines({ deadlines, error }: { deadlines: Deadline[]; error?: string | null }) {
+  const [projectId, setProjectId] = useState('');
+  const [all, setAll] = useState(false);
+  const due = deadlines.filter((d) => d.dDay <= DUE_SOON_DAYS);
+  const projects = [...new Map(due.map((d) => [d.projectId, d.projectName])).entries()];
+  const matched = projectId ? due.filter((d) => String(d.projectId) === projectId) : due;
+  const rows = all ? matched : matched.slice(0, SHOWN);
+  return (
+    <section aria-labelledby="due-title" className="min-w-0 rounded border border-line bg-white">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
+        <h2 id="due-title" className="text-[19px] font-bold text-ink">{DUE_SOON_DAYS}일 안에 닥치는 기한</h2>
+        <label className="flex items-center gap-2 text-[15px] text-body">
+          프로젝트
+          <select value={projectId} onChange={(e) => setProjectId(e.target.value)}
+            className="h-10 max-w-48 rounded border border-input bg-white px-2 text-[15px] text-ink">
+            <option value="">전체</option>
+            {projects.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+          </select>
+        </label>
+      </div>
+      {/* the section is the box: drop the table's own border so it is not drawn twice */}
+      <div className="[&>div]:rounded-none [&>div]:border-0">
+        <Table caption="기한이 지났거나 30일 안에 닥치는 항목" className="min-w-[560px]">
+          <thead>
+            <tr><th scope="col">상태</th><th scope="col">기한</th><th scope="col">항목</th><th scope="col">프로젝트</th><th scope="col">담당</th></tr>
+          </thead>
+          <tbody>
+            {error && <tr><td colSpan={5} className="text-center text-danger">{error}</td></tr>}
+            {!error && rows.length === 0 && (
+              <tr><td colSpan={5} className="text-center text-mute">{DUE_SOON_DAYS}일 안에 닥치는 기한이 없습니다.</td></tr>
+            )}
+            {rows.map((d) => {
+              const b = dueBadge(d.dDay);
+              return (
+                <tr key={d.id}>
+                  <td><Badge tone={b.tone}>{b.text}</Badge></td>
+                  <td className="whitespace-nowrap tabular-nums">{d.dueDate}</td>
+                  <td className="w-full max-w-0 truncate" title={d.title}>
+                    <Link to={deadlineLink(d)} className="text-ink hover:text-brand-text hover:underline">{d.title}</Link>
+                  </td>
+                  <td className="max-w-48 truncate text-body" title={d.projectName}>{d.projectName}</td>
+                  <td className="whitespace-nowrap text-body">{d.assigneeName ?? '전체 멤버'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      </div>
+      {matched.length > SHOWN && (
+        <div className="border-t border-line px-5 py-3">
+          <button type="button" onClick={() => setAll(!all)} aria-expanded={all}
+            className="text-[15px] font-medium text-brand-text hover:underline">
+            {all ? '접기' : `나머지 ${matched.length - SHOWN}건 더 보기`}
+          </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+/** Summary strip cells; only 기한 경과 gets the red ground, and only when it is not zero. */
+export function summaryItems(c: { projects: number; permits: number; overdue: number; dueSoon: number; notApplied: number; reviewOpen: number }): SummaryItem[] {
+  return [
+    { label: '진행 중 프로젝트', value: c.projects, unit: '건' },
+    { label: '관리 중 인허가', value: c.permits, unit: '건' },
+    { label: <>기한 경과<Help k="overdue" /></>, value: c.overdue, unit: '건', tone: c.overdue > 0 ? 'danger' : undefined, alert: c.overdue > 0 },
+    { label: <>기한 임박<Help k="dueSoon" /></>, value: c.dueSoon, unit: '건', tone: c.dueSoon > 0 ? 'warning' : undefined },
+    { label: '미신청 인허가', value: c.notApplied, unit: '건' },
+    { label: 'AI 검토 대기', value: c.reviewOpen, unit: '건', tone: c.reviewOpen > 0 ? 'info' : undefined },
+  ];
 }

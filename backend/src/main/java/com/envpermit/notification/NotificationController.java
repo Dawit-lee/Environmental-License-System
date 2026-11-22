@@ -4,12 +4,15 @@ import static com.envpermit.core.project.ProjectAccess.userId;
 
 import com.envpermit.core.project.Project;
 import com.envpermit.core.project.ProjectRepository;
+import com.envpermit.core.user.User;
+import com.envpermit.core.user.UserRepository;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -30,13 +33,15 @@ class NotificationController {
     private final NotificationRepository notifications;
     private final DeadlineEventRepository events;
     private final ProjectRepository projects;
+    private final UserRepository users;
     private final Clock clock;
 
     NotificationController(NotificationRepository notifications, DeadlineEventRepository events,
-                           ProjectRepository projects, Clock clock) {
+                           ProjectRepository projects, UserRepository users, Clock clock) {
         this.notifications = notifications;
         this.events = events;
         this.projects = projects;
+        this.users = users;
         this.clock = clock;
     }
 
@@ -45,7 +50,7 @@ class NotificationController {
     }
 
     record DeadlineView(long id, String kind, long targetId, long projectId, String projectName, String title,
-                        LocalDate dueDate, long dDay, Long assigneeId) {
+                        LocalDate dueDate, long dDay, Long assigneeId, String assigneeName) {
     }
 
     @GetMapping("/api/notifications")
@@ -89,9 +94,12 @@ class NotificationController {
         List<DeadlineEvent> list = visible.stream().filter(e -> !(e.getKind().equals("CORRECTIVE_TASK")
                 && byId.containsKey(e.getProjectId()) && !byId.get(e.getProjectId()).isOperationsEnabled())).toList();
         Map<Long, String> names = byId.values().stream().collect(Collectors.toMap(Project::getId, Project::getName));
+        Map<Long, String> people = users.findAllById(list.stream().map(DeadlineEvent::getAssigneeId)
+                .filter(Objects::nonNull).distinct().toList()).stream().collect(Collectors.toMap(User::getId, User::getName));
         LocalDate today = LocalDate.now(clock);
         return list.stream().map(e -> new DeadlineView(e.getId(), e.getKind(), e.getTargetId(), e.getProjectId(),
                 names.get(e.getProjectId()), e.getTitle(), e.getDueDate(),
-                ChronoUnit.DAYS.between(today, e.getDueDate()), e.getAssigneeId())).toList();
+                ChronoUnit.DAYS.between(today, e.getDueDate()), e.getAssigneeId(),
+                e.getAssigneeId() == null ? null : people.get(e.getAssigneeId()))).toList();
     }
 }
