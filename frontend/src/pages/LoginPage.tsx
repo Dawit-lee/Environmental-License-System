@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { login, type Session } from '../api/auth';
+import { Button } from '../components/ui/Button';
 
 // Public demo build only (VITE_DEMO_LOGIN=true): a read-only account whose password is public on purpose.
 const DEMO = import.meta.env.VITE_DEMO_LOGIN === 'true' ? { email: 'demo@envpermit.local', password: 'demo1234!' } : null;
@@ -71,24 +72,20 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
 
           {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
 
-          <button
-            type="submit"
-            disabled={submitting}
-            className="mt-5 w-full rounded bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
-          >
+          <Button type="submit" disabled={submitting} className="mt-5 w-full">
             {submitting ? '로그인 중…' : '로그인'}
-          </button>
+          </Button>
 
           {DEMO && (
             <>
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 disabled={submitting}
                 onClick={() => { setError(''); void signIn(DEMO.email, DEMO.password); }}
-                className="mt-2 w-full rounded border border-brand bg-white px-4 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand/5 focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
+                className="mt-2 w-full"
               >
                 데모 계정으로 둘러보기
-              </button>
+              </Button>
               <p className="mt-1.5 text-center text-xs text-mute">
                 ID {DEMO.email} · PW {DEMO.password} (조회만 가능)
               </p>

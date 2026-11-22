@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { PermitItem } from '../types';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ComplianceReportDraft — 이행 보고서 초안 (operations-compliance/08), shown in 프로젝트 › 문서.
@@ -115,7 +116,7 @@ export default function ComplianceReportDraft({ projectId, permits, initial, onC
         ))}
         {ofPermit.length === 0 && <span className="text-xs text-mute">이 인허가 항목에 연결된 배출구가 없습니다.</span>}
       </div>
-      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
       {saved !== null && <p role="status" className="mt-3 text-sm text-body">문서 목록에 추가했습니다: {saved}</p>}
 
       {report && (

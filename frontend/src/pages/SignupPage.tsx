@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router';
 import type { Session } from '../api/auth';
 import { getInvite, joinCompany, signupCompany } from '../api/signup';
+import { Button } from '../components/ui/Button';
 
 // ---------------------------------------------------------------------------
 // SignupPage — /signup (tabs: new company | invite code) and /join/:code.
@@ -108,13 +109,9 @@ export default function SignupPage({ onLogin }: { onLogin: (session: Session) =>
 
             {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="mt-5 w-full rounded bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
-            >
+            <Button type="submit" disabled={submitting} className="mt-5 w-full">
               {submitting ? '처리 중…' : tab === 'company' ? '회사 만들고 시작하기' : '가입 신청'}
-            </button>
+            </Button>
             <p className="mt-4 text-center text-sm text-mute">
               이미 계정이 있나요? <Link to="/login" className="font-medium text-brand hover:underline">로그인</Link>
             </p>

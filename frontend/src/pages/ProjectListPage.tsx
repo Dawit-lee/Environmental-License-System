@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import type { FacilityType, Project, ProjectStatus } from '../types';
 import { api, sessionUserId } from '../api/client';
+import { Button } from '../components/ui/Button';
 import { getCompanyUsers, getDepartments, type Department } from '../api/org';
 
 // ---------------------------------------------------------------------------
@@ -132,13 +133,7 @@ export default function ProjectListPage() {
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="text-2xl font-bold text-brand">프로젝트 목록</h1>
-          <button
-            type="button"
-            onClick={() => navigate('/projects/new')}
-            className="rounded bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
-          >
-            + 새 프로젝트
-          </button>
+          <Button onClick={() => navigate('/projects/new')}>+ 새 프로젝트</Button>
         </div>
 
         {/* Search + filters */}
@@ -195,13 +190,7 @@ export default function ProjectListPage() {
           <div className="mt-16 flex flex-col items-center justify-center text-center">
             <div className="flex h-24 w-24 items-center justify-center rounded-full bg-line text-4xl">📁</div>
             <p className="mt-4 text-sm text-mute">등록된 프로젝트가 없습니다</p>
-            <button
-              type="button"
-              onClick={() => navigate('/projects/new')}
-              className="mt-4 rounded bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
-            >
-              첫 프로젝트 추가하기
-            </button>
+            <Button onClick={() => navigate('/projects/new')} className="mt-4">첫 프로젝트 추가하기</Button>
           </div>
         ) : (
           <div className="mt-6 overflow-x-auto rounded border border-line bg-white shadow-sm">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { createDiscipline, getDisciplines, updateDiscipline, type Discipline } from '../api/schedule';
 import { usePrompt } from './PromptDialog';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // DisciplineSettings — 조직 관리 › 분야 (company master): add, rename, reorder, deactivate. No delete: an inactive
@@ -40,7 +41,7 @@ export default function DisciplineSettings() {
     <section className="mt-6">
       {promptUi}
       <p className="text-sm text-mute">프로젝트 일정의 분야 목록입니다. 비활성 분야는 새 항목에서만 숨고, 기존 항목에는 그대로 보입니다.</p>
-      {error && <p role="alert" className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
       <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
         <table className="w-full whitespace-nowrap text-left text-sm">
           <thead className="bg-paper text-xs text-body">

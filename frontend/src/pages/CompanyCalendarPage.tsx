@@ -10,6 +10,7 @@ import type { CalendarEntry } from '../components/ScheduleCalendar';
 import type { Project } from '../types';
 import { Link } from 'react-router';
 import { EmptyState, primaryBtn } from '../components/Onboarding';
+import { Alert } from '../components/ui/Alert';
 
 const ScheduleCalendar = lazy(() => import('../components/ScheduleCalendar'));
 
@@ -103,7 +104,7 @@ export default function CompanyCalendarPage() {
           </label>
         </div>
 
-        {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
         <Suspense fallback={<div className="h-[640px] rounded border border-line bg-white" />}>
           <ScheduleCalendar data={data} showDeadlines={showDeadlines} showProject
             onRange={(from, to) => setRange([from, to])} onOpen={setOpen} />

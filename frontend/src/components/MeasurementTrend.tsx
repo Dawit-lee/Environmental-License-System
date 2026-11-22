@@ -1,6 +1,7 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import { api } from '../api/client';
 import { LEVEL, levelClass, limitText, nearLines, type Level } from './PointMeasurements';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // MeasurementTrend — 운영 탭 "측정 추이" of one emission point (operations-compliance/05): one item over a period as
@@ -69,7 +70,7 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
   return (
     <>
       <h2 className="mt-8 text-lg font-bold text-brand">측정 추이 · {point.name}</h2>
-      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="text-xs text-mute">항목
           <select value={code} onChange={(e) => setItem(e.target.value)} className={`${INPUT} mt-1 block`}>

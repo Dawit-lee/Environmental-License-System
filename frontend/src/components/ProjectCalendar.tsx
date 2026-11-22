@@ -4,6 +4,7 @@ import { ymd } from '../api/notifications';
 import type { Discipline } from '../api/schedule';
 import { EntryDetail, EventForm } from './EventPanels';
 import type { CalendarEntry } from './ScheduleCalendar';
+import { Alert } from './ui/Alert';
 
 // FullCalendar is large; only the calendar views load it
 const ScheduleCalendar = lazy(() => import('./ScheduleCalendar'));
@@ -47,7 +48,7 @@ export default function ProjectCalendar({ projectId, disciplines, members, onOpe
         <button type="button" onClick={() => setEditing('new')}
           className="ml-auto rounded bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover">+ 이벤트</button>
       </div>
-      {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
       <Suspense fallback={<div className="h-[640px] rounded border border-line bg-white" />}>
         <ScheduleCalendar data={data} showDeadlines={showDeadlines} showProject={false}
           onRange={(from, to) => setRange([from, to])}

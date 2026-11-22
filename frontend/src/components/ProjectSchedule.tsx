@@ -16,6 +16,7 @@ import ShareDialog from './ShareDialog';
 import { usePrompt } from './PromptDialog';
 import { EmptyState, HELP, Help, Tip, primaryBtn, secondaryBtn } from './Onboarding';
 import { useEscape } from './useEscape';
+import { Alert } from './ui/Alert';
 
 // the Gantt library is large; only this tab loads it
 const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
@@ -193,7 +194,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
             </div>
           </div>
 
-          {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+          {error && <Alert tone="danger">{error}</Alert>}
 
           {dated.length < visible.length && (
             <p className="text-sm text-mute">날짜 미정 {visible.length - dated.length}건: 기준일이 정해지면 간트에 나타납니다. [기준일]에서 날짜를 넣으세요.</p>
@@ -306,7 +307,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
           e.preventDefault();
           run(() => item ? updateItem(projectId, item.id, form) : createItem(projectId, form));
         }}>
-          {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+          {error && <Alert tone="danger">{error}</Alert>}
           <label className={row}><span className="text-sm text-mute">항목명</span>
             <input required maxLength={200} className={field} value={form.title} onChange={(e) => set({ title: e.target.value })} /></label>
           <label className={row}><span className="text-sm text-mute">종류</span>

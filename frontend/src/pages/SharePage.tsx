@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { getShared, webcal, type SharedSchedule } from '../api/share';
 import ReadOnlySchedule from '../components/ReadOnlySchedule';
+import { Alert } from '../components/ui/Alert';
 
 // ---------------------------------------------------------------------------
 // SharePage — /share/:token, no login (설계 §6.3). Read-only schedule for a partner, plus the .ics subscription.
@@ -24,7 +25,7 @@ export default function SharePage() {
   return (
     <div className="min-h-screen bg-paper px-4 py-8" style={{ fontFamily: 'system-ui, sans-serif' }}>
       <div className="mx-auto max-w-5xl space-y-3">
-        {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
         {data === null && (
           <p className="rounded border border-line bg-white px-6 py-12 text-center text-sm text-body">
             링크가 만료되었거나 폐기되었습니다. 일정을 보내 준 담당자에게 새 링크를 요청하세요.

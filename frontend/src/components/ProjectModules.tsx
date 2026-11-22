@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api/client';
 import type { Project } from '../types';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ProjectModules — 프로젝트 › 설정 › 모듈 (design-schedule §8.1). The 운영 module is an operator's job, so it is
@@ -29,7 +30,7 @@ export default function ProjectModules({ project, onSaved }: { project: Project;
     <section className="mt-8 max-w-5xl">
       <h2 className="text-lg font-bold text-brand">모듈</h2>
       <p className="mt-1 text-sm text-mute">프로젝트 어드민·PM·EM만 바꿀 수 있습니다. 꺼도 입력한 데이터는 지워지지 않습니다.</p>
-      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
       <label className="mt-4 flex items-start gap-3 rounded border border-line bg-white p-4 shadow-sm">
         <input type="checkbox" className="mt-1" checked={project.operationsEnabled} disabled={saving}
           onChange={(e) => toggle(e.target.checked)} />

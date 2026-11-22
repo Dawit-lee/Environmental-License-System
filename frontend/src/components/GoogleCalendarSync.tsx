@@ -3,6 +3,7 @@ import { isMaster } from '../api/client';
 import {
   disconnectGoogle, getGoogleCalendar, googleConnectUrl, setCompanyGoogleSync, setGoogleTargets, type GoogleCalendarStatus,
 } from '../api/googleCalendar';
+import { Alert } from './ui/Alert';
 
 // 내 Google 캘린더 (설계 §6.4): connect / disconnect, what to send, last sync and error. Hidden when the server has no
 // Google keys. A company master also sees the company-wide switch here.
@@ -47,7 +48,7 @@ export default function GoogleCalendarSync() {
         Google에서 고친 내용은 앱으로 돌아오지 않고 다음 동기화 때 덮어씁니다.
       </p>
       {notice && <p className="mt-3 rounded bg-paper px-3 py-2 text-sm text-body">{notice}</p>}
-      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
 
       {!status.companyEnabled && !status.connected ? (
         <p className="mt-3 text-sm text-mute">회사에서 Google 연결을 허용하지 않았습니다.</p>

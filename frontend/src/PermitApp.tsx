@@ -20,6 +20,8 @@ const InboxPage = lazy(() => import('./pages/InboxPage'));
 const CompanyCalendarPage = lazy(() => import('./pages/CompanyCalendarPage'));
 const LegacyRedirect = lazy(() => import('./pages/LegacyRedirect'));
 const GuidePage = lazy(() => import('./pages/GuidePage'));
+// dev only: the shared parts on one page; the branch is dropped from production builds
+const UiGalleryPage = import.meta.env.DEV ? lazy(() => import('./pages/UiGalleryPage')) : null;
 
 // ---------------------------------------------------------------------------
 // PermitApp — shell for the permit management UI (JWT session in localStorage).
@@ -190,6 +192,7 @@ export default function PermitApp() {
                 <Route path="/join-requests" element={<JoinRequestsPage />} />
                 <Route path="/org" element={<OrgPage />} />
                 <Route path="/guide" element={<GuidePage />} />
+                {UiGalleryPage && <Route path="/dev/ui" element={<UiGalleryPage />} />}
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>
               </RouteBoundary>
