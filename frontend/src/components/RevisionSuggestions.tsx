@@ -15,8 +15,8 @@ const TYPE: Record<ChangeType, { label: string; sign: string; cls: string }> = {
   ADDED: { label: '추가', sign: '+', cls: 'text-ok' },
   REMOVED: { label: '삭제', sign: '−', cls: 'text-danger' },
   CHANGED: { label: '변경', sign: '~', cls: 'text-warn' },
-  MINOR: { label: '경미', sign: '', cls: 'text-gray-600' },
-  UNCHANGED: { label: '변경 없음', sign: '', cls: 'text-gray-500' },
+  MINOR: { label: '경미', sign: '', cls: 'text-body' },
+  UNCHANGED: { label: '변경 없음', sign: '', cls: 'text-mute' },
 };
 const ORDER: ChangeType[] = ['CHANGED', 'REMOVED', 'ADDED', 'MINOR', 'UNCHANGED'];
 const FLAG: Record<string, string> = {
@@ -76,23 +76,23 @@ export default function RevisionSuggestions({ projectId }: { projectId: number }
   }, `변경 없음 ${unchanged.length}건 확인`).catch(() => {});
 
   return (
-    <section className="mt-5 rounded-xl border border-line bg-white shadow-sm">
+    <section className="mt-5 rounded border border-line bg-white shadow-sm">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-3 text-sm">
-        <h2 className="text-sm font-semibold text-gray-800">개정 비교 · 남은 {pending.length}건</h2>
+        <h2 className="text-sm font-semibold text-ink">개정 비교 · 남은 {pending.length}건</h2>
         <span className="text-ok">+{count('ADDED')} 추가</span>
         <span className="text-danger">−{count('REMOVED')} 삭제</span>
         <span className="text-warn">~{count('CHANGED')} 변경</span>
-        <span className="text-gray-600">경미 {count('MINOR')}</span>
-        <span className="text-gray-500">· 변경 없음 {unchanged.length}</span>
+        <span className="text-body">경미 {count('MINOR')}</span>
+        <span className="text-mute">· 변경 없음 {unchanged.length}</span>
         <span className="font-medium text-brand">· 현장 반영 {site.filter((r) => r.doneAt).length}/{site.length}</span>
         {unchanged.length > 0 && (
           <button type="button" onClick={confirmUnchanged}
-            className="rounded-md bg-brand px-2.5 py-1 text-xs font-medium text-white hover:bg-[#173d5f]">
+            className="rounded bg-brand px-2.5 py-1 text-xs font-medium text-white hover:bg-[#173d5f]">
             변경 없음 {unchanged.length}건 일괄 확인
           </button>
         )}
       </div>
-      {notice && <p role="status" className="border-b border-line bg-paper px-4 py-2 text-sm text-gray-700">{notice}</p>}
+      {notice && <p role="status" className="border-b border-line bg-paper px-4 py-2 text-sm text-body">{notice}</p>}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <ul className="divide-y divide-line border-line lg:border-r">
           {(showUnchanged ? [...visible, ...unchanged] : visible).map((s) => (
@@ -101,7 +101,7 @@ export default function RevisionSuggestions({ projectId }: { projectId: number }
           {unchanged.length > 0 && (
             <li>
               <button type="button" onClick={() => setShowUnchanged((v) => !v)}
-                className="w-full px-4 py-2.5 text-left text-sm text-gray-600 hover:bg-paper">
+                className="w-full px-4 py-2.5 text-left text-sm text-body hover:bg-paper">
                 변경 없음 {unchanged.length}건 {showUnchanged ? '접기' : '보기'}
               </button>
             </li>
@@ -112,7 +112,7 @@ export default function RevisionSuggestions({ projectId }: { projectId: number }
           <Detail key={current.id + ':' + current.version} s={current} all={pending} run={run}
             onReplaced={(id) => setSelected(id)} />
         ) : (
-          <p className="px-4 py-6 text-sm text-gray-500">왼쪽에서 조건을 고르면 이전 | 새 버전을 나란히 봅니다.</p>
+          <p className="px-4 py-6 text-sm text-mute">왼쪽에서 조건을 고르면 이전 | 새 버전을 나란히 봅니다.</p>
         )}
       </div>
       <SiteList projectId={projectId} rows={site.filter((r) => !r.doneAt)} run={run} />
@@ -130,27 +130,27 @@ function SiteList({ projectId, rows, run }: { projectId: number; rows: SiteImple
   const save = (r: SiteImplementation) => run(() => updateSiteImplementation(r), '현장 반영 정보를 저장했습니다.').catch(() => {});
   return (
     <div className="border-t border-line px-4 py-3 text-sm">
-      <h3 className="font-semibold text-gray-800">현장 반영 대기 {rows.length}건</h3>
+      <h3 className="font-semibold text-ink">현장 반영 대기 {rows.length}건</h3>
       <ul className="mt-2 divide-y divide-line">
         {rows.map((r) => (
           <li key={r.suggestionId} className="flex flex-wrap items-center gap-2 py-2">
             <span className={`whitespace-nowrap text-xs font-medium ${TYPE[r.changeType].cls}`}>{TYPE[r.changeType].label}</span>
-            <span className="font-mono text-xs text-gray-500">{r.citationKey}</span>
-            <span className="min-w-0 flex-1 truncate text-gray-800">{r.summary}</span>
+            <span className="font-mono text-xs text-mute">{r.citationKey}</span>
+            <span className="min-w-0 flex-1 truncate text-ink">{r.summary}</span>
             <select aria-label="담당자" value={r.assigneeId ?? ''}
               onChange={(e) => save({ ...r, assigneeId: Number(e.target.value) })}
-              className="rounded-md border border-line px-2 py-1">
+              className="rounded border border-line px-2 py-1">
               {r.assigneeId == null && <option value="">담당자 없음</option>}
               {members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
             </select>
             <input type="date" aria-label="목표일" defaultValue={r.targetDate ?? ''}
               onBlur={(e) => { if ((e.target.value || null) !== r.targetDate) save({ ...r, targetDate: e.target.value || null }); }}
-              className="rounded-md border border-line px-2 py-1" />
+              className="rounded border border-line px-2 py-1" />
             <input aria-label="메모" placeholder="메모" defaultValue={r.note ?? ''} maxLength={1000}
               onBlur={(e) => { if ((e.target.value || null) !== r.note) save({ ...r, note: e.target.value || null }); }}
-              className="w-40 rounded-md border border-line px-2 py-1" />
+              className="w-40 rounded border border-line px-2 py-1" />
             <button type="button" onClick={() => run(() => completeSiteImplementation(r.suggestionId), '반영 완료했습니다.').catch(() => {})}
-              className="rounded-md bg-ok px-2.5 py-1 text-xs font-medium text-white hover:bg-ok-hover">반영 완료</button>
+              className="rounded bg-ok px-2.5 py-1 text-xs font-medium text-white hover:bg-ok-hover">반영 완료</button>
           </li>
         ))}
       </ul>
@@ -170,10 +170,10 @@ function Row({ s, active, onClick }: { s: RevisionSuggestion; active: boolean; o
         className={`w-full px-4 py-2.5 text-left text-sm ${active ? 'bg-[#EEF3F8]' : 'hover:bg-paper'} ${open(s) ? '' : 'opacity-70'}`}>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`whitespace-nowrap text-xs font-medium ${t.cls}`}>{t.sign}{t.label}</span>
-          <span className="font-mono text-xs text-gray-500">{key}</span>
-          <span className="min-w-0 flex-1 truncate text-gray-800">{row?.summary}</span>
+          <span className="font-mono text-xs text-mute">{key}</span>
+          <span className="min-w-0 flex-1 truncate text-ink">{row?.summary}</span>
           {!open(s) && <span className="whitespace-nowrap text-xs text-violet-800">v1 근거</span>}
-          {p.prev_obligation_closed && <span className="text-xs text-gray-500">종료된 의무</span>}
+          {p.prev_obligation_closed && <span className="text-xs text-mute">종료된 의무</span>}
           {p.match.flags.map((f) => (
             <span key={f} className="whitespace-nowrap text-xs text-sky-800">{FLAG[f] ?? f}</span>
           ))}
@@ -223,49 +223,49 @@ function Detail({ s, all, run, onReplaced }: {
         <Side title="v2 (새 버전)" row={next} other={p.prev} side="new" />
       </div>
       {(p.changed_fields.length > 0 || p.numeric_changes.length > 0) && (
-        <p className="text-xs text-gray-500">
-          {p.numeric_changes.length > 0 && <>숫자: <b className="text-gray-800">{p.numeric_changes.map((n) => `${n.before ?? '—'} → ${n.after ?? '—'}`).join(', ')}</b> · </>}
+        <p className="text-xs text-mute">
+          {p.numeric_changes.length > 0 && <>숫자: <b className="text-ink">{p.numeric_changes.map((n) => `${n.before ?? '—'} → ${n.after ?? '—'}`).join(', ')}</b> · </>}
           바뀐 항목: {p.changed_fields.join(', ') || '—'}
         </p>
       )}
 
       {!open(s) ? (
-        <p className="rounded-lg bg-violet-50 px-3 py-2 text-violet-900">거절됨: 라이브 의무사항은 바뀌지 않았고 v1 근거로 남아 있습니다.</p>
+        <p className="rounded bg-violet-50 px-3 py-2 text-violet-900">거절됨: 라이브 의무사항은 바뀌지 않았고 v1 근거로 남아 있습니다.</p>
       ) : (
         <div className="space-y-3 border-t border-line pt-3">
           {needsDate(s) && (
             <label className="flex flex-wrap items-center gap-2">
               다음 기한일 (주기·기간 변경, 필수)
               <input type="date" value={due} onChange={(e) => setDue(e.target.value)}
-                className="rounded-md border border-line px-2 py-1" />
+                className="rounded border border-line px-2 py-1" />
             </label>
           )}
           {type === 'REMOVED' && (
-            <label className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2 text-danger">
+            <label className="flex items-start gap-2 rounded bg-red-50 px-3 py-2 text-danger">
               <input type="checkbox" checked={absent} onChange={(e) => setAbsent(e.target.checked)} className="mt-0.5" />
               v2 원문에 이 조건이 없음을 확인함 (승인하면 의무사항이 종료되고 알림이 멈춥니다. 일괄 승인 불가)
             </label>
           )}
           {stale && (
-            <p className="flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-warn">
+            <p className="flex flex-wrap items-center gap-2 rounded bg-amber-50 px-3 py-2 text-warn">
               {STALE}
               <button type="button" onClick={() => run(() => rediffRevision(s), '다시 비교했습니다.').catch(() => {})}
-                className="rounded-md border border-warn px-2 py-0.5 text-xs">다시 비교</button>
+                className="rounded border border-warn px-2 py-0.5 text-xs">다시 비교</button>
             </p>
           )}
           <div className="flex flex-wrap gap-2">
             <button type="button" disabled={blocked} onClick={accept}
-              className="rounded-md bg-brand px-3 py-1.5 font-medium text-white disabled:opacity-40">승인</button>
+              className="rounded bg-brand px-3 py-1.5 font-medium text-white disabled:opacity-40">승인</button>
             <button type="button" onClick={reject}
-              className="rounded-md border border-line px-3 py-1.5 text-gray-700 hover:bg-paper">거절</button>
+              className="rounded border border-line px-3 py-1.5 text-body hover:bg-paper">거절</button>
             {['CHANGED', 'MINOR', 'UNCHANGED'].includes(type) && (
               <button type="button" onClick={unpair}
-                className="rounded-md border border-line px-3 py-1.5 text-gray-700 hover:bg-paper">분리</button>
+                className="rounded border border-line px-3 py-1.5 text-body hover:bg-paper">분리</button>
             )}
             {(type === 'ADDED' || type === 'REMOVED') && partners.length > 0 && (
               <span className="flex items-center gap-1">
                 <select value={partner} onChange={(e) => setPartner(e.target.value ? Number(e.target.value) : '')}
-                  aria-label="결합할 제안" className="max-w-48 rounded-md border border-line px-2 py-1.5">
+                  aria-label="결합할 제안" className="max-w-48 rounded border border-line px-2 py-1.5">
                   <option value="">결합할 {type === 'ADDED' ? '삭제' : '추가'} 선택</option>
                   {partners.map((o) => {
                     const r = newRow(o) ?? o.payload.prev;
@@ -273,7 +273,7 @@ function Detail({ s, all, run, onReplaced }: {
                   })}
                 </select>
                 <button type="button" disabled={partner === ''} onClick={pair}
-                  className="rounded-md border border-line px-3 py-1.5 text-gray-700 hover:bg-paper disabled:opacity-40">결합</button>
+                  className="rounded border border-line px-3 py-1.5 text-body hover:bg-paper disabled:opacity-40">결합</button>
               </span>
             )}
           </div>
@@ -287,19 +287,19 @@ function Side({ title, row, other, side }: {
   title: string; row: ObligationPayload | null; other: ObligationPayload | null; side: 'old' | 'new';
 }) {
   return (
-    <div className="min-w-0 rounded-lg border border-line p-3">
-      <p className="text-xs font-semibold text-gray-500">{title} {row?.citation_key && <span className="font-mono">· {row.citation_key}</span>}</p>
+    <div className="min-w-0 rounded border border-line p-3">
+      <p className="text-xs font-semibold text-mute">{title} {row?.citation_key && <span className="font-mono">· {row.citation_key}</span>}</p>
       {row ? (
         <>
-          <p className="mt-1 font-medium text-gray-800">{row.summary}</p>
-          <p className="mt-1 break-words leading-relaxed text-gray-700">
+          <p className="mt-1 font-medium text-ink">{row.summary}</p>
+          <p className="mt-1 break-words leading-relaxed text-body">
             {other ? <WordDiff a={side === 'old' ? row.requirement_text : other.requirement_text}
               b={side === 'old' ? other.requirement_text : row.requirement_text} side={side} /> : row.requirement_text}
           </p>
-          <p className="mt-1 text-xs text-gray-500">주기 {row.frequency}{row.frequency_text ? ` (${row.frequency_text})` : ''}</p>
+          <p className="mt-1 text-xs text-mute">주기 {row.frequency}{row.frequency_text ? ` (${row.frequency_text})` : ''}</p>
         </>
       ) : (
-        <p className="mt-1 text-gray-400">{side === 'new' ? 'v2에서 찾지 못함' : '이전 버전에 없음'}</p>
+        <p className="mt-1 text-mute">{side === 'new' ? 'v2에서 찾지 못함' : '이전 버전에 없음'}</p>
       )}
     </div>
   );

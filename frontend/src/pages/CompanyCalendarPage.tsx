@@ -21,7 +21,7 @@ const ScheduleCalendar = lazy(() => import('../components/ScheduleCalendar'));
 
 const EMPTY: CalendarData = { events: [], milestones: [], deadlines: [] };
 const PEOPLE_KINDS = new Set(['TRIP', 'REVIEW', 'CLIENT_REPORT']);
-const select = 'rounded-lg border border-line bg-white px-2 py-1.5 text-xs';
+const select = 'rounded border border-line bg-white px-2 py-1.5 text-xs';
 
 export default function CompanyCalendarPage() {
   const [projects, setProjects] = useState<Project[] | null>(null); // null until loaded, so the empty state does not flash
@@ -65,7 +65,7 @@ export default function CompanyCalendarPage() {
       <div className="mx-auto max-w-6xl space-y-4 px-4 py-8 sm:px-6">
         <div>
           <h1 className="text-2xl font-bold text-brand">회사 달력</h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-mute">
             {isMaster() ? '회사 전체 프로젝트' : '내가 멤버인 프로젝트'}의 이벤트·출장·마일스톤입니다. 항목을 누르면 상세가 열립니다.
           </p>
         </div>
@@ -94,17 +94,17 @@ export default function CompanyCalendarPage() {
             {EVENT_KINDS.map((k) => <option key={k} value={k}>{EVENT_KIND_LABEL[k]}</option>)}
           </select>
           <button type="button" onClick={() => set({ kind: tripsOnly ? '' : 'TRIP' })}
-            className={`rounded-lg border px-3 py-1.5 text-xs font-medium ${tripsOnly ? 'border-ok bg-ok text-white' : 'border-line bg-white text-gray-700 hover:border-ok'}`}>
+            className={`rounded border px-3 py-1.5 text-xs font-medium ${tripsOnly ? 'border-ok bg-ok text-white' : 'border-line bg-white text-body hover:border-ok'}`}>
             출장만
           </button>
-          <label className="ml-2 flex items-center gap-1.5 text-xs text-gray-600">
+          <label className="ml-2 flex items-center gap-1.5 text-xs text-body">
             <input type="checkbox" checked={showDeadlines} disabled={!!filter.kind} onChange={(e) => setShowDeadlines(e.target.checked)} />
             인허가 기한 표시
           </label>
         </div>
 
-        {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
-        <Suspense fallback={<div className="h-[640px] rounded-xl border border-line bg-white" />}>
+        {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+        <Suspense fallback={<div className="h-[640px] rounded border border-line bg-white" />}>
           <ScheduleCalendar data={data} showDeadlines={showDeadlines} showProject
             onRange={(from, to) => setRange([from, to])} onOpen={setOpen} />
         </Suspense>
@@ -135,14 +135,14 @@ function PeopleWeeks({ events, nextMonday }: { events: ProjectEvent[]; nextMonda
   }, [events, nextMonday]);
   const cell = (list: ProjectEvent[]) => {
     const text = list.map((e) => `${eventWhen(e)} ${EVENT_KIND_LABEL[e.kind]} · ${e.counterpartOrg ?? e.location ?? e.title}`).join(', ');
-    return <td className="max-w-0 truncate px-3 py-2.5 text-gray-700" title={text}>{text || '—'}</td>;
+    return <td className="max-w-0 truncate px-3 py-2.5 text-body" title={text}>{text || '—'}</td>;
   };
   return (
-    <section className="rounded-xl border border-line bg-white p-5 shadow-sm">
-      <h2 className="text-lg font-semibold text-gray-900">사람별 이번 주·다음 주</h2>
+    <section className="rounded border border-line bg-white p-5 shadow-sm">
+      <h2 className="text-lg font-semibold text-ink">사람별 이번 주·다음 주</h2>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[640px] table-fixed whitespace-nowrap text-left text-sm">
-          <thead className="bg-paper text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-body">
             <tr>
               <th className="w-40 px-3 py-2.5 font-medium">사람</th>
               <th className="px-3 py-2.5 font-medium">이번 주</th>
@@ -150,10 +150,10 @@ function PeopleWeeks({ events, nextMonday }: { events: ProjectEvent[]; nextMonda
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {rows.length === 0 && <tr><td colSpan={3} className="whitespace-normal px-3 py-6 text-center text-gray-400">이번 주·다음 주에 참석자가 지정된 일정이 없습니다. 프로젝트 › 일정 › 달력에서 출장·회의를 넣고 참석자를 지정하세요.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={3} className="whitespace-normal px-3 py-6 text-center text-mute">이번 주·다음 주에 참석자가 지정된 일정이 없습니다. 프로젝트 › 일정 › 달력에서 출장·회의를 넣고 참석자를 지정하세요.</td></tr>}
             {rows.map(([name, r]) => (
               <tr key={name}>
-                <td className="truncate px-3 py-2.5 font-medium text-gray-800" title={name}>{name}</td>
+                <td className="truncate px-3 py-2.5 font-medium text-ink" title={name}>{name}</td>
                 {cell(r.thisWeek)}
                 {cell(r.nextWeek)}
               </tr>
@@ -178,9 +178,9 @@ function MySubscription() {
     }
   };
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+    <div className="flex flex-wrap items-center gap-2 text-xs text-body">
       <button type="button" onClick={issue}
-        className="rounded-lg border border-line bg-white px-3 py-1.5 font-medium text-gray-700 hover:border-brand">내 달력 구독 주소</button>
+        className="rounded border border-line bg-white px-3 py-1.5 font-medium text-body hover:border-brand">내 달력 구독 주소</button>
       {url
         ? <input readOnly value={url} onFocus={(e) => e.target.select()} className="min-w-0 flex-1 rounded border border-line px-2 py-1 font-mono" />
         : <span>내가 참석하는 이벤트와 내 담당 마일스톤을 Google·Outlook 달력에서 구독합니다. 반영은 달력 앱 주기(보통 수 시간)를 따릅니다.</span>}

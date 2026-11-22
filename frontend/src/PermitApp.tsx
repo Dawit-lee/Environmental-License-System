@@ -95,7 +95,7 @@ export default function PermitApp() {
         </Routes>
       ) : (
         <div
-          className="flex min-h-screen bg-paper text-gray-900"
+          className="flex min-h-screen bg-paper text-ink"
           style={{ fontFamily: 'system-ui, sans-serif' }}
         >
           <PageTitle nav={nav} />
@@ -112,8 +112,8 @@ export default function PermitApp() {
                   to={item.to}
                   title={collapsed ? item.label : undefined}
                   className={({ isActive }) =>
-                    `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
-                      isActive ? 'bg-brand text-white' : 'text-gray-600 hover:bg-paper'
+                    `flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
+                      isActive ? 'bg-brand text-white' : 'text-body hover:bg-paper'
                     }`
                   }
                 >
@@ -123,7 +123,7 @@ export default function PermitApp() {
               ))}
               <button type="button" onClick={toggleSidebar} aria-expanded={!collapsed}
                 title={collapsed ? '메뉴 펼치기' : '메뉴 접기'} aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-                className="mt-auto flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-500 hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30">
+                className="mt-auto flex items-center gap-3 rounded px-3 py-2.5 text-sm text-mute hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30">
                 <span aria-hidden>{collapsed ? '»' : '«'}</span>
                 {!collapsed && '접기'}
               </button>
@@ -137,17 +137,17 @@ export default function PermitApp() {
               {/* Left: mobile-only menu (desktop nav is in the sidebar) */}
               <details className="relative sm:hidden">
                 <summary aria-label="메뉴"
-                  className="flex h-9 cursor-pointer list-none items-center gap-2 rounded-lg border border-line px-3 text-sm font-medium text-gray-700 [&::-webkit-details-marker]:hidden">
+                  className="flex h-9 cursor-pointer list-none items-center gap-2 rounded border border-line px-3 text-sm font-medium text-body [&::-webkit-details-marker]:hidden">
                   <span aria-hidden>☰</span> 메뉴
                 </summary>
-                <nav className="absolute left-0 z-50 mt-2 w-48 rounded-lg border border-line bg-white py-1 shadow-lg">
+                <nav className="absolute left-0 z-50 mt-2 w-48 rounded border border-line bg-white py-1 shadow-lg">
                   {nav.map((item) => (
                     <NavLink
                       key={item.to}
                       to={item.to}
                       onClick={(e) => e.currentTarget.closest('details')?.removeAttribute('open')}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-4 py-2.5 text-sm ${isActive ? 'font-semibold text-brand' : 'text-gray-700'}`
+                        `flex items-center gap-3 px-4 py-2.5 text-sm ${isActive ? 'font-semibold text-brand' : 'text-body'}`
                       }
                     >
                       <span aria-hidden>{item.icon}</span>
@@ -161,13 +161,13 @@ export default function PermitApp() {
               <div className="ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap">
                 <NotificationBell />
                 <HelpMenu />
-                <span className="hidden max-w-[180px] truncate text-sm text-gray-500 sm:inline" title={user}>
+                <span className="hidden max-w-[180px] truncate text-sm text-mute sm:inline" title={user}>
                   {user}
                 </span>
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-gray-600 transition hover:bg-paper hover:text-danger focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  className="rounded border border-line px-3 py-1.5 text-sm font-medium text-body transition hover:bg-paper hover:text-danger focus:outline-none focus:ring-2 focus:ring-brand/20"
                 >
                   로그아웃
                 </button>
@@ -204,14 +204,14 @@ export default function PermitApp() {
 /** Header "?" menu: the guide and a way back to the dismissed 시작하기 checklist. */
 function HelpMenu() {
   const close = (e: MouseEvent) => e.currentTarget.closest('details')?.removeAttribute('open');
-  const item = 'block whitespace-nowrap px-4 py-2 text-sm text-gray-700 hover:bg-paper';
+  const item = 'block whitespace-nowrap px-4 py-2 text-sm text-body hover:bg-paper';
   return (
     <details className="relative">
       <summary aria-label="도움말" title="도움말"
-        className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full border border-line text-sm font-semibold text-gray-600 hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 [&::-webkit-details-marker]:hidden">
+        className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full border border-line text-sm font-semibold text-body hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 [&::-webkit-details-marker]:hidden">
         ?
       </summary>
-      <div className="absolute right-0 z-50 mt-2 rounded-lg border border-line bg-white py-1 shadow-lg">
+      <div className="absolute right-0 z-50 mt-2 rounded border border-line bg-white py-1 shadow-lg">
         <NavLink to="/guide" onClick={close} className={item}>사용 가이드</NavLink>
         <NavLink to="/dashboard" onClick={(e) => { close(e); setOnboardingDismissed(false); }} className={item}>시작하기 체크리스트 다시 보기</NavLink>
       </div>

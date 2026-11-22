@@ -9,12 +9,12 @@ import { getInvite, joinCompany, signupCompany } from '../api/signup';
 // ---------------------------------------------------------------------------
 
 const inputClasses =
-  'w-full rounded-lg border border-line px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
+  'w-full rounded border border-line px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
 function Field({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="mt-4 block first:mt-0">
-      <span className="mb-1.5 block text-sm font-medium text-gray-700">{label}</span>
+      <span className="mb-1.5 block text-sm font-medium text-body">{label}</span>
       <input {...props} required className={inputClasses} />
     </label>
   );
@@ -67,13 +67,13 @@ export default function SignupPage({ onLogin }: { onLogin: (session: Session) =>
         </div>
 
         {done ? (
-          <div role="status" className="rounded-xl border border-line bg-white p-6 text-sm text-gray-700 shadow-sm">
+          <div role="status" className="rounded border border-line bg-white p-6 text-sm text-body shadow-sm">
             <p>{done}</p>
             <Link to="/login" className="mt-4 inline-block font-medium text-brand hover:underline">로그인 화면으로</Link>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="rounded-xl border border-line bg-white p-6 shadow-sm">
-            <div role="tablist" className="mb-5 grid grid-cols-2 gap-1 rounded-lg bg-paper p-1">
+          <form onSubmit={handleSubmit} className="rounded border border-line bg-white p-6 shadow-sm">
+            <div role="tablist" className="mb-5 grid grid-cols-2 gap-1 rounded bg-paper p-1">
               {([['company', '새 회사 만들기'], ['invite', '초대 코드로 가입']] as const).map(([t, label]) => (
                 <button
                   key={t}
@@ -81,7 +81,7 @@ export default function SignupPage({ onLogin }: { onLogin: (session: Session) =>
                   role="tab"
                   aria-selected={tab === t}
                   onClick={() => { setTab(t); setError(''); }}
-                  className={`rounded-md px-2 py-1.5 text-sm font-medium transition ${tab === t ? 'bg-white text-brand shadow-sm' : 'text-gray-500'}`}
+                  className={`rounded px-2 py-1.5 text-sm font-medium transition ${tab === t ? 'bg-white text-brand shadow-sm' : 'text-mute'}`}
                 >
                   {label}
                 </button>
@@ -91,13 +91,13 @@ export default function SignupPage({ onLogin }: { onLogin: (session: Session) =>
             {tab === 'company' ? (
               <>
                 <Field label="회사명" value={companyName} onChange={(e) => setCompanyName(e.target.value)} autoFocus />
-                <p className="mt-1.5 text-xs text-gray-500">처음 만든 사람이 회사 관리자가 됩니다.</p>
+                <p className="mt-1.5 text-xs text-mute">처음 만든 사람이 회사 관리자가 됩니다.</p>
               </>
             ) : (
               <>
                 <Field label="초대 코드" value={code} onChange={(e) => { setCode(e.target.value.toUpperCase()); setError(''); }}
                   placeholder="관리자에게 받은 10자리 코드" autoFocus={!linkCode} />
-                {inviteCompany && <p className="mt-1.5 text-xs text-gray-600">가입할 회사: <b>{inviteCompany}</b></p>}
+                {inviteCompany && <p className="mt-1.5 text-xs text-body">가입할 회사: <b>{inviteCompany}</b></p>}
               </>
             )}
             <div className="mt-4">
@@ -111,11 +111,11 @@ export default function SignupPage({ onLogin }: { onLogin: (session: Session) =>
             <button
               type="submit"
               disabled={submitting}
-              className="mt-5 w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
+              className="mt-5 w-full rounded bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
             >
               {submitting ? '처리 중…' : tab === 'company' ? '회사 만들고 시작하기' : '가입 신청'}
             </button>
-            <p className="mt-4 text-center text-sm text-gray-500">
+            <p className="mt-4 text-center text-sm text-mute">
               이미 계정이 있나요? <Link to="/login" className="font-medium text-brand hover:underline">로그인</Link>
             </p>
           </form>

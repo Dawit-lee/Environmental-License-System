@@ -52,18 +52,18 @@ export default function GuidePage() {
     <div className="min-h-full bg-paper">
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
         <h1 className="text-2xl font-bold text-brand">사용 가이드</h1>
-        <p className="mt-2 text-sm text-gray-600">처음 쓰는 순서대로 적었습니다.</p>
-        <p className="text-sm text-gray-600">위에서부터 하나씩 따라 하면 됩니다.</p>
+        <p className="mt-2 text-sm text-body">처음 쓰는 순서대로 적었습니다.</p>
+        <p className="text-sm text-body">위에서부터 하나씩 따라 하면 됩니다.</p>
 
         <ol className="mt-6 space-y-0">
           {FLOW.map((s, i) => (
             <li key={s.title} className="relative flex gap-4 pb-6 last:pb-0">
               {i < FLOW.length - 1 && <span aria-hidden className="absolute left-[15px] top-8 h-[calc(100%-2rem)] w-px bg-brand/20" />}
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">{i + 1}</span>
-              <div className="min-w-0 flex-1 rounded-xl border border-line bg-white px-4 py-3 shadow-sm">
-                <h2 className="text-base font-semibold text-gray-900">{s.title}</h2>
-                <p className="text-xs text-gray-400">{s.where}</p>
-                <ul className="mt-2 space-y-0.5 text-sm text-gray-700">
+              <div className="min-w-0 flex-1 rounded border border-line bg-white px-4 py-3 shadow-sm">
+                <h2 className="text-base font-semibold text-ink">{s.title}</h2>
+                <p className="text-xs text-mute">{s.where}</p>
+                <ul className="mt-2 space-y-0.5 text-sm text-body">
                   {s.lines.map((l) => <li key={l}>{l}</li>)}
                 </ul>
               </div>
@@ -71,20 +71,20 @@ export default function GuidePage() {
           ))}
         </ol>
 
-        <h2 className="mt-10 text-lg font-semibold text-gray-900">용어</h2>
-        <dl className="mt-3 divide-y divide-line rounded-xl border border-line bg-white">
+        <h2 className="mt-10 text-lg font-semibold text-ink">용어</h2>
+        <dl className="mt-3 divide-y divide-line rounded border border-line bg-white">
           {Object.values(HELP).map((h) => (
             <div key={h.term} className="grid gap-1 px-4 py-3 sm:grid-cols-[8rem_1fr]">
-              <dt className="text-sm font-medium text-gray-800">{h.term}</dt>
-              <dd className="text-sm text-gray-600">{h.text}</dd>
+              <dt className="text-sm font-medium text-ink">{h.term}</dt>
+              <dd className="text-sm text-body">{h.text}</dd>
             </div>
           ))}
         </dl>
 
         <div className="mt-8 flex flex-wrap gap-2">
           <Link to="/dashboard" onClick={() => setOnboardingDismissed(false)}
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover">시작하기 체크리스트 열기</Link>
-          <Link to="/projects/new" className="rounded-lg border border-line bg-white px-4 py-2 text-sm text-gray-700 hover:border-brand">새 프로젝트 만들기</Link>
+            className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover">시작하기 체크리스트 열기</Link>
+          <Link to="/projects/new" className="rounded border border-line bg-white px-4 py-2 text-sm text-body hover:border-brand">새 프로젝트 만들기</Link>
         </div>
       </div>
     </div>

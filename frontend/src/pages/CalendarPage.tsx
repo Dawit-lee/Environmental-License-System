@@ -22,7 +22,7 @@ const TONE_DOT: Record<DotTone, string> = {
   orange: 'bg-warn',
   yellow: 'bg-amber-400',
   green: 'bg-ok',
-  gray: 'bg-gray-300',
+  gray: 'bg-line',
 };
 
 const TONE_LABEL: Record<DotTone, string> = {
@@ -89,9 +89,9 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
         {!projectId && <h1 className="text-2xl font-bold text-brand">인허가 캘린더</h1>}
 
         {/* Legend */}
-        <div className="mt-4 flex flex-wrap items-center gap-4 rounded-lg border border-line bg-white px-4 py-2.5 text-sm">
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded border border-line bg-white px-4 py-2.5 text-sm">
           {(Object.keys(TONE_LABEL) as DotTone[]).map((tone) => (
-            <span key={tone} className="flex items-center gap-2 text-gray-600">
+            <span key={tone} className="flex items-center gap-2 text-body">
               <span className={`h-2.5 w-2.5 rounded-full ${TONE_DOT[tone]}`} />
               {TONE_LABEL[tone]}
             </span>
@@ -104,18 +104,18 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
             type="button"
             onClick={prevMonth}
             aria-label="이전 달"
-            className="rounded-lg px-3 py-1.5 text-lg text-gray-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
+            className="rounded px-3 py-1.5 text-lg text-body transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
           >
             ‹
           </button>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 className="text-lg font-semibold text-ink">
             {year}년 {month}월
           </h2>
           <button
             type="button"
             onClick={nextMonth}
             aria-label="다음 달"
-            className="rounded-lg px-3 py-1.5 text-lg text-gray-600 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
+            className="rounded px-3 py-1.5 text-lg text-body transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
           >
             ›
           </button>
@@ -124,8 +124,8 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
         {error && <p className="mt-4 text-center text-sm text-danger">{error}</p>}
 
         {/* Calendar grid */}
-        <div className="mt-4 overflow-hidden rounded-xl border border-line bg-white shadow-sm">
-          <div className="grid grid-cols-7 border-b border-line bg-paper text-center text-xs font-medium text-gray-500">
+        <div className="mt-4 overflow-hidden rounded border border-line bg-white shadow-sm">
+          <div className="grid grid-cols-7 border-b border-line bg-paper text-center text-xs font-medium text-body">
             {WEEKDAYS.map((w, i) => (
               <div key={w} className={`py-2 ${i === 0 ? 'text-danger' : i === 6 ? 'text-brand' : ''}`}>
                 {w}
@@ -146,36 +146,36 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
                     type="button"
                     onClick={() => setOpenDay(isOpen ? null : key)}
                     disabled={items.length === 0}
-                    className={`flex h-full w-full flex-col items-start rounded-md p-1 text-left transition focus:outline-none ${
+                    className={`flex h-full w-full flex-col items-start rounded p-1 text-left transition focus:outline-none ${
                       items.length > 0
                         ? 'cursor-pointer hover:bg-paper focus:ring-2 focus:ring-brand/30'
                         : 'cursor-default'
                     } ${isOpen ? 'bg-brand/5 ring-2 ring-brand/30' : ''}`}
                   >
-                    <span className="text-sm text-gray-700">{day}</span>
+                    <span className="text-sm text-body">{day}</span>
                     {items.length > 0 && (
                       <span className="mt-1 flex w-full min-w-0 flex-col gap-0.5">
                         {items.slice(0, 3).map((it) => (
-                          <span key={it.id} className="flex w-full min-w-0 items-start gap-1 text-[11px] leading-4 text-gray-700" title={`${it.projectName} — ${it.title}`}>
+                          <span key={it.id} className="flex w-full min-w-0 items-start gap-1 text-[11px] leading-4 text-body" title={`${it.projectName} — ${it.title}`}>
                             <span className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
                             <span className="line-clamp-2 break-all">{it.title}</span>
                           </span>
                         ))}
-                        {items.length > 3 && <span className="text-[11px] text-gray-400">+{items.length - 3}건 더</span>}
+                        {items.length > 3 && <span className="text-[11px] text-mute">+{items.length - 3}건 더</span>}
                       </span>
                     )}
                   </button>
 
                   {/* Popover */}
                   {isOpen && items.length > 0 && (
-                    <div className="absolute left-1/2 top-full z-20 mt-1 w-64 -translate-x-1/2 rounded-lg border border-line bg-white p-3 shadow-lg">
+                    <div className="absolute left-1/2 top-full z-20 mt-1 w-64 -translate-x-1/2 rounded border border-line bg-white p-3 shadow-lg">
                       <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-900">{month}월 {day}일</span>
+                        <span className="text-sm font-semibold text-ink">{month}월 {day}일</span>
                         <button
                           type="button"
                           onClick={() => setOpenDay(null)}
                           aria-label="닫기"
-                          className="text-gray-400 transition hover:text-gray-700"
+                          className="text-mute transition hover:text-body"
                         >
                           ✕
                         </button>
@@ -186,8 +186,8 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
                             <Link to={`/projects/${it.projectId}`} className="flex items-start gap-2 rounded text-sm hover:bg-paper">
                               <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
                               <div>
-                                <p className="font-medium text-gray-800">{it.title}</p>
-                                <p className="text-xs text-gray-500">{it.projectName}</p>
+                                <p className="font-medium text-ink">{it.title}</p>
+                                <p className="text-xs text-mute">{it.projectName}</p>
                               </div>
                             </Link>
                           </li>

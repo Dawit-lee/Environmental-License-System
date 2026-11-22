@@ -26,9 +26,9 @@ interface Limit {
 
 const MEDIUM: Record<Medium, string> = { AIR: '대기', WATER: '수질' };
 const today = () => new Date().toLocaleDateString('sv-SE'); // local day; toISOString is UTC and is yesterday before 09:00 KST
-const INPUT = 'rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
-const BTN = 'rounded-lg border border-line px-3 py-1 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
-const PRIMARY = 'rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
+const INPUT = 'rounded border border-line bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const BTN = 'rounded border border-line px-3 py-1 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
+const PRIMARY = 'rounded bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
 
 const emptyPoint = { id: null as number | null, name: '', medium: 'AIR' as Medium, permitItemId: '', active: true };
 const emptyLimit = () => ({
@@ -83,7 +83,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
   const send = (path: string, method: string, body?: unknown) =>
     api(path, { method, body: body === undefined ? undefined : JSON.stringify(body) });
 
-  if (!points) return <p className="text-sm text-gray-400">{error ?? '불러오는 중…'}</p>;
+  if (!points) return <p className="text-sm text-mute">{error ?? '불러오는 중…'}</p>;
 
   const selected = points.find((p) => p.id === selectedId) ?? null;
   const visibleLimits = limits.filter((l) => showPast || !l.effectiveTo || l.effectiveTo >= today());
@@ -128,7 +128,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
 
   return (
     <div>
-      {error && <p role="alert" className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
       {/* 배출구 */}
       <div className="flex items-center justify-between gap-3">
@@ -137,19 +137,19 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
       </div>
 
       {pointForm && (
-        <form onSubmit={savePoint} className="mt-3 flex flex-wrap items-end gap-3 rounded-xl border border-line bg-white p-4">
-          <label className="text-xs text-gray-500">이름
+        <form onSubmit={savePoint} className="mt-3 flex flex-wrap items-end gap-3 rounded border border-line bg-white p-4">
+          <label className="text-xs text-mute">이름
             <input required maxLength={100} value={pointForm.name} placeholder="예: 소각로 1호기 굴뚝"
               onChange={(e) => setPointForm({ ...pointForm, name: e.target.value })} className={`${INPUT} mt-1 block w-64`} />
           </label>
-          <label className="text-xs text-gray-500">매체
+          <label className="text-xs text-mute">매체
             <select value={pointForm.medium} disabled={pointForm.id !== null} title={pointForm.id !== null ? '매체는 바꿀 수 없습니다' : undefined}
               onChange={(e) => setPointForm({ ...pointForm, medium: e.target.value as Medium })} className={`${INPUT} mt-1 block`}>
               <option value="AIR">대기</option>
               <option value="WATER">수질</option>
             </select>
           </label>
-          <label className="text-xs text-gray-500">근거 인허가 항목 (선택)
+          <label className="text-xs text-mute">근거 인허가 항목 (선택)
             <select value={pointForm.permitItemId} onChange={(e) => setPointForm({ ...pointForm, permitItemId: e.target.value })}
               className={`${INPUT} mt-1 block w-64`}>
               <option value="">선택 안 함</option>
@@ -157,7 +157,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
             </select>
           </label>
           {pointForm.id !== null && (
-            <label className="flex items-center gap-2 pb-1.5 text-sm text-gray-600">
+            <label className="flex items-center gap-2 pb-1.5 text-sm text-body">
               <input type="checkbox" checked={pointForm.active} className="accent-brand"
                 onChange={(e) => setPointForm({ ...pointForm, active: e.target.checked })} />
               사용 중
@@ -168,9 +168,9 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
         </form>
       )}
 
-      <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+      <div className="mt-3 overflow-x-auto rounded border border-line bg-white shadow-sm">
         <table className="w-full min-w-[720px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-paper text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-body">
             <tr>
               <th className="px-4 py-3 font-medium">이름</th>
               <th className="px-4 py-3 font-medium">매체</th>
@@ -185,12 +185,12 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
               <tr key={p.id} onClick={() => setSelectedId(p.id)} aria-selected={p.id === selectedId}
                 className={`cursor-pointer ${p.id === selectedId ? 'bg-brand/5' : 'hover:bg-paper'}`}>
                 <td className="max-w-[280px] px-4 py-2.5">
-                  <button type="button" title={p.name} className={`block max-w-full truncate font-medium ${p.active ? 'text-gray-800' : 'text-gray-400'}`}>{p.name}</button>
+                  <button type="button" title={p.name} className={`block max-w-full truncate font-medium ${p.active ? 'text-ink' : 'text-mute'}`}>{p.name}</button>
                 </td>
-                <td className="px-4 py-2.5 text-gray-600">{MEDIUM[p.medium]}</td>
-                <td className="max-w-[260px] px-4 py-2.5 text-gray-600"><span className="block truncate" title={p.permitName ?? ''}>{p.permitName ?? '—'}</span></td>
-                <td className="px-4 py-2.5 text-gray-600">{p.active ? '사용 중' : '사용 중지'}</td>
-                <td className="px-4 py-2.5 text-gray-800">{p.needsReviewCount > 0 ? `확인 필요 ${p.needsReviewCount}건` : '—'}</td>
+                <td className="px-4 py-2.5 text-body">{MEDIUM[p.medium]}</td>
+                <td className="max-w-[260px] px-4 py-2.5 text-body"><span className="block truncate" title={p.permitName ?? ''}>{p.permitName ?? '—'}</span></td>
+                <td className="px-4 py-2.5 text-body">{p.active ? '사용 중' : '사용 중지'}</td>
+                <td className="px-4 py-2.5 text-ink">{p.needsReviewCount > 0 ? `확인 필요 ${p.needsReviewCount}건` : '—'}</td>
                 <td className="px-4 py-2.5 text-right">
                   <button type="button" className={BTN} onClick={(e) => {
                     e.stopPropagation();
@@ -202,7 +202,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
           </tbody>
         </table>
         {points.length === 0 && (
-          <p className="py-10 text-center text-sm text-gray-400">등록된 배출구가 없습니다. 굴뚝이나 방류구를 추가하고 항목별 허가 한도를 넣으세요.</p>
+          <p className="py-10 text-center text-sm text-mute">등록된 배출구가 없습니다. 굴뚝이나 방류구를 추가하고 항목별 허가 한도를 넣으세요.</p>
         )}
       </div>
 
@@ -213,7 +213,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
             <h2 className="text-lg font-bold text-brand">허가 한도 · {selected.name}</h2>
             <div className="flex items-center gap-4">
               {pastCount > 0 && (
-                <label className="flex items-center gap-2 text-sm text-gray-600">
+                <label className="flex items-center gap-2 text-sm text-body">
                   <input type="checkbox" checked={showPast} onChange={(e) => setShowPast(e.target.checked)} className="accent-brand" />
                   지난 한도 보기 ({pastCount})
                 </label>
@@ -223,17 +223,17 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
           </div>
 
           {limitForm && (
-            <form onSubmit={saveLimit} className="mt-3 rounded-xl border border-line bg-white p-4">
+            <form onSubmit={saveLimit} className="mt-3 rounded border border-line bg-white p-4">
               {limitForm.replaces && (
-                <p className="mb-3 text-sm text-gray-600">
+                <p className="mb-3 text-sm text-body">
                   기존 한도({limitText(limitForm.replaces.limitLower, limitForm.replaces.limitValue)} {limitForm.replaces.unit}, {limitForm.replaces.effectiveFrom}~)는 새 시작일 전날로 닫히고 이력에 남습니다.
                 </p>
               )}
               {selected.medium === 'AIR' && (
-                <p className="mb-3 text-sm text-gray-600">대기 한도는 표준산소농도 보정 후 값 기준으로 입력합니다.</p>
+                <p className="mb-3 text-sm text-body">대기 한도는 표준산소농도 보정 후 값 기준으로 입력합니다.</p>
               )}
               <div className="flex flex-wrap items-end gap-3">
-                <label className="text-xs text-gray-500">항목
+                <label className="text-xs text-mute">항목
                   <select required value={limitForm.pollutant} disabled={!!limitForm.replaces}
                     onChange={(e) => setLimitForm({ ...limitForm, pollutant: e.target.value })} className={`${INPUT} mt-1 block`}>
                     <option value="">선택</option>
@@ -241,30 +241,30 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
                   </select>
                 </label>
                 {formItem?.rangeLimit && (
-                  <label className="text-xs text-gray-500">하한 ({formItem.unit}) 이상
+                  <label className="text-xs text-mute">하한 ({formItem.unit}) 이상
                     <input required type="number" min="0" step="any" value={limitForm.limitLower}
                       onChange={(e) => setLimitForm({ ...limitForm, limitLower: e.target.value })} className={`${INPUT} mt-1 block w-32`} />
                   </label>
                 )}
-                <label className="text-xs text-gray-500">{formItem?.rangeLimit ? '상한' : '한도'} ({formItem?.unit ?? '단위'}) 이하
+                <label className="text-xs text-mute">{formItem?.rangeLimit ? '상한' : '한도'} ({formItem?.unit ?? '단위'}) 이하
                   <input required type="number" min="0" step="any" value={limitForm.limitValue}
                     onChange={(e) => setLimitForm({ ...limitForm, limitValue: e.target.value })} className={`${INPUT} mt-1 block w-32`} />
                 </label>
-                <label className="text-xs text-gray-500" title="한도 × 비율 이상이면 근접으로 판정합니다 (0 초과 1 미만). 범위 한도는 허용 폭의 (1 − 비율) 안쪽까지 하한·상한 양쪽이 근접입니다.">근접 비율
+                <label className="text-xs text-mute" title="한도 × 비율 이상이면 근접으로 판정합니다 (0 초과 1 미만). 범위 한도는 허용 폭의 (1 − 비율) 안쪽까지 하한·상한 양쪽이 근접입니다.">근접 비율
                   <input required type="number" min="0.01" max="0.99" step="0.01" value={limitForm.warnRatio}
                     onChange={(e) => setLimitForm({ ...limitForm, warnRatio: e.target.value })} className={`${INPUT} mt-1 block w-24`} />
                 </label>
-                <label className="text-xs text-gray-500">유효 시작일
+                <label className="text-xs text-mute">유효 시작일
                   <input required type="date" value={limitForm.effectiveFrom}
                     onChange={(e) => setLimitForm({ ...limitForm, effectiveFrom: e.target.value })} className={`${INPUT} mt-1 block`} />
                 </label>
-                <label className="text-xs text-gray-500">유효 종료일 (선택)
+                <label className="text-xs text-mute">유효 종료일 (선택)
                   <input type="date" value={limitForm.effectiveTo}
                     onChange={(e) => setLimitForm({ ...limitForm, effectiveTo: e.target.value })} className={`${INPUT} mt-1 block`} />
                 </label>
               </div>
               <div className="mt-3 flex flex-wrap items-end gap-3">
-                <label className="text-xs text-gray-500">근거 의무사항 (선택)
+                <label className="text-xs text-mute">근거 의무사항 (선택)
                   <select value={limitForm.obligationId} onChange={(e) => setLimitForm({ ...limitForm, obligationId: e.target.value })}
                     className={`${INPUT} mt-1 block w-72`}>
                     <option value="">선택 안 함</option>
@@ -272,7 +272,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
                       .map((o) => <option key={o.id} value={o.id}>{o.citationKey ? `${o.citationKey} · ` : ''}{o.summary}</option>)}
                   </select>
                 </label>
-                <label className="grow text-xs text-gray-500">근거 문구 (선택)
+                <label className="grow text-xs text-mute">근거 문구 (선택)
                   <input maxLength={500} value={limitForm.basisText} placeholder="예: 허가조건 제4호, 별표 번호"
                     onChange={(e) => setLimitForm({ ...limitForm, basisText: e.target.value })} className={`${INPUT} mt-1 block w-full min-w-[240px]`} />
                 </label>
@@ -282,9 +282,9 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
             </form>
           )}
 
-          <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+          <div className="mt-3 overflow-x-auto rounded border border-line bg-white shadow-sm">
             <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
-              <thead className="bg-paper text-xs text-gray-500">
+              <thead className="bg-paper text-xs text-body">
                 <tr>
                   <th className="px-4 py-3 font-medium">항목</th>
                   <th className="px-4 py-3 text-right font-medium">한도</th>
@@ -301,14 +301,14 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
                   const basis = [l.obligationSummary, l.basisText].filter(Boolean).join(' · ');
                   const open = !l.effectiveTo;
                   return (
-                    <tr key={l.id} className={open || l.effectiveTo! >= today() ? '' : 'text-gray-400'}>
-                      <td className="px-4 py-2.5 font-medium text-gray-800">{l.pollutantName}</td>
-                      <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{limitText(l.limitLower, l.limitValue)}</td>
-                      <td className="px-4 py-2.5 text-gray-600">{l.unit}</td>
-                      <td className="px-4 py-2.5 tabular-nums text-gray-600">{Math.round(l.warnRatio * 100)}% ({nearLines(l.limitLower, l.limitValue, l.warnRatio).filter((v) => v !== null).join(' / ')})</td>
-                      <td className="max-w-[300px] px-4 py-2.5 text-gray-600"><span className="block truncate" title={basis}>{basis || '—'}</span></td>
-                      <td className="px-4 py-2.5 text-gray-600">{l.effectiveFrom} ~ {l.effectiveTo ?? ''}</td>
-                      <td className="px-4 py-2.5 text-gray-800">{l.needsReview ? '한도 확인 필요' : open ? '적용 중' : '종료'}</td>
+                    <tr key={l.id} className={open || l.effectiveTo! >= today() ? '' : 'text-mute'}>
+                      <td className="px-4 py-2.5 font-medium text-ink">{l.pollutantName}</td>
+                      <td className="px-4 py-2.5 text-right tabular-nums text-ink">{limitText(l.limitLower, l.limitValue)}</td>
+                      <td className="px-4 py-2.5 text-body">{l.unit}</td>
+                      <td className="px-4 py-2.5 tabular-nums text-body">{Math.round(l.warnRatio * 100)}% ({nearLines(l.limitLower, l.limitValue, l.warnRatio).filter((v) => v !== null).join(' / ')})</td>
+                      <td className="max-w-[300px] px-4 py-2.5 text-body"><span className="block truncate" title={basis}>{basis || '—'}</span></td>
+                      <td className="px-4 py-2.5 text-body">{l.effectiveFrom} ~ {l.effectiveTo ?? ''}</td>
+                      <td className="px-4 py-2.5 text-ink">{l.needsReview ? '한도 확인 필요' : open ? '적용 중' : '종료'}</td>
                       <td className="space-x-2 px-4 py-2.5 text-right">
                         {l.needsReview && (
                           <button type="button" className={BTN} title="개정된 조건을 확인했고 한도는 그대로입니다"
@@ -338,7 +338,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
               </tbody>
             </table>
             {visibleLimits.length === 0 && (
-              <p className="py-10 text-center text-sm text-gray-400">등록된 한도가 없습니다. 허가증의 항목별 배출 한도를 추가하세요.</p>
+              <p className="py-10 text-center text-sm text-mute">등록된 한도가 없습니다. 허가증의 항목별 배출 한도를 추가하세요.</p>
             )}
           </div>
 

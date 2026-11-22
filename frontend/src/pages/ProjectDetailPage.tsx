@@ -48,7 +48,7 @@ const STATUS_LABEL: Record<PermitStatus, string> = {
 };
 
 const STATUS_BADGE: Record<PermitStatus, string> = {
-  NOT_APPLIED: 'text-gray-600',
+  NOT_APPLIED: 'text-body',
   IN_PROGRESS: 'text-brand',
   COMPLETED: 'text-ok',
   NEAR_EXPIRY: 'text-warn',
@@ -56,11 +56,11 @@ const STATUS_BADGE: Record<PermitStatus, string> = {
 };
 
 function dDayClasses(dDay: number | null): string {
-  if (dDay === null) return 'text-gray-400';
+  if (dDay === null) return 'text-mute';
   if (dDay <= 7) return 'text-danger font-semibold';
   if (dDay <= 30) return 'text-warn font-semibold';
   if (dDay <= 60) return 'text-amber-500 font-medium';
-  return 'text-gray-500';
+  return 'text-mute';
 }
 
 function dDayLabel(dDay: number | null): string {
@@ -153,10 +153,10 @@ export default function ProjectDetailPage() {
     return (
       <div className="min-h-full bg-paper">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-          <Link to="/projects" className="text-sm text-gray-500 transition hover:text-brand hover:underline">
+          <Link to="/projects" className="text-sm text-mute transition hover:text-brand hover:underline">
             ← 프로젝트 목록
           </Link>
-          <p className={`mt-16 text-center text-sm ${error ? 'text-danger' : 'text-gray-400'}`}>
+          <p className={`mt-16 text-center text-sm ${error ? 'text-danger' : 'text-mute'}`}>
             {error ?? '불러오는 중…'}
           </p>
         </div>
@@ -172,51 +172,51 @@ export default function ProjectDetailPage() {
     <div className="min-h-full bg-paper">
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         {/* Breadcrumb */}
-        <nav className="text-sm text-gray-500">
+        <nav className="text-sm text-mute">
           <Link to="/projects" className="transition hover:text-brand hover:underline">
             프로젝트 목록
           </Link>
-          <span className="mx-2 text-gray-300">›</span>
-          <span className="text-gray-700">{project.name}</span>
+          <span className="mx-2 text-line">›</span>
+          <span className="text-body">{project.name}</span>
         </nav>
 
         {/* Summary card: full on 개요, one line on the other tabs so the schedule and tables get the height */}
         {tab !== 'overview' ? (
-          <section className="mt-4 rounded-xl border border-line bg-white px-5 py-3 shadow-sm">
+          <section className="mt-4 rounded border border-line bg-white px-5 py-3 shadow-sm">
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <h1 className="truncate text-lg font-bold text-gray-900" title={project.name}>{project.name}</h1>
-              <span className="text-sm text-gray-500">
+              <h1 className="truncate text-lg font-bold text-ink" title={project.name}>{project.name}</h1>
+              <span className="text-sm text-mute">
                 {FACILITY_LABEL[project.facilityType]} · {STAGES[lifecycleStage(project, permits)]} 단계
               </span>
-              <span className="text-sm text-gray-500 sm:ml-auto">
+              <span className="text-sm text-mute sm:ml-auto">
                 인허가 {stats.total} · 취득완료 {stats.completed} · <span className={stats.nearExpiry ? 'text-warn' : ''}>만료임박 {stats.nearExpiry}</span> · 미신청 {stats.notApplied}
               </span>
             </div>
             <Notices project={project} warnings={ruleWarnings} />
           </section>
         ) : (
-        <section className="mt-4 rounded-xl border border-line bg-white p-6 shadow-sm">
+        <section className="mt-4 rounded border border-line bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-mute">
                 {FACILITY_LABEL[project.facilityType]}
               </span>
-              <h1 className="mt-2 text-2xl font-bold text-gray-900">{project.name}</h1>
-              <p className="mt-1 text-sm text-gray-500">{project.location}</p>
+              <h1 className="mt-2 text-2xl font-bold text-ink">{project.name}</h1>
+              <p className="mt-1 text-sm text-mute">{project.location}</p>
             </div>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-              <dt className="text-gray-500">시설용량</dt>
-              <dd className="text-gray-700">{project.capacity ?? '—'} {project.capacityUnit}</dd>
-              <dt className="text-gray-500">착수일</dt>
-              <dd className="text-gray-700">{project.startDate ?? '—'}</dd>
-              <dt className="text-gray-500">착공예정일</dt>
-              <dd className="text-gray-700">{project.constructionStartDate ?? '—'}</dd>
-              <dt className="text-gray-500">준공예정일</dt>
-              <dd className="text-gray-700">{project.expectedEndDate ?? '—'}</dd>
-              <dt className="text-gray-500">부서/팀</dt>
-              <dd className="text-gray-700">{project.teamName ? `${project.departmentName} / ${project.teamName}` : '—'}</dd>
-              <dt className="text-gray-500">PM / EM</dt>
-              <dd className="text-gray-700">{project.pmName ?? '—'} / {project.emName ?? '—'}</dd>
+              <dt className="text-mute">시설용량</dt>
+              <dd className="text-body">{project.capacity ?? '—'} {project.capacityUnit}</dd>
+              <dt className="text-mute">착수일</dt>
+              <dd className="text-body">{project.startDate ?? '—'}</dd>
+              <dt className="text-mute">착공예정일</dt>
+              <dd className="text-body">{project.constructionStartDate ?? '—'}</dd>
+              <dt className="text-mute">준공예정일</dt>
+              <dd className="text-body">{project.expectedEndDate ?? '—'}</dd>
+              <dt className="text-mute">부서/팀</dt>
+              <dd className="text-body">{project.teamName ? `${project.departmentName} / ${project.teamName}` : '—'}</dd>
+              <dt className="text-mute">PM / EM</dt>
+              <dd className="text-body">{project.pmName ?? '—'} / {project.emName ?? '—'}</dd>
             </dl>
           </div>
 
@@ -240,7 +240,7 @@ export default function ProjectDetailPage() {
               key={t.key}
               to={`/projects/${id}/${t.key}`}
               className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
-                tab === t.key ? 'border-brand text-brand' : 'border-transparent text-gray-500 hover:text-gray-800'
+                tab === t.key ? 'border-brand text-brand' : 'border-transparent text-mute hover:text-ink'
               }`}
             >
               {t.label}
@@ -290,14 +290,14 @@ export default function ProjectDetailPage() {
               setReporting(true);
               downloadReport(project.id).catch((e: Error) => window.alert(e.message)).finally(() => setReporting(false));
             }}
-            className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-gray-700 transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
+            className="rounded border border-line bg-white px-3 py-2 text-sm text-body transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
           >
             {reporting ? '만드는 중…' : '진행 현황 보고 ⬇'}
           </button></Tip>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'ALL' | PermitStatus)}
-            className="rounded-lg border border-line bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="rounded border border-line bg-white px-3 py-2 text-sm text-body outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
           >
             <option value="ALL">상태 전체</option>
             {Object.entries(STATUS_LABEL).map(([value, label]) => (
@@ -318,9 +318,9 @@ export default function ProjectDetailPage() {
         )}
 
         {/* Permit table */}
-        {permits.length > 0 && <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+        {permits.length > 0 && <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
           <table className="w-full min-w-[600px] whitespace-nowrap xl:min-w-[860px] text-left text-sm">
-            <thead className="bg-paper text-xs uppercase text-gray-500">
+            <thead className="bg-paper text-xs uppercase text-body">
               <tr>
                 <th className="px-4 py-3 font-medium">인허가명</th>
                 <th className="px-4 py-3 font-medium">카테고리</th>
@@ -335,9 +335,9 @@ export default function ProjectDetailPage() {
             <tbody className="divide-y divide-line">
               {visible.map((p) => (
                 <tr key={p.id} className="transition hover:bg-paper">
-                  <td className="px-4 py-3 font-medium text-gray-800">{p.name}</td>
+                  <td className="px-4 py-3 font-medium text-ink">{p.name}</td>
                   <td className="px-4 py-3">
-                    <span className="whitespace-nowrap text-gray-700">
+                    <span className="whitespace-nowrap text-body">
                       {CATEGORY_LABEL[p.category]}
                     </span>
                   </td>
@@ -349,11 +349,11 @@ export default function ProjectDetailPage() {
                   </td>
                   <td className={`px-4 py-3 ${WIDE}`}>
                     <a href={p.authorityUrl ?? undefined} target="_blank" rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-gray-700 transition hover:text-brand hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30">
+                      className="inline-flex items-center gap-1 text-body transition hover:text-brand hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30">
                       {p.authority}<span aria-hidden>↗</span>
                     </a>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{p.expiryDate ?? '—'}</td>
+                  <td className="px-4 py-3 text-body">{p.expiryDate ?? '—'}</td>
                   <td className={`px-4 py-3 ${dDayClasses(p.dDay)}`}>{dDayLabel(p.dDay)}</td>
                   <td className="px-4 py-3">
                     <span className={`whitespace-nowrap ${STATUS_BADGE[p.status]}`}>
@@ -364,7 +364,7 @@ export default function ProjectDetailPage() {
                     <button
                       type="button"
                       onClick={() => setSelected(p)}
-                      className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
+                      className="rounded border border-line px-3 py-1.5 text-xs font-medium text-body transition hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/30"
                     >
                       상세보기
                     </button>
@@ -399,12 +399,12 @@ function Notices({ project, warnings }: { project: Project; warnings: Derivation
   return (
     <>
       {!project.member && (
-        <p className="mt-3 rounded-lg bg-paper px-3 py-2 text-sm text-gray-600">
+        <p className="mt-3 rounded bg-paper px-3 py-2 text-sm text-body">
           이 프로젝트의 멤버가 아니라 인허가 목록만 볼 수 있습니다. 수정하려면 프로젝트 어드민에게 멤버 추가를 요청하세요.
         </p>
       )}
       {warnings.map((w) => (
-        <p key={w.rule_key} className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-warn">
+        <p key={w.rule_key} className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm text-warn">
           {w.permit_name} — {w.message}
         </p>
       ))}
@@ -414,9 +414,9 @@ function Notices({ project, warnings }: { project: Project; warnings: Derivation
 
 function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
-    <div className="rounded-lg bg-paper p-4 text-center">
+    <div className="rounded bg-paper p-4 text-center">
       <div className={`text-2xl font-bold ${tone}`}>{value}</div>
-      <div className="mt-1 text-xs text-gray-500">{label}</div>
+      <div className="mt-1 text-xs text-mute">{label}</div>
     </div>
   );
 }
@@ -426,8 +426,8 @@ function Tab({ label, active, onClick }: { label: string; active: boolean; onCli
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
-        active ? 'bg-brand text-white' : 'bg-white text-gray-600 hover:bg-line'
+      className={`rounded px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
+        active ? 'bg-brand text-white' : 'bg-white text-body hover:bg-line'
       }`}
     >
       {label}
@@ -442,13 +442,13 @@ function StageBar({ current }: { current: number }) {
         <li key={label} className="flex flex-1 items-center gap-1">
           <span
             aria-current={i === current ? 'step' : undefined}
-            className={`flex-1 rounded-full px-2 py-1.5 text-center font-medium ${
-              i === current ? 'bg-brand text-white' : i < current ? 'bg-brand/10 text-brand' : 'bg-paper text-gray-400'
+            className={`flex-1 rounded px-2 py-1.5 text-center font-medium ${
+              i === current ? 'bg-brand text-white' : i < current ? 'bg-brand/10 text-brand' : 'bg-paper text-body'
             }`}
           >
             {label}
           </span>
-          {i < STAGES.length - 1 && <span aria-hidden className="text-gray-300">→</span>}
+          {i < STAGES.length - 1 && <span aria-hidden className="text-line">→</span>}
         </li>
       ))}
     </ol>

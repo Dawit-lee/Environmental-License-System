@@ -13,5 +13,5 @@ export default function LegacyRedirect() {
     getLawImpact(impactId).then((d) => navigate(`/projects/${d.impact.projectId}/laws?id=${impactId}`, { replace: true }), inbox);
   }, [navigate, impactId]);
 
-  return <p className="p-8 text-sm text-gray-400">이동 중…</p>;
+  return <p className="p-8 text-sm text-mute">이동 중…</p>;
 }

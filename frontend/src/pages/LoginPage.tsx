@@ -35,7 +35,7 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
   };
 
   const inputClasses =
-    'w-full rounded-lg border border-line px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
+    'w-full rounded border border-line px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-paper px-4" style={{ fontFamily: 'system-ui, sans-serif' }}>
@@ -43,14 +43,14 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
         <div className="mb-6 text-center">
           <div className="text-3xl">🌿</div>
           <h1 className="mt-2 text-xl font-bold text-brand">환경시설 인허가 관리</h1>
-          <p className="mt-1 text-sm text-gray-500">로그인 후 이용하실 수 있습니다</p>
+          <p className="mt-1 text-sm text-mute">로그인 후 이용하실 수 있습니다</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="rounded-xl border border-line bg-white p-6 shadow-sm"
+          className="rounded border border-line bg-white p-6 shadow-sm"
         >
-          <label className="mb-1.5 block text-sm font-medium text-gray-700">이메일</label>
+          <label className="mb-1.5 block text-sm font-medium text-body">이메일</label>
           <input
             type="email"
             value={email}
@@ -60,7 +60,7 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
             autoFocus
           />
 
-          <label className="mb-1.5 mt-4 block text-sm font-medium text-gray-700">비밀번호</label>
+          <label className="mb-1.5 mt-4 block text-sm font-medium text-body">비밀번호</label>
           <input
             type="password"
             value={password}
@@ -74,7 +74,7 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
           <button
             type="submit"
             disabled={submitting}
-            className="mt-5 w-full rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
+            className="mt-5 w-full rounded bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
           >
             {submitting ? '로그인 중…' : '로그인'}
           </button>
@@ -85,17 +85,17 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
                 type="button"
                 disabled={submitting}
                 onClick={() => { setError(''); void signIn(DEMO.email, DEMO.password); }}
-                className="mt-2 w-full rounded-lg border border-brand bg-white px-4 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand/5 focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
+                className="mt-2 w-full rounded border border-brand bg-white px-4 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand/5 focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:opacity-60"
               >
                 데모 계정으로 둘러보기
               </button>
-              <p className="mt-1.5 text-center text-xs text-gray-500">
+              <p className="mt-1.5 text-center text-xs text-mute">
                 ID {DEMO.email} · PW {DEMO.password} (조회만 가능)
               </p>
             </>
           )}
 
-          <p className="mt-4 text-center text-sm text-gray-500">
+          <p className="mt-4 text-center text-sm text-mute">
             계정이 없나요? <Link to="/signup" className="font-medium text-brand hover:underline">회원가입</Link>
           </p>
         </form>

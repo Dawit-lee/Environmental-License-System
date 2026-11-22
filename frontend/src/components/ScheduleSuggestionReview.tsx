@@ -26,7 +26,7 @@ const CHECK: Record<string, string> = { YEAR_INFERRED: '연도 추정', RELATIVE
 const STATUS: Record<string, string> = {
   PENDING: '검토 대기', SUBMITTED: '승인 요청됨', ACCEPTED: '승인', EDITED_ACCEPTED: '수정 후 승인', REJECTED: '거절',
 };
-const btn = 'rounded-md border border-line px-2 py-1 text-xs font-medium text-gray-700 hover:bg-paper disabled:opacity-40';
+const btn = 'rounded border border-line px-2 py-1 text-xs font-medium text-body hover:bg-paper disabled:opacity-40';
 
 function when(p: ScheduleRowPayload): string {
   const rule = p.anchor
@@ -72,30 +72,30 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
   const dateField = (p: ScheduleRowPayload) => (p.type === 'EVENT' && p.startsAt ? 'startsAt' : 'date');
 
   return (
-    <section className="mt-5 rounded-xl border border-line bg-white shadow-sm">
+    <section className="mt-5 rounded border border-line bg-white shadow-sm">
       {promptUi}
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
         <div>
-          <h2 className="text-sm font-semibold text-gray-800">문서에서 찾은 일정 {rows.length}건</h2>
-          <p className="text-xs text-gray-500">승인한 행만 일정·달력에 들어갑니다. 근거 문장을 원문과 대조하세요.</p>
+          <h2 className="text-sm font-semibold text-ink">문서에서 찾은 일정 {rows.length}건</h2>
+          <p className="text-xs text-mute">승인한 행만 일정·달력에 들어갑니다. 근거 문장을 원문과 대조하세요.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           {(['ALL', 'SCHEDULE_ITEM', 'PROJECT_EVENT'] as const).map((k) => (
             <button key={k} type="button" onClick={() => setKind(k)}
-              className={`rounded-full px-3 py-1 font-medium ${kind === k ? 'bg-brand text-white' : 'bg-paper text-gray-600'}`}>
+              className={`rounded px-3 py-1 font-medium ${kind === k ? 'bg-brand text-white' : 'bg-paper text-body'}`}>
               {k === 'ALL' ? '전체' : k === 'SCHEDULE_ITEM' ? '일정 항목' : '이벤트'}
             </button>
           ))}
-          <label className="ml-2 flex items-center gap-1 text-gray-600">
+          <label className="ml-2 flex items-center gap-1 text-body">
             <input type="checkbox" checked={pendingOnly} onChange={(e) => setPendingOnly(e.target.checked)} className="accent-brand" />
             검토할 것만
           </label>
         </div>
       </div>
-      {message && <p role="status" className="border-b border-line bg-paper px-4 py-2 text-xs text-gray-700">{message}</p>}
+      {message && <p role="status" className="border-b border-line bg-paper px-4 py-2 text-xs text-body">{message}</p>}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-paper text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-body">
             <tr>
               <th className="px-3 py-2 font-medium">종류</th>
               <th className="px-3 py-2 font-medium">제목</th>
@@ -114,22 +114,22 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
               const isEditing = editing?.id === s.id;
               return (
                 <tr key={s.id} className="align-top">
-                  <td className="px-3 py-2 text-gray-600">{TYPE[p.type]}{p.kind ? ` · ${EVENT_KIND[p.kind] ?? p.kind}` : ''}</td>
+                  <td className="px-3 py-2 text-body">{TYPE[p.type]}{p.kind ? ` · ${EVENT_KIND[p.kind] ?? p.kind}` : ''}</td>
                   <td className="max-w-[200px] px-3 py-2">
                     {isEditing ? (
                       <input aria-label="제목" value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })}
                         className="w-full rounded border border-line px-2 py-1 text-sm" />
-                    ) : <span className="block truncate font-medium text-gray-800" title={p.title}>{p.title}</span>}
-                    {p.discipline && <span className="block text-xs text-gray-500">{p.discipline}</span>}
+                    ) : <span className="block truncate font-medium text-ink" title={p.title}>{p.title}</span>}
+                    {p.discipline && <span className="block text-xs text-mute">{p.discipline}</span>}
                   </td>
-                  <td className="px-3 py-2 text-gray-700">
+                  <td className="px-3 py-2 text-body">
                     {isEditing && !p.anchor && p.type !== 'RECURRING' ? (
                       <input aria-label="날짜" type={dateField(p) === 'startsAt' ? 'datetime-local' : 'date'} value={editing.date}
                         onChange={(e) => setEditing({ ...editing, date: e.target.value })}
                         className="rounded border border-line px-2 py-1 text-sm" />
                     ) : <span title={p.rule}>{when(p)}</span>}
                   </td>
-                  <td className="max-w-[280px] px-3 py-2 text-xs text-gray-600">
+                  <td className="max-w-[280px] px-3 py-2 text-xs text-body">
                     <span className="block truncate" title={p.evidence.quote}>{p.evidence.page}쪽 · “{p.evidence.quote}”</span>
                     {p.quote_check === 'MISMATCH' && <span className="text-danger">원문 불일치</span>}
                   </td>
@@ -137,7 +137,7 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
                     {(p.checks ?? []).map((c) => <span key={c} className="mr-1 block text-warn">확인 필요: {CHECK[c]}</span>)}
                     {similar && <span className="block text-brand" title={`기존 항목 #${p.matchId}을 갱신합니다`}>기존 항목과 비슷함</span>}
                   </td>
-                  <td className="px-3 py-2 text-xs text-gray-600">{STATUS[s.status]}</td>
+                  <td className="px-3 py-2 text-xs text-body">{STATUS[s.status]}</td>
                   <td className="px-3 py-2 text-right">
                     {open && isEditing && (
                       <span className="flex justify-end gap-1">
@@ -183,7 +183,7 @@ export default function ScheduleSuggestionReview({ projectId }: { projectId: num
                 </tr>
               );
             })}
-            {!rows.length && <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-400">검토할 일정 제안이 없습니다.</td></tr>}
+            {!rows.length && <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-mute">검토할 일정 제안이 없습니다.</td></tr>}
           </tbody>
         </table>
       </div>

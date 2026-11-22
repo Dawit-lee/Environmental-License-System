@@ -14,7 +14,7 @@ import { getTask, type Task } from '../api/tasks';
 export type Level = 'NORMAL' | 'NEAR' | 'EXCEEDED' | 'NO_LIMIT';
 export const LEVEL: Record<Level, string> = { NORMAL: '정상', NEAR: '근접', EXCEEDED: '초과', NO_LIMIT: '한도 없음' };
 /** Only 초과 is coloured; the other levels are plain text. */
-export const levelClass = (l: Level) => (l === 'EXCEEDED' ? 'font-semibold text-danger' : 'text-gray-800');
+export const levelClass = (l: Level) => (l === 'EXCEEDED' ? 'font-semibold text-danger' : 'text-ink');
 
 /** Same rule as the server. toPrecision drops binary noise (0.1 × 0.8 = 0.08000000000000002) so the line matches the server's decimals. */
 export function judge(value: number, limit: number | null, warnRatio: number, belowDetection: boolean, lower: number | null = null): Level {
@@ -46,9 +46,9 @@ interface Measurement {
 
 const RECENT = 20;
 const today = () => new Date().toLocaleDateString('sv-SE');
-const INPUT = 'rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
-const BTN = 'rounded-lg border border-line px-3 py-1 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
-const PRIMARY = 'rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
+const INPUT = 'rounded border border-line bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const BTN = 'rounded border border-line px-3 py-1 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
+const PRIMARY = 'rounded bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
 
 /** rev: reload the list when it changes (a paste was saved). onChanged: a value was saved or deleted here. */
 export default function PointMeasurements({ projectId, point, limits, rev, onChanged }: {
@@ -129,7 +129,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
     <>
       <h2 className="mt-8 text-lg font-bold text-brand">측정값 입력 · {point.name}</h2>
       {taskId && task && (
-        <p className="mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-paper px-3 py-2 text-sm text-gray-700">
+        <p className="mt-3 flex flex-wrap items-center gap-3 rounded bg-paper px-3 py-2 text-sm text-body">
           <span className="min-w-0 truncate" title={task.title}>
             {linkTask ? `업무 "${task.title}" (기한 ${task.dueDate})에 연결해 저장합니다.` : `업무 "${task.title}"은 이미 닫혀 연결하지 않습니다.`}
           </span>
@@ -137,21 +137,21 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
           <button type="button" className={BTN} onClick={() => setParams({}, { replace: true })}>연결 해제</button>
         </p>
       )}
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
-      {saved && <p role="status" className="mt-3 rounded-lg bg-paper px-3 py-2 text-sm text-gray-700">{saved}</p>}
+      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {saved && <p role="status" className="mt-3 rounded bg-paper px-3 py-2 text-sm text-body">{saved}</p>}
 
       <form onSubmit={save} className="mt-3">
         <div className="flex flex-wrap items-end gap-3">
-          <label className="text-xs text-gray-500">측정일 (시료 채취일)
+          <label className="text-xs text-mute">측정일 (시료 채취일)
             <input required type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${INPUT} mt-1 block`} />
           </label>
-          <p className="pb-1.5 text-sm text-gray-500">
+          <p className="pb-1.5 text-sm text-mute">
             측정일에 유효한 한도 항목이 행으로 나옵니다.{point.medium === 'AIR' ? ' 대기 농도는 표준산소농도 보정 후 값을 넣습니다.' : ''}
           </p>
         </div>
-        <div className="mt-3 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+        <div className="mt-3 overflow-x-auto rounded border border-line bg-white shadow-sm">
           <table className="w-full min-w-[820px] whitespace-nowrap text-left text-sm">
-            <thead className="bg-paper text-xs text-gray-500">
+            <thead className="bg-paper text-xs text-body">
               <tr>
                 <th className="px-4 py-3 font-medium">항목</th>
                 <th className="px-4 py-3 text-right font-medium">한도</th>
@@ -170,9 +170,9 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
                 const set = (patch: Partial<typeof en>) => setEntries({ ...entries, [l.pollutant]: { ...en, ...patch } });
                 return (
                   <tr key={l.id}>
-                    <td className="px-4 py-2 font-medium text-gray-800">{l.pollutantName}</td>
-                    <td className="px-4 py-2 text-right tabular-nums text-gray-600" title={`근접 ${nearLines(l.limitLower, l.limitValue, l.warnRatio).filter((v) => v !== null).join(' 이하 · ')} 이상`}>{limitText(l.limitLower, l.limitValue)}</td>
-                    <td className="px-4 py-2 text-gray-600">{l.unit}</td>
+                    <td className="px-4 py-2 font-medium text-ink">{l.pollutantName}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-body" title={`근접 ${nearLines(l.limitLower, l.limitValue, l.warnRatio).filter((v) => v !== null).join(' 이하 · ')} 이상`}>{limitText(l.limitLower, l.limitValue)}</td>
+                    <td className="px-4 py-2 text-body">{l.unit}</td>
                     <td className="px-4 py-2">
                       <input type="number" min="0" step="any" value={en.value} aria-label={`${l.pollutantName} 측정값`}
                         onChange={(e) => set({ value: e.target.value })} className={`${INPUT} w-32 py-1 text-right tabular-nums`} />
@@ -181,31 +181,31 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
                       <input type="checkbox" checked={en.nd} aria-label={`${l.pollutantName} 불검출`} className="accent-brand"
                         onChange={(e) => set({ nd: e.target.checked })} />
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-gray-600">{value === null || en.nd ? '—' : percent(value, l.limitValue, l.limitLower)}</td>
-                    <td className={`px-4 py-2 ${level ? levelClass(level) : 'text-gray-400'}`}>{level ? LEVEL[level] : '—'}</td>
+                    <td className="px-4 py-2 text-right tabular-nums text-body">{value === null || en.nd ? '—' : percent(value, l.limitValue, l.limitLower)}</td>
+                    <td className={`px-4 py-2 ${level ? levelClass(level) : 'text-mute'}`}>{level ? LEVEL[level] : '—'}</td>
                   </tr>
                 );
               })}
             </tbody>
           </table>
           {rows.length === 0 && (
-            <p className="py-8 text-center text-sm text-gray-400">{date}에 유효한 한도가 없습니다. 위에서 한도를 먼저 등록하세요.</p>
+            <p className="py-8 text-center text-sm text-mute">{date}에 유효한 한도가 없습니다. 위에서 한도를 먼저 등록하세요.</p>
           )}
         </div>
         <div className="mt-3 flex items-center gap-3">
           <button type="submit" disabled={busy || filled.length === 0} className={PRIMARY}>
             {filled.length > 0 ? `${filled.length}건 저장` : '저장'}
           </button>
-          <span className="text-xs text-gray-500">저장하면 판정이 입력 시점 한도와 함께 고정됩니다. 이후 한도가 바뀌어도 그대로입니다.</span>
+          <span className="text-xs text-mute">저장하면 판정이 입력 시점 한도와 함께 고정됩니다. 이후 한도가 바뀌어도 그대로입니다.</span>
         </div>
       </form>
 
-      <h3 className="mt-8 text-sm font-semibold text-gray-800">
+      <h3 className="mt-8 text-sm font-semibold text-ink">
         최근 측정 {recent.length > RECENT ? `(최근 ${RECENT}건 / 전체 ${recent.length}건)` : `(${recent.length})`}
       </h3>
-      <div className="mt-2 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+      <div className="mt-2 overflow-x-auto rounded border border-line bg-white shadow-sm">
         <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-paper text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-body">
             <tr>
               <th className="px-4 py-3 font-medium">측정일</th>
               <th className="px-4 py-3 font-medium">항목</th>
@@ -222,14 +222,14 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
             {/* shortcut: the whole history is fetched and cut here; periods are in 측정 추이 below */}
             {recent.slice(0, RECENT).map((m) => (
               <tr key={m.id}>
-                <td className="px-4 py-2.5 text-gray-800">{m.measuredOn}</td>
-                <td className="px-4 py-2.5 font-medium text-gray-800">{m.pollutantName}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-800">{m.value}{m.belowDetection ? ' (불검출)' : ''}</td>
-                <td className="px-4 py-2.5 text-gray-600">{m.unit}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{limitText(m.limitLower, m.limitValue)}</td>
-                <td className="px-4 py-2.5 text-right tabular-nums text-gray-600">{m.limitValue === null || m.belowDetection ? '—' : percent(m.value, m.limitValue, m.limitLower)}</td>
+                <td className="px-4 py-2.5 text-ink">{m.measuredOn}</td>
+                <td className="px-4 py-2.5 font-medium text-ink">{m.pollutantName}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-ink">{m.value}{m.belowDetection ? ' (불검출)' : ''}</td>
+                <td className="px-4 py-2.5 text-body">{m.unit}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-body">{limitText(m.limitLower, m.limitValue)}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-body">{m.limitValue === null || m.belowDetection ? '—' : percent(m.value, m.limitValue, m.limitLower)}</td>
                 <td className={`px-4 py-2.5 ${levelClass(m.level)}`}>{LEVEL[m.level]}</td>
-                <td className="max-w-[220px] px-4 py-2.5 text-gray-600">
+                <td className="max-w-[220px] px-4 py-2.5 text-body">
                   <span className="block truncate" title={`${m.enteredByName ?? '—'} · ${new Date(m.enteredAt).toLocaleString('sv-SE')}`}>
                     {m.enteredByName ?? '—'} · {new Date(m.enteredAt).toLocaleDateString('sv-SE')}{m.taskId ? ' · 업무 연결' : ''}
                   </span>
@@ -252,7 +252,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
             ))}
           </tbody>
         </table>
-        {recent.length === 0 && <p className="py-8 text-center text-sm text-gray-400">입력된 측정값이 없습니다.</p>}
+        {recent.length === 0 && <p className="py-8 text-center text-sm text-mute">입력된 측정값이 없습니다.</p>}
       </div>
     </>
   );

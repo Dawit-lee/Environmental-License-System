@@ -12,8 +12,8 @@ import { usePrompt } from '../components/PromptDialog';
 // Tabs: 조직 | 분야.
 // ---------------------------------------------------------------------------
 
-const btn = 'rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-paper';
-const input = 'rounded-lg border border-line px-3 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const btn = 'rounded border border-line px-2.5 py-1 text-xs font-medium text-body transition hover:bg-paper';
+const input = 'rounded border border-line px-3 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
 
 export default function OrgPage() {
   const [ask, promptUi] = usePrompt();
@@ -56,7 +56,7 @@ export default function OrgPage() {
         <nav className="mt-4 flex gap-1 border-b border-line">
           {([['org', '조직'], ['disciplines', '분야'], ['templates', '일정 템플릿']] as const).map(([key, label]) => (
             <button key={key} type="button" onClick={() => setTab(key)}
-              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === key ? 'border-brand text-brand' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === key ? 'border-brand text-brand' : 'border-transparent text-mute hover:text-ink'}`}>
               {label}
             </button>
           ))}
@@ -64,26 +64,26 @@ export default function OrgPage() {
         {tab === 'disciplines' && <DisciplineSettings />}
         {tab === 'templates' && <TemplateSettings />}
         {tab === 'org' && (<>
-        <p className="mt-4 text-sm text-gray-500">부서와 팀을 만들고 사용자를 팀에 배정합니다. 팀을 지우면 소속 사용자·프로젝트는 미지정이 됩니다.</p>
-        {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+        <p className="mt-4 text-sm text-mute">부서와 팀을 만들고 사용자를 팀에 배정합니다. 팀을 지우면 소속 사용자·프로젝트는 미지정이 됩니다.</p>
+        {error && <p role="alert" className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
         <section className="mt-6 space-y-4">
           {depts.map((d) => (
-            <div key={d.id} className="rounded-xl border border-line bg-white p-5 shadow-sm">
+            <div key={d.id} className="rounded border border-line bg-white p-5 shadow-sm">
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold text-gray-800">{d.name}</h2>
+                <h2 className="text-base font-semibold text-ink">{d.name}</h2>
                 <button type="button" className={btn} onClick={() => rename(d.name, (n) => renameDepartment(d.id, n))}>이름 변경</button>
                 <button type="button" className={`${btn} hover:text-danger`}
                   onClick={() => window.confirm(`${d.name}와 소속 팀을 삭제할까요?`) && run(() => deleteDepartment(d.id))}>삭제</button>
               </div>
               <ul className="mt-3 flex flex-wrap gap-2">
                 {d.teams.map((t) => (
-                  <li key={t.id} className="flex items-center gap-1 rounded-full bg-paper py-1 pl-3 pr-1 text-sm">
+                  <li key={t.id} className="flex items-center gap-1 rounded-sm bg-paper py-1 pl-3 pr-1 text-sm">
                     {t.name}
-                    <span className="text-xs text-gray-400">({people.filter((u) => u.teamId === t.id).length}명)</span>
-                    <button type="button" aria-label={`${t.name} 이름 변경`} className="px-1 text-gray-400 hover:text-brand"
+                    <span className="text-xs text-mute">({people.filter((u) => u.teamId === t.id).length}명)</span>
+                    <button type="button" aria-label={`${t.name} 이름 변경`} className="px-1 text-mute hover:text-brand"
                       onClick={() => rename(t.name, (n) => renameTeam(t.id, n))}>✎</button>
-                    <button type="button" aria-label={`${t.name} 삭제`} className="px-1 text-gray-400 hover:text-danger"
+                    <button type="button" aria-label={`${t.name} 삭제`} className="px-1 text-mute hover:text-danger"
                       onClick={() => window.confirm(`${t.name}을 삭제할까요?`) && run(() => deleteTeam(t.id))}>✕</button>
                   </li>
                 ))}
@@ -104,20 +104,20 @@ export default function OrgPage() {
             if (newDept.trim()) run(() => createDepartment(newDept.trim())).then(() => setNewDept(''));
           }}>
             <input aria-label="새 부서 이름" placeholder="새 부서 이름" className={input} value={newDept} onChange={(e) => setNewDept(e.target.value)} />
-            <button type="submit" className="rounded-lg bg-brand px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-brand-hover">부서 추가</button>
+            <button type="submit" className="rounded bg-brand px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-brand-hover">부서 추가</button>
           </form>
         </section>
 
-        <section className="mt-8 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+        <section className="mt-8 overflow-x-auto rounded border border-line bg-white shadow-sm">
           <table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className="bg-paper text-xs text-gray-500">
+            <thead className="bg-paper text-xs text-body">
               <tr><th className="px-4 py-3 font-medium">이름</th><th className="px-4 py-3 font-medium">이메일</th><th className="px-4 py-3 font-medium">부서/팀</th></tr>
             </thead>
             <tbody className="divide-y divide-line">
               {people.map((u) => (
                 <tr key={u.id}>
-                  <td className="px-4 py-2.5 font-medium text-gray-800">{u.name}</td>
-                  <td className="px-4 py-2.5 text-gray-500">{u.email}</td>
+                  <td className="px-4 py-2.5 font-medium text-ink">{u.name}</td>
+                  <td className="px-4 py-2.5 text-mute">{u.email}</td>
                   <td className="px-4 py-2.5">
                     <select aria-label={`${u.name} 팀`} value={u.teamId ?? ''} className={input}
                       onChange={(e) => run(() => assignTeam(u.id, e.target.value ? Number(e.target.value) : null))}>

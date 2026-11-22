@@ -202,7 +202,7 @@ export default function ScheduleGantt({ items, dependencies, disciplines, events
   };
 
   return (
-    <div className="schedule-gantt overflow-hidden rounded-xl border border-line bg-white">
+    <div className="schedule-gantt overflow-hidden rounded border border-line bg-white">
       <style>{TODAY_CSS}</style>
       <Willow fonts={false}>
         <Gantt

@@ -158,11 +158,11 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
   return (
     <div className="space-y-2">
       {docs.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-line p-4 text-center text-sm text-gray-400">
+        <div className="rounded border border-dashed border-line p-4 text-center text-sm text-mute">
           첨부된 문서가 없습니다
         </div>
       ) : (
-        <ul className="divide-y divide-line rounded-lg border border-line">
+        <ul className="divide-y divide-line rounded border border-line">
           {docs.map((d) => (
             <li key={d.id} className="flex items-center gap-3 px-3 py-2.5">
               <div className="min-w-0 flex-1">
@@ -173,7 +173,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                 >
                   {d.fileName}
                 </button>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-mute">
                   {sizeLabel(d.size)} · {d.uploadedBy} · {new Date(d.uploadedAt).toLocaleDateString('sv-SE')}
                   {d.supersedesDocumentId != null &&
                     ` · ${docs.find((x) => x.id === d.supersedesDocumentId)?.fileName ?? '이전 문서'} 대체`}
@@ -187,7 +187,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                   onClick={() => extract(d)}
                   disabled={!aiOn || runs[d.id]?.status === 'RUNNING'}
                   title={aiOn ? TRANSFER_NOTICE : '회사 설정에서 AI 추출이 꺼져 있습니다'}
-                  className="whitespace-nowrap rounded-lg border border-line px-2 py-1 text-xs font-medium text-brand transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="whitespace-nowrap rounded border border-line px-2 py-1 text-xs font-medium text-brand transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {d.supersedesDocumentId != null ? '개정 비교' : 'AI 추출'}
                 </button>
@@ -196,7 +196,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                 type="button"
                 onClick={() => remove(d)}
                 aria-label={`${d.fileName} 삭제`}
-                className="rounded-lg px-2 py-1 text-xs text-gray-500 transition hover:bg-paper hover:text-danger focus:outline-none focus:ring-2 focus:ring-brand/30"
+                className="rounded px-2 py-1 text-xs text-mute transition hover:bg-paper hover:text-danger focus:outline-none focus:ring-2 focus:ring-brand/30"
               >
                 삭제
               </button>
@@ -220,22 +220,22 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
           if (file) upload(file);
         }}
       />
-      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-body">
         <label className="flex items-center gap-1.5">
           문서 종류
           <select aria-label="문서 종류" value={docType} onChange={(e) => setDocType(e.target.value as DocType | '')}
-            className="rounded-lg border border-line bg-white px-2 py-1 text-xs">
+            className="rounded border border-line bg-white px-2 py-1 text-xs">
             <option value="">지정 안 함</option>
             {Object.entries(DOC_TYPE).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
       </div>
       {latest.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-body">
           <label className="flex items-center gap-1.5">
             이전 버전 대체
             <select value={supersedes} onChange={(e) => setSupersedes(e.target.value)}
-              className="max-w-[12rem] rounded-lg border border-line bg-white px-2 py-1 text-xs">
+              className="max-w-[12rem] rounded border border-line bg-white px-2 py-1 text-xs">
               <option value="">없음 (새 문서)</option>
               {latest.map((d) => <option key={d.id} value={d.id}>{d.fileName}</option>)}
             </select>
@@ -244,7 +244,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
             <label className="flex items-center gap-1.5">
               시행일(선택)
               <input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)}
-                className="rounded-lg border border-line px-2 py-1 text-xs" />
+                className="rounded border border-line px-2 py-1 text-xs" />
             </label>
           )}
         </div>
@@ -253,17 +253,17 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
         type="button"
         disabled={busy}
         onClick={() => input.current?.click()}
-        className="w-full rounded-lg border border-line px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
+        className="w-full rounded border border-line px-3 py-2 text-sm font-medium text-body transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
       >
         {busy ? '올리는 중…' : '문서 올리기'}
       </button>
-      <p className="text-xs text-gray-400">PDF, JPG, PNG, XLSX · 파일당 10MB 이하</p>
+      <p className="text-xs text-mute">PDF, JPG, PNG, XLSX · 파일당 10MB 이하</p>
       {aiOn ? (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-warn">
+        <p className="rounded bg-amber-50 px-3 py-2 text-xs text-warn">
           PDF는 'AI 추출'로 이행 의무를 뽑아 검토 목록에 올릴 수 있습니다. {TRANSFER_NOTICE}
         </p>
       ) : (
-        <p className="flex flex-wrap items-center gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-500">
+        <p className="flex flex-wrap items-center gap-2 rounded bg-paper px-3 py-2 text-xs text-body">
           AI 추출이 회사 설정에서 꺼져 있습니다{isMaster() ? '.' : '. 회사 마스터가 켤 수 있습니다.'}
           {isMaster() && (
             <button type="button" onClick={turnOnAi} className="font-medium text-brand hover:underline">AI 추출 켜기</button>
@@ -299,7 +299,7 @@ function RunStatus({ projectId, run, count, onRetry }: { projectId: number; run:
       의무사항 {count}건 추출 · <Link to={review} className="font-medium underline">검토하기</Link>
     </p>
   ) : (
-    <p className="text-xs text-gray-500">
+    <p className="text-xs text-mute">
       추출된 의무사항 없음 · <Link to={review} className="underline">검토 화면에서 직접 추가</Link>
     </p>
   );

@@ -73,7 +73,7 @@ export default function ScheduleCalendar({ data, showDeadlines, showProject, onR
   onOpen: (entry: CalendarEntry) => void;
 }) {
   return (
-    <div className="schedule-calendar rounded-xl border border-line bg-white p-4">
+    <div className="schedule-calendar rounded border border-line bg-white p-4">
       <FullCalendar
         plugins={[dayGridPlugin, listPlugin]}
         locale={koLocale}

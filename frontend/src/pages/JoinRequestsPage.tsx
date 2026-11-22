@@ -13,7 +13,7 @@ import { usePrompt } from '../components/PromptDialog';
 // JoinRequestsPage — company admin: invite link/code (copy, regenerate) and pending join requests.
 // ---------------------------------------------------------------------------
 
-const btn = 'rounded-lg border border-line px-3 py-1.5 text-sm font-medium transition hover:bg-paper disabled:opacity-60';
+const btn = 'rounded border border-line px-3 py-1.5 text-sm font-medium transition hover:bg-paper disabled:opacity-60';
 
 export default function JoinRequestsPage() {
   const [ask, promptUi] = usePrompt();
@@ -68,18 +68,18 @@ export default function JoinRequestsPage() {
       {promptUi}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 
-      <section className="rounded-xl border border-line bg-white p-5">
-        <h2 className="text-sm font-semibold text-gray-900">초대 링크</h2>
-        <p className="mt-1 text-xs text-gray-500">링크나 코드를 동료에게 보내세요. 신청이 오면 메일과 알림으로 알려드립니다.</p>
+      <section className="rounded border border-line bg-white p-5">
+        <h2 className="text-sm font-semibold text-ink">초대 링크</h2>
+        <p className="mt-1 text-xs text-mute">링크나 코드를 동료에게 보내세요. 신청이 오면 메일과 알림으로 알려드립니다.</p>
         {code && (
           <div className="mt-3 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <input readOnly value={link} aria-label="초대 링크" onFocus={(e) => e.target.select()}
-                className="min-w-0 flex-1 rounded-lg border border-line bg-paper px-3 py-1.5 text-sm" />
+                className="min-w-0 flex-1 rounded border border-line bg-paper px-3 py-1.5 text-sm" />
               <button type="button" className={btn} onClick={() => copy(link, 'link')}>{copied === 'link' ? '복사됨 ✓' : '링크 복사'}</button>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-gray-600">코드</span>
+              <span className="text-sm text-body">코드</span>
               <code className="rounded bg-paper px-2 py-1 font-mono text-sm tracking-wider">{code}</code>
               <button type="button" className={btn} onClick={() => copy(code, 'code')}>{copied === 'code' ? '복사됨 ✓' : '코드 복사'}</button>
               <button type="button" className={`${btn} text-danger`} onClick={regenerate}>재발급</button>
@@ -88,20 +88,20 @@ export default function JoinRequestsPage() {
         )}
       </section>
 
-      <section className="rounded-xl border border-line bg-white">
-        <h2 className="border-b border-line px-5 py-3 text-sm font-semibold text-gray-900">
+      <section className="rounded border border-line bg-white">
+        <h2 className="border-b border-line px-5 py-3 text-sm font-semibold text-ink">
           대기 중 {items ? `${items.length}건` : ''}
         </h2>
-        {items?.length === 0 && <p className="px-5 py-6 text-sm text-gray-500">대기 중인 가입 요청이 없습니다. (14일이 지나면 자동 만료)</p>}
+        {items?.length === 0 && <p className="px-5 py-6 text-sm text-mute">대기 중인 가입 요청이 없습니다. (14일이 지나면 자동 만료)</p>}
         <ul>
           {items?.map((r) => (
             <li key={r.id} className="flex flex-wrap items-center gap-3 border-b border-line px-5 py-3 last:border-0">
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900">{r.name}</p>
-                <p className="truncate text-xs text-gray-500">{r.email} · {new Date(r.createdAt).toLocaleString('ko-KR')}</p>
+                <p className="text-sm font-medium text-ink">{r.name}</p>
+                <p className="truncate text-xs text-mute">{r.email} · {new Date(r.createdAt).toLocaleString('ko-KR')}</p>
               </div>
               <button type="button" disabled={busy === r.id} onClick={() => decide(r, true)}
-                className="rounded-lg bg-brand px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:opacity-60">
+                className="rounded bg-brand px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-hover disabled:opacity-60">
                 승인
               </button>
               <button type="button" disabled={busy === r.id} onClick={() => decide(r, false)} className={`${btn} text-danger`}>

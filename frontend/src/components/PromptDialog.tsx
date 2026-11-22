@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { Modal } from './ScheduleTools';
 
-const btn = 'rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand';
-const primary = 'rounded-lg bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover';
+const btn = 'rounded border border-line px-3 py-1.5 text-xs font-medium text-body hover:border-brand hover:text-brand';
+const primary = 'rounded bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover';
 
 /**
  * window.prompt in the app's Modal: `const [ask, promptUi] = usePrompt()`, render `{promptUi}`,
@@ -27,7 +27,7 @@ export function usePrompt() {
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); close(q.value); }}>
         <input autoFocus aria-label={q.label} maxLength={500} value={q.value}
           onChange={(e) => setQ({ ...q, value: e.target.value })}
-          className="w-full rounded-lg border border-line px-3 py-2 text-sm focus:border-brand focus:outline-none" />
+          className="w-full rounded border border-line px-3 py-2 text-sm focus:border-brand focus:outline-none" />
         <div className="flex justify-end gap-2">
           <button type="button" className={btn} onClick={() => close(null)}>취소</button>
           <button type="submit" className={primary}>확인</button>

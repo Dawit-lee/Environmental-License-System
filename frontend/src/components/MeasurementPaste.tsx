@@ -13,9 +13,9 @@ interface PasteRow {
   unit: string | null; limitLower: number | null; limitValue: number | null; level: Level | null; error: string | null;
 }
 
-const INPUT = 'rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
-const BTN = 'rounded-lg border border-line px-3 py-1 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
-const PRIMARY = 'rounded-lg bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
+const INPUT = 'rounded border border-line bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const BTN = 'rounded border border-line px-3 py-1 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
+const PRIMARY = 'rounded bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
 
 export default function MeasurementPaste({ point, onSaved }: { point: { id: number; name: string }; onSaved: () => void }) {
   const [text, setText] = useState('');
@@ -58,11 +58,11 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
   return (
     <>
       <h2 className="mt-8 text-lg font-bold text-brand">엑셀 붙여넣기 · {point.name}</h2>
-      <p className="mt-2 text-sm text-gray-500">
+      <p className="mt-2 text-sm text-mute">
         엑셀에서 측정일·항목·값 3열을 복사해 붙여넣습니다. 첫 행이 제목이면 건너뜁니다. 항목은 코드(CO)나 이름(일산화탄소) 모두 되고, 최대 500행입니다.
       </p>
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
-      {saved && <p role="status" className="mt-3 rounded-lg bg-paper px-3 py-2 text-sm text-gray-700">{saved}</p>}
+      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {saved && <p role="status" className="mt-3 rounded bg-paper px-3 py-2 text-sm text-body">{saved}</p>}
       <textarea value={text} rows={5} aria-label="붙여넣을 측정값" spellCheck={false}
         placeholder={'측정일\t항목\t값\n2026-01-05\tCO\t12.5'}
         onChange={(e) => { setText(e.target.value); setRows(null); }}
@@ -74,13 +74,13 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
             {bad > 0 ? `오류 제외 ${good}건 저장` : `${good}건 저장`}
           </button>
         )}
-        {rows && <span className="text-xs text-gray-500">전체 {rows.length}행 · 저장 가능 {good}행 · 오류 {bad}행</span>}
+        {rows && <span className="text-xs text-mute">전체 {rows.length}행 · 저장 가능 {good}행 · 오류 {bad}행</span>}
       </div>
 
       {rows && (
-        <div className="mt-3 max-h-[420px] overflow-auto rounded-xl border border-line bg-white shadow-sm">
+        <div className="mt-3 max-h-[420px] overflow-auto rounded border border-line bg-white shadow-sm">
           <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
-            <thead className="sticky top-0 bg-paper text-xs text-gray-500">
+            <thead className="sticky top-0 bg-paper text-xs text-body">
               <tr>
                 <th className="px-4 py-3 text-right font-medium">행</th>
                 <th className="px-4 py-3 font-medium">측정일</th>
@@ -94,7 +94,7 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
             </thead>
             <tbody className="divide-y divide-line">
               {rows.map((r) => (
-                <tr key={r.line} className={r.error ? 'text-gray-400' : 'text-gray-800'}>
+                <tr key={r.line} className={r.error ? 'text-mute' : 'text-ink'}>
                   <td className="px-4 py-2 text-right tabular-nums">{r.line}</td>
                   {r.measuredOn && r.pollutantName && r.value !== null ? (
                     <>
@@ -108,12 +108,12 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
                   <td className="px-4 py-2">{r.unit ?? '—'}</td>
                   <td className="px-4 py-2 text-right tabular-nums">{limitText(r.limitLower, r.limitValue)}</td>
                   <td className={`px-4 py-2 ${r.level ? levelClass(r.level) : ''}`}>{r.level ? LEVEL[r.level] : '—'}</td>
-                  <td className="max-w-[320px] px-4 py-2 text-gray-800"><span className="block truncate" title={r.error ?? ''}>{r.error ?? ''}</span></td>
+                  <td className="max-w-[320px] px-4 py-2 text-ink"><span className="block truncate" title={r.error ?? ''}>{r.error ?? ''}</span></td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {rows.length === 0 && <p className="py-8 text-center text-sm text-gray-400">읽을 수 있는 행이 없습니다.</p>}
+          {rows.length === 0 && <p className="py-8 text-center text-sm text-mute">읽을 수 있는 행이 없습니다.</p>}
         </div>
       )}
     </>
