@@ -1,13 +1,16 @@
 import { lazy, useEffect, useState, type MouseEvent } from 'react';
-import { BrowserRouter, NavLink, Navigate, Route, Routes, useLocation } from 'react-router';
+import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import SharePage from './pages/SharePage';
 import { setOnboardingDismissed } from './components/Onboarding';
 import NotificationBell from './components/NotificationBell';
+import { MainNav, navFor } from './components/MainNav';
+import { focusRing } from './components/ui/cn';
 import { RouteBoundary } from './components/ErrorBoundary';
 import { logout, type Session } from './api/auth';
 import { isMaster } from './api/client';
+import { getCompany } from './api/extraction';
 
 // routed screens load on demand to keep the first chunk small
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
@@ -28,6 +31,8 @@ const UiGalleryPage = import.meta.env.DEV ? lazy(() => import('./pages/UiGallery
 // ---------------------------------------------------------------------------
 
 const STORAGE_KEY = 'permit_session';
+// the folding sidebar is gone; drop its remembered state from old browsers
+try { localStorage.removeItem('permit_sidebar_collapsed'); } catch { /* storage blocked: nothing to drop */ }
 
 function loadSession(): Session | null {
   try {
@@ -36,19 +41,6 @@ function loadSession(): Session | null {
     return null;
   }
 }
-
-const NAV = [
-  { to: '/dashboard', label: '대시보드', icon: '📊' },
-  { to: '/projects', label: '프로젝트', icon: '📁' },
-  { to: '/inbox', label: '내 할 일', icon: '✅' },
-  { to: '/calendar', label: '회사 달력', icon: '📅' },
-];
-const ADMIN_NAV = [
-  { to: '/join-requests', label: '가입 요청', icon: '👥' },
-  { to: '/org', label: '조직 관리', icon: '🏢' },
-];
-
-const SIDEBAR_KEY = 'permit_sidebar_collapsed';
 
 /** Browser tab title: "화면명 · 환경시설 인허가 관리". */
 function PageTitle({ nav }: { nav: { to: string; label: string }[] }) {
@@ -62,13 +54,14 @@ function PageTitle({ nav }: { nav: { to: string; label: string }[] }) {
 
 export default function PermitApp() {
   const [session, setSession] = useState<Session | null>(loadSession);
-  const [collapsed, setCollapsed] = useState(() => { try { return localStorage.getItem(SIDEBAR_KEY) === '1'; } catch { return false; } });
-  const toggleSidebar = () => setCollapsed((c) => {
-    try { localStorage.setItem(SIDEBAR_KEY, c ? '0' : '1'); } catch { /* private mode: not remembered */ }
-    return !c;
-  });
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [company, setCompany] = useState<string | null>(null);
   const user = session?.user.email ?? null;
-  const nav = isMaster() ? [...NAV, ...ADMIN_NAV] : NAV;
+  const nav = navFor(isMaster());
+  // company name for the utility bar; best effort, the bar works without it
+  useEffect(() => {
+    if (user) getCompany().then((c) => setCompany(c.name), () => setCompany(null));
+  }, [user]);
 
   const handleLogin = (s: Session) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
@@ -96,108 +89,61 @@ export default function PermitApp() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       ) : (
-        <div
-          className="flex min-h-screen bg-paper text-ink"
-          style={{ fontFamily: 'system-ui, sans-serif' }}
-        >
+        <div className="flex min-h-screen flex-col bg-paper text-ink">
           <PageTitle nav={nav} />
-          {/* Sidebar — folds to icons so a 1024 laptop keeps the width for tables */}
-          <aside className={`hidden shrink-0 flex-col border-r border-line bg-white sm:flex ${collapsed ? 'w-16' : 'w-60'}`}>
-            <div className={`flex h-16 items-center gap-2 border-b border-line ${collapsed ? 'justify-center' : 'px-5'}`}>
-              <span className="text-xl" aria-hidden>🌿</span>
-              {!collapsed && <span className="text-sm font-bold text-brand">환경시설 인허가 관리</span>}
-            </div>
-            <nav className="flex flex-1 flex-col gap-1 p-3">
-              {nav.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  title={collapsed ? item.label : undefined}
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 rounded px-3 py-2.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
-                      isActive ? 'bg-brand text-white' : 'text-body hover:bg-paper'
-                    }`
-                  }
-                >
-                  <span aria-hidden>{item.icon}</span>
-                  {collapsed ? <span className="sr-only">{item.label}</span> : item.label}
-                </NavLink>
-              ))}
-              <button type="button" onClick={toggleSidebar} aria-expanded={!collapsed}
-                title={collapsed ? '메뉴 펼치기' : '메뉴 접기'} aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}
-                className="mt-auto flex items-center gap-3 rounded px-3 py-2.5 text-sm text-mute hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30">
-                <span aria-hidden>{collapsed ? '»' : '«'}</span>
-                {!collapsed && '접기'}
-              </button>
-            </nav>
-          </aside>
-
-          {/* Main */}
-          <div className="flex min-w-0 flex-1 flex-col">
-            {/* Top header — logout lives at the top-right on every screen size */}
-            <header className="flex h-16 items-center justify-between gap-3 border-b border-line bg-white px-4 sm:px-6">
-              {/* Left: mobile-only menu (desktop nav is in the sidebar) */}
-              <details className="relative sm:hidden">
-                <summary aria-label="메뉴"
-                  className="flex h-9 cursor-pointer list-none items-center gap-2 rounded border border-line px-3 text-sm font-medium text-body [&::-webkit-details-marker]:hidden">
-                  <span aria-hidden>☰</span> 메뉴
-                </summary>
-                <nav className="absolute left-0 z-50 mt-2 w-48 rounded border border-line bg-white py-1 shadow-lg">
-                  {nav.map((item) => (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      onClick={(e) => e.currentTarget.closest('details')?.removeAttribute('open')}
-                      className={({ isActive }) =>
-                        `flex items-center gap-3 px-4 py-2.5 text-sm ${isActive ? 'font-semibold text-brand' : 'text-body'}`
-                      }
-                    >
-                      <span aria-hidden>{item.icon}</span>
-                      {item.label}
-                    </NavLink>
-                  ))}
-                </nav>
-              </details>
-
-              {/* Right: bell + user + logout */}
-              <div className="ml-auto flex shrink-0 items-center gap-3 whitespace-nowrap">
+          {/* Utility bar — service name, then company · user, bell, help and logout on every screen */}
+          <div className="bg-inverse text-sm text-inverse-subtle">
+            <div className="mx-auto flex h-10 max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">
+              <span className="hidden truncate sm:block">환경시설 인허가 관리 시스템</span>
+              <div className="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap">
+                <span className="mr-2 hidden max-w-[360px] truncate md:inline" title={user}>
+                  {company && `${company} · `}{session?.user.name || user} 님
+                </span>
                 <NotificationBell />
                 <HelpMenu />
-                <span className="hidden max-w-[180px] truncate text-sm text-mute sm:inline" title={user}>
-                  {user}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded border border-line px-3 py-1.5 text-sm font-medium text-body transition hover:bg-paper hover:text-danger focus:outline-none focus:ring-2 focus:ring-brand/20"
-                >
+                <button type="button" onClick={handleLogout}
+                  className={`h-10 rounded px-3 text-sm text-inverse-subtle hover:bg-white/10 hover:text-white ${focusRing}`}>
                   로그아웃
                 </button>
               </div>
-            </header>
-
-            <main className="flex-1">
-              <RouteBoundary>
-              <Routes>
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
-                <Route path="/dashboard" element={<DashboardPage />} />
-                <Route path="/projects" element={<ProjectListPage />} />
-                <Route path="/projects/new" element={<NewProjectPage />} />
-                <Route path="/projects/:id/:tab?" element={<ProjectDetailPage />} />
-                {/* old top-level screens now live in project tabs; mail/notification links still use these */}
-                <Route path="/inbox" element={<InboxPage />} />
-                <Route path="/calendar" element={<CompanyCalendarPage />} />
-                <Route path="/review" element={<Navigate to="/inbox?kind=REVIEW" replace />} />
-                <Route path="/laws" element={<LegacyRedirect />} />
-                <Route path="/join-requests" element={<JoinRequestsPage />} />
-                <Route path="/org" element={<OrgPage />} />
-                <Route path="/guide" element={<GuidePage />} />
-                {UiGalleryPage && <Route path="/dev/ui" element={<UiGalleryPage />} />}
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
-              </Routes>
-              </RouteBoundary>
-            </main>
+            </div>
           </div>
+
+          {/* Header — logo and the horizontal main menu (a 메뉴 button below lg) */}
+          <header className="relative border-b border-line bg-white">
+            <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-8 px-4 sm:px-6">
+              <Link to="/dashboard" onClick={() => setMenuOpen(false)} className={`flex shrink-0 items-center gap-2.5 rounded ${focusRing}`}>
+                <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" className="text-brand-text">
+                  <rect x="1" y="1" width="26" height="26" rx="4" fill="currentColor" />
+                  <path d="M8 15l4 4 8-9" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <span className="text-[19px] font-bold text-ink">인허가 관리</span>
+              </Link>
+              <MainNav items={nav} open={menuOpen} onToggle={() => setMenuOpen((o) => !o)} />
+            </div>
+          </header>
+
+          <main className="mx-auto w-full min-w-0 max-w-[1200px] flex-1 px-4 pb-14 sm:px-6">
+            <RouteBoundary>
+            <Routes>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/projects" element={<ProjectListPage />} />
+              <Route path="/projects/new" element={<NewProjectPage />} />
+              <Route path="/projects/:id/:tab?" element={<ProjectDetailPage />} />
+              {/* old top-level screens now live in project tabs; mail/notification links still use these */}
+              <Route path="/inbox" element={<InboxPage />} />
+              <Route path="/calendar" element={<CompanyCalendarPage />} />
+              <Route path="/review" element={<Navigate to="/inbox?kind=REVIEW" replace />} />
+              <Route path="/laws" element={<LegacyRedirect />} />
+              <Route path="/join-requests" element={<JoinRequestsPage />} />
+              <Route path="/org" element={<OrgPage />} />
+              <Route path="/guide" element={<GuidePage />} />
+              {UiGalleryPage && <Route path="/dev/ui" element={<UiGalleryPage />} />}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+            </RouteBoundary>
+          </main>
         </div>
       )}
     </BrowserRouter>
@@ -211,7 +157,7 @@ function HelpMenu() {
   return (
     <details className="relative">
       <summary aria-label="도움말" title="도움말"
-        className="flex h-8 w-8 cursor-pointer list-none items-center justify-center rounded-full border border-line text-sm font-semibold text-body hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 [&::-webkit-details-marker]:hidden">
+        className={`flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded text-base font-bold text-inverse-subtle hover:bg-white/10 hover:text-white ${focusRing} [&::-webkit-details-marker]:hidden`}>
         ?
       </summary>
       <div className="absolute right-0 z-50 mt-2 rounded border border-line bg-white py-1 shadow-lg">

@@ -12,6 +12,7 @@ import { CompanyCompliance } from '../components/Compliance';
 import { DelayedByDiscipline, WeekEvents, type DelayedCount } from '../components/ScheduleWidgets';
 import { GettingStarted, Help } from '../components/Onboarding';
 import { DUE_SOON_DAYS, isDueSoon } from '../terms';
+import { PageHeader } from '../components/ui/PageHeader';
 
 // ---------------------------------------------------------------------------
 // DashboardPage — portfolio-wide overview: summary cards, near-expiry table,
@@ -67,8 +68,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-full bg-paper">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-bold text-brand">대시보드</h1>
+      <div className="py-8">
+        <PageHeader title="대시보드" />
         {loadError && <p className="mt-2 text-sm text-danger">{loadError}</p>}
 
         {!loadError && loaded && <GettingStarted projects={projects} permits={permits} />}

@@ -4,6 +4,7 @@ import { getNotifications, markAllRead, markRead, type AppNotification } from '.
 import { getNewLawImpactCount } from '../api/lawImpacts';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { useEscape } from './useEscape';
+import { focusRing } from './ui/cn';
 
 /** D-day counted now, not when the notice was made (yesterday's D-1 is today's D-DAY). */
 function dueLabel(n: AppNotification): { text: string; days: number } | null {
@@ -58,7 +59,7 @@ export default function NotificationBell() {
         onClick={() => setOpen((o) => !o)}
         aria-label={`알림 ${unread}건 읽지 않음`}
         aria-expanded={open}
-        className="relative rounded px-2.5 py-1.5 text-lg transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30"
+        className={`relative flex h-10 w-10 items-center justify-center rounded text-lg transition hover:bg-white/10 ${focusRing}`}
       >
         <span aria-hidden>🔔</span>
         {unread > 0 && (

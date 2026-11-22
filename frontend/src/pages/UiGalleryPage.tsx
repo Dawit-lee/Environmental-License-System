@@ -25,7 +25,7 @@ const ROWS = [
 export default function UiGalleryPage() {
   const [tab, setTab] = useState('permit');
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-8">
+    <div className="py-8">
       <h1 className="text-2xl font-bold text-ink">공통 부품</h1>
       <p className="mt-1 text-body">DESIGN.md 「4. 컴포넌트 규칙」의 부품 모음입니다. 개발 서버에서만 열립니다.</p>
 

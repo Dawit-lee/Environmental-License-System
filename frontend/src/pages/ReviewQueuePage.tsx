@@ -156,7 +156,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
 
   return (
     <div className="min-h-full bg-paper">
-      <div className={fixedId ? '' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6'}>
+      <div className={fixedId ? '' : 'py-8'}>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             {!fixedId && <p className="text-xs font-semibold tracking-wide text-mute">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>}

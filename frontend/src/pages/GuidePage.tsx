@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { HELP, setOnboardingDismissed } from '../components/Onboarding';
+import { PageHeader } from '../components/ui/PageHeader';
 
 // ---------------------------------------------------------------------------
 // GuidePage (/guide) — the main workflow top to bottom, then the terms that confuse people.
@@ -50,8 +51,8 @@ const FLOW: { title: string; lines: string[]; where: string }[] = [
 export default function GuidePage() {
   return (
     <div className="min-h-full bg-paper">
-      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-bold text-brand">사용 가이드</h1>
+      <div className="max-w-3xl py-8">
+        <PageHeader title="사용 가이드" />
         <p className="mt-2 text-sm text-body">처음 쓰는 순서대로 적었습니다.</p>
         <p className="text-sm text-body">위에서부터 하나씩 따라 하면 됩니다.</p>
 

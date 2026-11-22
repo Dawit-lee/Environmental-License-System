@@ -4,6 +4,7 @@ import type { FacilityType, Project, ProjectStatus } from '../types';
 import { api, sessionUserId } from '../api/client';
 import { Button } from '../components/ui/Button';
 import { getCompanyUsers, getDepartments, type Department } from '../api/org';
+import { PageHeader } from '../components/ui/PageHeader';
 
 // ---------------------------------------------------------------------------
 // ProjectListPage — company-wide project table: search, facility/status/department/team filters,
@@ -129,12 +130,9 @@ export default function ProjectListPage() {
 
   return (
     <div className="min-h-full bg-paper">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="py-8">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <h1 className="text-2xl font-bold text-brand">프로젝트 목록</h1>
-          <Button onClick={() => navigate('/projects/new')}>+ 새 프로젝트</Button>
-        </div>
+        <PageHeader title="프로젝트 목록" actions={<Button onClick={() => navigate('/projects/new')}>+ 새 프로젝트</Button>} />
 
         {/* Search + filters */}
         <div className="mt-6 flex flex-wrap gap-3">

@@ -348,7 +348,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
 
   return (
     <div className={editId ? '' : 'min-h-full bg-paper'}>
-      <div className={editId ? 'max-w-5xl' : 'mx-auto max-w-5xl px-4 py-8 sm:px-6'}>
+      <div className={editId ? 'max-w-5xl' : 'max-w-5xl py-8'}>
       {promptUi}
         {/* Step indicator */}
         <ol className="mb-8 flex items-center gap-4 text-sm">

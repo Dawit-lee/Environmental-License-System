@@ -5,6 +5,7 @@ import { api } from '../api/client';
 import { TODO_LABEL, loadTodos, type Todo, type TodoKind } from '../api/todos';
 import TodoTable from '../components/TodoTable';
 import type { Project } from '../types';
+import { PageHeader } from '../components/ui/PageHeader';
 
 // ---------------------------------------------------------------------------
 // InboxPage — 내 할 일: everything waiting across the projects I am a member of. ?kind= preselects a filter.
@@ -24,9 +25,8 @@ export default function InboxPage() {
 
   return (
     <div className="min-h-full bg-paper">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <h1 className="text-2xl font-bold text-brand">내 할 일</h1>
-        <p className="mt-1 text-sm text-mute">내가 멤버인 프로젝트에서 기다리는 일입니다. 기한 임박은 완료 전이고 {DUE_SOON_DAYS}일 이내인 내 몫의 기한입니다(대시보드는 프로젝트 전체를 셉니다). 내용을 누르면 해당 프로젝트 탭으로 갑니다.</p>
+      <div className="py-8">
+        <PageHeader title="내 할 일" description={<>내가 멤버인 프로젝트에서 기다리는 일입니다. 기한 임박은 완료 전이고 {DUE_SOON_DAYS}일 이내인 내 몫의 기한입니다(대시보드는 프로젝트 전체를 셉니다). 내용을 누르면 해당 프로젝트 탭으로 갑니다.</>} />
 
         <div className="mt-5 flex flex-wrap gap-2">
           {(['ALL', ...KINDS] as const).map((k) => (

@@ -11,6 +11,7 @@ import type { Project } from '../types';
 import { Link } from 'react-router';
 import { EmptyState, primaryBtn } from '../components/Onboarding';
 import { Alert } from '../components/ui/Alert';
+import { PageHeader } from '../components/ui/PageHeader';
 
 const ScheduleCalendar = lazy(() => import('../components/ScheduleCalendar'));
 
@@ -63,13 +64,9 @@ export default function CompanyCalendarPage() {
 
   return (
     <div className="min-h-full bg-paper">
-      <div className="mx-auto max-w-6xl space-y-4 px-4 py-8 sm:px-6">
-        <div>
-          <h1 className="text-2xl font-bold text-brand">회사 달력</h1>
-          <p className="mt-1 text-sm text-mute">
-            {isMaster() ? '회사 전체 프로젝트' : '내가 멤버인 프로젝트'}의 이벤트·출장·마일스톤입니다. 항목을 누르면 상세가 열립니다.
-          </p>
-        </div>
+      <div className="space-y-4 py-8">
+        <PageHeader title="회사 달력"
+          description={`${isMaster() ? '회사 전체 프로젝트' : '내가 멤버인 프로젝트'}의 이벤트·출장·마일스톤입니다. 항목을 누르면 상세가 열립니다.`} />
         {projects?.length === 0 && (
           <EmptyState text="프로젝트의 회의·출장·마일스톤을 한 달력에 모읍니다. 프로젝트를 만들고 일정에 이벤트를 넣으면 여기에 나옵니다.">
             <Link to="/projects/new" className={primaryBtn}>새 프로젝트 만들기</Link>
