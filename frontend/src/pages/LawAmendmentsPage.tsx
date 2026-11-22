@@ -113,7 +113,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
 
   return (
     <div className="min-h-full bg-paper">
-      <div className={projectId ? '' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6'}>
+      <div className={projectId ? '' : 'py-8'}>
         <p className="text-xs font-semibold tracking-wide text-mute">매일 06:00 법제처 개정 목록 확인</p>
         <h1 className="mt-1 text-2xl font-bold text-brand">법령 개정 알림</h1>
         <p className="mt-1 max-w-2xl text-sm text-mute">

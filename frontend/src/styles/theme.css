@@ -56,7 +56,7 @@
  *   brand(-hover/-pressed)  KRDS primary blue: buttons, active tab, focus ring
  *   brand-text              links and blue text (6.8:1 on white)
  *   brand-subtle/-border    info box, selected row
- *   inverse                 dark utility bar
+ *   inverse(-subtle)        dark utility bar and its text
  *   ink / body / mute       gray text: body copy, secondary, dates and units (mute on white only)
  *   line        default border and table divider
  *   line-soft   lighter row divider inside tables and lists
@@ -78,6 +78,7 @@
   --color-brand-subtle: #ecf2fe;
   --color-brand-border: #d8e5fd;
   --color-inverse: #1e2124;
+  --color-inverse-subtle: #cdd1d5; /* text on the inverse bar (11.6:1) */
   --color-ink: var(--ink);
   --color-body: var(--body);
   --color-mute: var(--mute);

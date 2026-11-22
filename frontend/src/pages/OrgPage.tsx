@@ -7,6 +7,7 @@ import DisciplineSettings from '../components/DisciplineSettings';
 import TemplateSettings from '../components/TemplateSettings';
 import { usePrompt } from '../components/PromptDialog';
 import { Alert } from '../components/ui/Alert';
+import { PageHeader } from '../components/ui/PageHeader';
 
 // ---------------------------------------------------------------------------
 // OrgPage — company master only: departments > teams, which team each user is in, and the 분야 list.
@@ -51,9 +52,9 @@ export default function OrgPage() {
 
   return (
     <div className="min-h-full bg-paper">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="py-8">
       {promptUi}
-        <h1 className="text-2xl font-bold text-brand">조직 관리</h1>
+        <PageHeader title="조직 관리" />
         <nav className="mt-4 flex gap-1 border-b border-line">
           {([['org', '조직'], ['disciplines', '분야'], ['templates', '일정 템플릿']] as const).map(([key, label]) => (
             <button key={key} type="button" onClick={() => setTab(key)}

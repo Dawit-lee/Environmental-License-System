@@ -8,6 +8,7 @@ import {
   type JoinRequest,
 } from '../api/signup';
 import { usePrompt } from '../components/PromptDialog';
+import { PageHeader } from '../components/ui/PageHeader';
 
 // ---------------------------------------------------------------------------
 // JoinRequestsPage — company admin: invite link/code (copy, regenerate) and pending join requests.
@@ -63,8 +64,8 @@ export default function JoinRequestsPage() {
 
   return (
     <div className="min-h-full bg-paper">
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-bold text-brand">가입 요청</h1>
+    <div className="space-y-6 py-8">
+      <PageHeader title="가입 요청" />
       {promptUi}
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
 

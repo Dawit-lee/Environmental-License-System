@@ -153,7 +153,7 @@ export default function ProjectDetailPage() {
   if (error || !project) {
     return (
       <div className="min-h-full bg-paper">
-        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        <div className="py-8">
           <Link to="/projects" className="text-sm text-mute transition hover:text-brand hover:underline">
             ← 프로젝트 목록
           </Link>
@@ -171,7 +171,7 @@ export default function ProjectDetailPage() {
 
   return (
     <div className="min-h-full bg-paper">
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="py-8">
         {/* Breadcrumb */}
         <nav className="text-sm text-mute">
           <Link to="/projects" className="transition hover:text-brand hover:underline">
