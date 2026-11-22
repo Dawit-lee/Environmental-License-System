@@ -170,7 +170,11 @@ class NotificationApiTest extends IntegrationTest {
                 .andExpect(jsonPath("$[0].projectName").value("다온 하수처리장"))
                 .andExpect(jsonPath("$[0].title").value("건축허가 만료"))
                 .andExpect(jsonPath("$[0].dueDate").value("2026-01-15"))
-                .andExpect(jsonPath("$[0].dDay").value(10));
+                .andExpect(jsonPath("$[0].dDay").value(10))
+                .andExpect(jsonPath("$[0].assigneeName").isEmpty());
+        deadlines.register("OBLIGATION", 77, projectId, "정기검사", TODAY.plusDays(12), kimId);
+        call(kim, get(range)).andExpect(jsonPath("$[1].assigneeName").value("김에이"));
+        deadlines.remove("OBLIGATION", 77);
         call(login("park@b.com"), get(range)).andExpect(jsonPath("$.length()").value(0));
 
         call(kim, json(put("/api/projects/" + projectId + "/permits/" + permit), permitJson(null)))

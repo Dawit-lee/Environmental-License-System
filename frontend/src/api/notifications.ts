@@ -11,6 +11,7 @@ export interface Deadline {
   dueDate: string; // YYYY-MM-DD
   dDay: number;
   assigneeId: number | null;
+  assigneeName: string | null;
 }
 
 export interface AppNotification {

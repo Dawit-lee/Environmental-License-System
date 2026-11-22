@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import type { PermitItem, Project } from '../types';
 import { api } from '../api/client';
@@ -6,18 +6,19 @@ import { getDeadlines, ymd, type Deadline } from '../api/notifications';
 import { openSiteImplementationCount } from '../api/revisions';
 import { getNewLawImpactCount } from '../api/lawImpacts';
 import {
-  ActivityList, DeadlineTimeline, PendingRow, STAGES, STATUSES, StatusDonut, dDayClasses, deadlineLink, lifecycleStage, recentActivity,
+  ActivityList, DeadlineTimeline, STAGES, STATUSES, StatusDonut, UpcomingDeadlines, lifecycleStage, recentActivity, summaryItems,
 } from '../components/dashboard';
 import { CompanyCompliance } from '../components/Compliance';
 import { DelayedByDiscipline, WeekEvents, type DelayedCount } from '../components/ScheduleWidgets';
-import { GettingStarted, Help } from '../components/Onboarding';
-import { DUE_SOON_DAYS, isDueSoon } from '../terms';
+import { GettingStarted } from '../components/Onboarding';
+import { isDueSoon } from '../terms';
 import { PageHeader } from '../components/ui/PageHeader';
+import { SummaryStrip } from '../components/ui/SummaryStrip';
+import { Alert } from '../components/ui/Alert';
 
 // ---------------------------------------------------------------------------
-// DashboardPage — portfolio-wide overview: summary cards, near-expiry table,
-// per-project status bars, 90-day deadline timeline, pending-work counts,
-// status donut (pure CSS conic-gradient) and recent activity.
+// DashboardPage (DESIGN.md 5 대시보드): summary strip → 30-day deadline table with
+// AI-review / law-amendment boxes beside it → compliance, schedule and the charts below.
 // ---------------------------------------------------------------------------
 
 interface DashboardSummary {
@@ -27,6 +28,9 @@ interface DashboardSummary {
   delayedByDiscipline: DelayedCount[];
 }
 
+const box = 'rounded border border-line bg-white';
+const boxTitle = 'border-b border-line px-5 py-4 text-[19px] font-bold text-ink';
+
 export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [permits, setPermits] = useState<PermitItem[]>([]);
@@ -34,6 +38,7 @@ export default function DashboardPage() {
   const [loaded, setLoaded] = useState(false); // the checklist waits for real counts, so it does not flash every step open
   const [reviewOpen, setReviewOpen] = useState(0); // AI suggestions + revisions awaiting review
   const [lawNew, setLawNew] = useState(0); // law amendments not yet reviewed
+  const [siteOpen, setSiteOpen] = useState(0); // ④ approved revisions not yet carried out on site
   const [delayed, setDelayed] = useState<DelayedCount[] | null>(null);
   useEffect(() => {
     // one summary call instead of permits/suggestions/schedule per project
@@ -50,120 +55,91 @@ export default function DashboardPage() {
 
   const activity = useMemo(() => recentActivity(projects, permits), [projects, permits]);
 
-  // Deadlines due within 90 days (API returns them sorted by date); the table shows the first 30.
+  // Open deadlines from 180 days back (still-open overdue items) to 90 days ahead; the API sorts them by date.
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
-  const nearExpiry = deadlines.filter((d) => isDueSoon(d.dDay));
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    const today = new Date();
-    const to = new Date(today);
+    const from = new Date();
+    from.setDate(from.getDate() - 180);
+    const to = new Date();
     to.setDate(to.getDate() + 90);
-    getDeadlines(ymd(today), ymd(to)).then(setDeadlines, (e: Error) => setError(e.message));
+    getDeadlines(ymd(from), ymd(to)).then(setDeadlines, (e: Error) => setError(e.message));
     openSiteImplementationCount().then((r) => setSiteOpen(r.count), () => {});
     getNewLawImpactCount().then((r) => setLawNew(r.count), () => {});
   }, []);
-  const [siteOpen, setSiteOpen] = useState(0); // ④ approved revisions not yet carried out on site
+  const upcoming = deadlines.filter((d) => d.dDay >= 0); // the 90-day chart counts only what is still ahead
 
-  const total = permits.length;
-
+  const today = new Date();
   return (
     <div className="min-h-full bg-paper">
-      <div className="py-8">
-        <PageHeader title="대시보드" />
-        {loadError && <p className="mt-2 text-sm text-danger">{loadError}</p>}
+      <div className="space-y-6 py-8">
+        <PageHeader title="대시보드"
+          description={`${today.getFullYear()}년 ${today.getMonth() + 1}월 ${today.getDate()}일 기준 · 내가 참여한 프로젝트 ${projects.length}건`} />
+        {loadError && <Alert tone="danger">{loadError}</Alert>}
+
+        <SummaryStrip items={summaryItems({
+          projects: projects.length,
+          permits: permits.length,
+          overdue: deadlines.filter((d) => d.dDay < 0).length,
+          dueSoon: deadlines.filter((d) => isDueSoon(d.dDay)).length,
+          notApplied: permits.filter((p) => p.status === 'NOT_APPLIED').length,
+          reviewOpen,
+        })} />
 
         {!loadError && loaded && <GettingStarted projects={projects} permits={permits} />}
 
-        {/* Summary cards */}
-        <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <SummaryCard label="내 프로젝트" value={projects.length} tone="text-brand" />
-          <SummaryCard label="내 프로젝트 인허가" value={total} tone="text-ink" />
-          <SummaryCard label={<>기한 임박<Help k="dueSoon" /></>} value={nearExpiry.length} tone="text-warn" />
-          <SummaryCard label="미신청" value={permits.filter((p) => p.status === 'NOT_APPLIED').length} tone="text-danger" />
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2"><UpcomingDeadlines deadlines={deadlines} error={error} /></div>
+          <aside className="flex min-w-0 flex-col gap-4" aria-label="처리 대기">
+            <section className={`${box} flex flex-col gap-3 p-5`}>
+              <h2 className="text-[19px] font-bold text-ink">AI 검토 대기</h2>
+              <p className="text-[15px] leading-relaxed text-body">허가서에서 찾은 조건은 사람이 승인해야 의무사항과 기한에 들어갑니다.</p>
+              <p className="text-[15px] text-body">검토할 항목 <strong className="text-2xl font-bold tabular-nums text-ink">{reviewOpen}</strong> 건</p>
+              <Link to="/inbox?kind=REVIEW"
+                className="flex h-12 items-center justify-center rounded bg-brand text-[17px] font-bold text-white hover:bg-brand-hover">
+                검토하러 가기
+              </Link>
+              <Link to="/inbox?kind=SITE" className="flex justify-between text-[15px] text-body hover:text-brand-text hover:underline">
+                <span>현장 반영 대기</span><span className="font-bold tabular-nums text-ink">{siteOpen}건</span>
+              </Link>
+            </section>
+            <Alert tone="info" title="법령 개정 알림">
+              <p className="mt-1">{lawNew > 0 ? `확인이 필요한 법령 개정이 ${lawNew}건 있습니다.` : '확인할 법령 개정이 없습니다.'}</p>
+              <Link to="/inbox?kind=LAW" className="mt-1 inline-block text-brand-text hover:underline">개정 내용 보기 ›</Link>
+            </Alert>
+          </aside>
         </div>
 
-        {/* 규제 대응 현황 (F4); the stage is the same rough one the project page shows */}
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+          <section className={`${box} min-w-0 lg:col-span-2`}>
+            <h2 className={boxTitle}>프로젝트별 인허가 진행</h2>
+            <div className="px-5 pb-5"><ProjectStatusBars projects={projects} permits={permits} /></div>
+          </section>
+          <DelayedByDiscipline counts={delayed} />
+        </div>
+
+        {/* 규제 대응 현황 (F4): 프로젝트별 현황 표 + 월별 기한 내 이행률; the stage is the same rough one the project page shows */}
         <CompanyCompliance stageOf={(id) => {
           const p = projects.find((x) => x.id === id);
           return p ? STAGES[lifecycleStage(p, permits.filter((x) => x.projectId === id))] : '—';
         }} />
 
-        {/* 설계 일정 (design-schedule/04) */}
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2"><WeekEvents /></div>
-          <DelayedByDiscipline counts={delayed} />
-        </div>
-
-        {/* Near-expiry table — full width so each row stays on one line */}
-        <section className="mt-6 rounded border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">기한 임박 (D-{DUE_SOON_DAYS} 이내)<Help k="dueSoon" /></h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[480px] whitespace-nowrap text-left text-sm">
-                <thead className="bg-paper text-xs uppercase text-body">
-                  <tr>
-                    <th className="px-3 py-2.5 font-medium">프로젝트명</th>
-                    <th className="px-3 py-2.5 font-medium">항목</th>
-                    <th className="px-3 py-2.5 font-medium">기한</th>
-                    <th className="px-3 py-2.5 font-medium">D-day</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {error && (
-                    <tr><td colSpan={4} className="px-3 py-6 text-center text-danger">{error}</td></tr>
-                  )}
-                  {!error && nearExpiry.length === 0 && (
-                    <tr><td colSpan={4} className="px-3 py-6 text-center text-mute">{DUE_SOON_DAYS}일 안에 다가오는 기한이 없습니다.</td></tr>
-                  )}
-                  {nearExpiry.map((row) => (
-                    <tr key={row.id} className="transition hover:bg-paper">
-                      <td className="px-3 py-2.5">
-                        <Link to={deadlineLink(row)} className="text-body transition hover:text-brand hover:underline">
-                          {row.projectName}
-                        </Link>
-                      </td>
-                      <td className="w-full max-w-0 truncate px-3 py-2.5 font-medium text-ink" title={row.title}>{row.title}</td>
-                      <td className="px-3 py-2.5 text-body">{row.dueDate}</td>
-                      <td className={`px-3 py-2.5 ${dDayClasses(row.dDay)}`}>{row.dDay === 0 ? 'D-day' : `D-${row.dDay}`}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2 rounded border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">프로젝트별 인허가 진행</h2>
-            <ProjectStatusBars projects={projects} permits={permits} />
-          </section>
-          <section className="rounded border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">처리 대기</h2>
-            <ul className="mt-3 divide-y divide-line">
-              <PendingRow to="/inbox?kind=REVIEW" label="허가조건 검토 대기" value={reviewOpen} />
-              <PendingRow to="/inbox?kind=LAW" label="법령 개정 확인 필요" value={lawNew} />
-              <PendingRow to="/inbox?kind=SITE" label="현장 반영 대기" value={siteOpen} />
-            </ul>
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+          <div className="min-w-0 lg:col-span-2"><WeekEvents /></div>
+          <section className={box}>
+            <h2 className={boxTitle}>최근 활동</h2>
+            <div className="px-5 pb-2"><ActivityList activity={activity} /></div>
           </section>
         </div>
 
-        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <section className="lg:col-span-2 rounded border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">향후 90일 기한 (주별)</h2>
-            <DeadlineTimeline deadlines={deadlines} />
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-3">
+          <section className={`${box} min-w-0 lg:col-span-2`}>
+            <h2 className={boxTitle}>향후 90일 기한 (주별)</h2>
+            <div className="px-5 pb-5"><DeadlineTimeline deadlines={upcoming} /></div>
           </section>
-          {/* Donut */}
-          <section className="rounded border border-line bg-white p-5 shadow-sm">
-            <h2 className="text-lg font-semibold text-ink">인허가 상태 분포</h2>
-            <StatusDonut permits={permits} />
-          </section>
-
-        </div>
-
-        {/* Recent activity */}
-        <div className="mt-6">
-          <section className="rounded border border-line bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-ink">최근 활동</h2>
-          <ActivityList activity={activity} />
+          <section className={box}>
+            <h2 className={boxTitle}>인허가 상태 분포</h2>
+            <div className="px-5 pb-5"><StatusDonut permits={permits} /></div>
           </section>
         </div>
       </div>
@@ -172,15 +148,6 @@ export default function DashboardPage() {
 }
 
 // --- Local presentational helpers ------------------------------------------
-
-function SummaryCard({ label, value, tone }: { label: ReactNode; value: number; tone: string }) {
-  return (
-    <div className="rounded border border-line bg-white p-5 shadow-sm transition hover:shadow-md">
-      <div className={`text-3xl font-bold ${tone}`}>{value}</div>
-      <div className="mt-1 truncate text-sm text-mute" title={typeof label === 'string' ? label : undefined}>{label}</div>
-    </div>
-  );
-}
 
 // Horizontal 100% stacked bar per project: share of permits in each status.
 function ProjectStatusBars({ projects, permits }: { projects: Project[]; permits: PermitItem[] }) {
@@ -204,11 +171,11 @@ function ProjectStatusBars({ projects, permits }: { projects: Project[]; permits
               <Link to={`/projects/${p.id}/permits`} className="truncate text-body hover:text-brand hover:underline" title={p.name}>
                 {p.name}
               </Link>
-              <div className="flex h-3 gap-0.5 overflow-hidden rounded bg-[#F3F2EC]">
+              <div className="flex h-3 gap-0.5 overflow-hidden rounded bg-line-soft">
                 {STATUSES.map((s) => {
                   const n = mine.filter((x) => x.status === s.status).length;
                   return n === 0 ? null : (
-                    <div key={s.status} className="h-full first:rounded-l last:rounded-r" title={`${s.label} ${n}건`}
+                    <div key={s.status} className="h-full first:rounded-l last:rounded-r" title={`${s.label} ${n}건`} role="img" aria-label={`${s.label} ${n}건`}
                       style={{ width: `${(n / mine.length) * 100}%`, backgroundColor: s.color }} />
                   );
                 })}
