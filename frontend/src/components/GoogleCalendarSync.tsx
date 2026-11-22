@@ -4,6 +4,8 @@ import {
   disconnectGoogle, getGoogleCalendar, googleConnectUrl, setCompanyGoogleSync, setGoogleTargets, type GoogleCalendarStatus,
 } from '../api/googleCalendar';
 import { Alert } from './ui/Alert';
+import { Button } from './ui/Button';
+import { cn, focusRing } from './ui/cn';
 
 // 내 Google 캘린더 (설계 §6.4): connect / disconnect, what to send, last sync and error. Hidden when the server has no
 // Google keys. A company master also sees the company-wide switch here.
@@ -14,6 +16,8 @@ const RESULT: Record<string, string> = {
   failed: 'Google 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.',
 };
 const when = (s: string | null) => (s ? new Date(s).toLocaleString('ko-KR') : '—');
+const checkbox = cn('size-5 shrink-0 accent-brand', focusRing);
+const checkLabel = 'flex min-h-11 items-center gap-2 text-[15px] text-ink';
 
 export default function GoogleCalendarSync() {
   const [status, setStatus] = useState<GoogleCalendarStatus | null>(null);
@@ -33,48 +37,44 @@ export default function GoogleCalendarSync() {
   };
 
   return (
-    <section className="rounded border border-line bg-white p-5 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-ink">내 Google 캘린더</h2>
+    <section className="rounded border border-line bg-white p-6">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+        <h2 className="text-[19px] font-bold text-ink">내 Google 캘린더</h2>
         {isMaster() && (
-          <label className="flex items-center gap-1.5 text-xs text-body">
-            <input type="checkbox" checked={status.companyEnabled} onChange={(e) => run(() => setCompanyGoogleSync(e.target.checked))} />
+          <label className={checkLabel}>
+            <input type="checkbox" className={checkbox} checked={status.companyEnabled} onChange={(e) => run(() => setCompanyGoogleSync(e.target.checked))} />
             회사 전체에서 Google 연결 허용
           </label>
         )}
       </div>
-      <p className="mt-1 text-xs text-mute">
+      <p className="mt-1 break-keep text-[15px] text-body">
         내가 참석하는 이벤트와 내가 담당인 마일스톤을 Google의 "인허가 일정" 캘린더로 보냅니다(앱 → Google 한 방향).
         Google에서 고친 내용은 앱으로 돌아오지 않고 다음 동기화 때 덮어씁니다.
       </p>
-      {notice && <p className="mt-3 rounded bg-paper px-3 py-2 text-sm text-body">{notice}</p>}
-      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
+      {notice && <Alert className="mt-4">{notice}</Alert>}
+      {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
 
       {!status.companyEnabled && !status.connected ? (
-        <p className="mt-3 text-sm text-mute">회사에서 Google 연결을 허용하지 않았습니다.</p>
+        <p className="mt-4 text-[15px] text-body">회사에서 Google 연결을 허용하지 않았습니다.</p>
       ) : !status.connected ? (
-        <button type="button" onClick={connect} className="mt-3 rounded bg-brand px-3 py-1.5 text-sm font-medium text-white">
-          Google 캘린더 연결
-        </button>
+        <Button onClick={connect} className="mt-4">Google 캘린더 연결</Button>
       ) : (
-        <div className="mt-3 space-y-2 text-sm text-body">
-          <p>연결됨 · 마지막 동기화 {when(status.lastSyncedAt)}</p>
-          {status.lastError && <p className="text-danger">동기화 오류: {status.lastError}</p>}
-          <div className="flex flex-wrap gap-4 text-xs">
-            <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={status.projectMilestones}
+        <div className="mt-4 space-y-2 text-[15px] text-body">
+          <p><span className="font-bold text-ok">연결됨</span> · 마지막 동기화 <span className="tabular-nums">{when(status.lastSyncedAt)}</span></p>
+          {status.lastError && <Alert tone="danger">동기화 오류: {status.lastError}</Alert>}
+          <div className="flex flex-wrap gap-x-6">
+            <label className={checkLabel}>
+              <input type="checkbox" className={checkbox} checked={status.projectMilestones}
                 onChange={(e) => run(() => setGoogleTargets(e.target.checked, status.tasks))} />
               내 프로젝트의 제출·보고 마일스톤
             </label>
-            <label className="flex items-center gap-1.5">
-              <input type="checkbox" checked={status.tasks}
+            <label className={checkLabel}>
+              <input type="checkbox" className={checkbox} checked={status.tasks}
                 onChange={(e) => run(() => setGoogleTargets(status.projectMilestones, e.target.checked))} />
               내 담당 작업(TASK) 막대
             </label>
           </div>
-          <button type="button" onClick={disconnect} className="rounded border border-line px-3 py-1.5 text-xs text-body">
-            연결 해제
-          </button>
+          <Button variant="danger" size="sm" onClick={disconnect}>연결 해제</Button>
         </div>
       )}
     </section>

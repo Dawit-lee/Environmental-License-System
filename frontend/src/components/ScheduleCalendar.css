@@ -1,35 +1,50 @@
-/* FullCalendar themed through its own CSS variables with the app's tokens (no FullCalendar CSS overrides of layout). */
+/* FullCalendar themed with DESIGN.md tokens through its own CSS variables (no layout overrides). */
 .schedule-calendar {
-  --fc-border-color: var(--color-line);
+  --fc-border-color: var(--color-line-soft);
   --fc-page-bg-color: #fff;
   --fc-neutral-bg-color: var(--color-paper);
-  --fc-today-bg-color: rgba(31, 78, 121, 0.06);
-  --fc-button-text-color: #374151;
+  --fc-list-event-hover-bg-color: var(--color-paper);
+  --fc-today-bg-color: var(--color-brand-subtle);
+  --fc-button-text-color: var(--color-ink);
   --fc-button-bg-color: #fff;
-  --fc-button-border-color: var(--color-line);
+  --fc-button-border-color: var(--color-body);
   --fc-button-hover-bg-color: var(--color-paper);
-  --fc-button-hover-border-color: var(--color-brand);
+  --fc-button-hover-border-color: var(--color-body);
   --fc-button-active-bg-color: var(--color-brand);
   --fc-button-active-border-color: var(--color-brand);
   --fc-event-bg-color: var(--color-brand);
   --fc-event-border-color: var(--color-brand);
-  --fc-small-font-size: 0.75rem;
-  font-size: 0.8125rem;
+  --fc-small-font-size: 15px;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--color-ink);
 }
-.schedule-calendar .fc .fc-toolbar-title { font-size: 1rem; font-weight: 600; color: #111827; }
-.schedule-calendar .fc .fc-button { font-size: 0.75rem; padding: 0.3rem 0.65rem; box-shadow: none; }
-.schedule-calendar .fc .fc-button-primary:not(:disabled).fc-button-active { color: #fff; }
-.schedule-calendar .fc .fc-event { cursor: pointer; }
-.schedule-calendar .fc .fc-daygrid-event { white-space: normal; align-items: flex-start; }
-/* long names wrap to two lines in a day cell instead of being cut at one; the "+N" popover shows them whole */
-.schedule-calendar .fc .fc-daygrid-event .fc-event-title {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
-  overflow-wrap: anywhere;
+.schedule-calendar .fc .fc-toolbar-title { font-size: 19px; font-weight: 700; color: var(--color-ink); }
+/* toolbar buttons: 40px (DESIGN.md allows 40px in toolbars), 4px corners, visible focus */
+.schedule-calendar .fc .fc-button {
+  height: 40px; min-width: 44px; padding: 0 12px; font-size: 15px; border-radius: 4px; box-shadow: none;
 }
-.schedule-calendar .fc .fc-popover .fc-daygrid-event .fc-event-title { -webkit-line-clamp: unset; }
-.schedule-calendar .fc .fc-daygrid-dot-event .fc-daygrid-event-dot { margin-top: 0.4em; }
+.schedule-calendar .fc .fc-button:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; box-shadow: none; }
+.schedule-calendar .fc .fc-button-primary:not(:disabled).fc-button-active { color: #fff; font-weight: 700; }
+.schedule-calendar .fc .fc-button-primary:disabled { color: var(--color-disabled); background: var(--color-line); border-color: var(--color-line); opacity: 1; }
+.schedule-calendar .fc .fc-col-header-cell { background: var(--color-paper); }
+.schedule-calendar .fc .fc-col-header-cell-cushion { padding: 8px 4px; font-weight: 700; color: var(--color-ink); }
+.schedule-calendar .fc .fc-daygrid-day-number { color: var(--color-body); font-variant-numeric: tabular-nums; }
+.schedule-calendar .fc .fc-day-other .fc-daygrid-day-number { color: var(--color-mute); opacity: 1; }
+.schedule-calendar .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number { color: var(--color-brand-text); font-weight: 700; }
+.schedule-calendar .fc .fc-daygrid-more-link { color: var(--color-brand-text); font-weight: 700; }
+.schedule-calendar .fc .fc-event { cursor: pointer; border-radius: 2px; }
+.schedule-calendar .fc .fc-daygrid-dot-event { color: var(--color-ink); }
+/* names wrap whole in the cell (no clamp, so nothing is cut at 1024px); a busy day folds into "+N" */
+.schedule-calendar .fc .fc-daygrid-event { white-space: normal; align-items: flex-start; line-height: 1.4; }
+.schedule-calendar .fc .fc-daygrid-event .fc-event-title { word-break: keep-all; overflow-wrap: anywhere; }
+.schedule-calendar .fc .fc-daygrid-dot-event .fc-daygrid-event-dot { margin-top: 0.45em; }
 /* milestones: the ◆ in the title is the marker, so no list dot before it */
 .schedule-calendar .fc .is-milestone .fc-daygrid-event-dot { display: none; }
+.schedule-calendar .fc .fc-popover { border-radius: 4px; box-shadow: 0 4px 16px #00000014; }
+.schedule-calendar .fc .fc-popover-header { background: var(--color-paper); font-weight: 700; }
+.schedule-calendar .fc .fc-list-day-cushion { background: var(--color-paper); }
+@media (max-width: 639px) {
+  .schedule-calendar .fc .fc-toolbar { flex-wrap: wrap; gap: 8px; }
+  .schedule-calendar .fc .fc-toolbar-title { font-size: 17px; }
+}
