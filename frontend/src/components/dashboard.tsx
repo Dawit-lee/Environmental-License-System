@@ -10,7 +10,7 @@ export function dDayClasses(dDay: number): string {
   if (dDay <= 7) return 'text-danger font-semibold';
   if (dDay <= 30) return 'text-warn font-semibold';
   if (dDay <= 60) return 'text-amber-500 font-medium';
-  return 'text-gray-500';
+  return 'text-mute';
 }
 
 // Adjacent pairs pass the dataviz CVD / normal-vision separation check; every chart also shows a text legend.
@@ -81,16 +81,16 @@ export function StatusDonut({ permits }: { permits: PermitItem[] }) {
         aria-label="인허가 상태 분포 도넛 차트"
       >
         <div className="absolute inset-[18%] flex flex-col items-center justify-center rounded-full bg-white">
-          <span className="text-xl font-bold text-gray-800">{total}</span>
-          <span className="text-[10px] text-gray-400">전체</span>
+          <span className="text-xl font-bold text-ink">{total}</span>
+          <span className="text-[10px] text-mute">전체</span>
         </div>
       </div>
       <ul className="space-y-1.5 text-sm">
         {slices.map((s) => (
           <li key={s.status} className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-            <span className="whitespace-nowrap text-gray-600">{s.label}</span>
-            <span className="ml-auto font-medium text-gray-800">{s.value}</span>
+            <span className="whitespace-nowrap text-body">{s.label}</span>
+            <span className="ml-auto font-medium text-ink">{s.value}</span>
           </li>
         ))}
       </ul>
@@ -101,11 +101,11 @@ export function StatusDonut({ permits }: { permits: PermitItem[] }) {
 export function ActivityList({ activity }: { activity: Activity[] }) {
   return (
           <ul className="mt-3 divide-y divide-line">
-      {activity.length === 0 && <li className="py-6 text-center text-sm text-gray-400">아직 기록된 신청·취득이 없습니다.</li>}
+      {activity.length === 0 && <li className="py-6 text-center text-sm text-mute">아직 기록된 신청·취득이 없습니다.</li>}
       {activity.map((a) => (
         <li key={a.key} className="flex gap-3 py-2.5 text-sm">
-          <span className="shrink-0 text-gray-400">{a.date}</span>
-          <span className="truncate text-gray-700" title={a.text}>{a.text}</span>
+          <span className="shrink-0 text-mute">{a.date}</span>
+          <span className="truncate text-body" title={a.text}>{a.text}</span>
         </li>
       ))}
     </ul>
@@ -132,12 +132,12 @@ export function DeadlineTimeline({ deadlines }: { deadlines: Deadline[] }) {
         {weeks.map((w, i) => (
           <div key={i} className="flex h-full flex-1 flex-col justify-end"
             title={`${w.start.getMonth() + 1}/${w.start.getDate()} 주 — ${w.items.length}건${w.items.map((d) => `\n· ${d.projectName}: ${d.title}`).join('')}`}>
-            {w.items.length > 0 && <span className="mb-1 text-center text-xs text-gray-600">{w.items.length}</span>}
+            {w.items.length > 0 && <span className="mb-1 text-center text-xs text-body">{w.items.length}</span>}
             <div className="rounded-t bg-[#3B82C4]" style={{ height: `${(w.items.length / max) * 80}%` }} />
           </div>
         ))}
       </div>
-      <div className="mt-1.5 flex gap-1.5 text-[11px] text-gray-400">
+      <div className="mt-1.5 flex gap-1.5 text-[11px] text-mute">
         {weeks.map((w, i) => (
           <span key={i} className="flex-1 whitespace-nowrap text-center">
             {i % 2 === 0 ? `${w.start.getMonth() + 1}/${w.start.getDate()}` : ''}
@@ -152,8 +152,8 @@ export function PendingRow({ to, label, value }: { to: string; label: string; va
   return (
     <li>
       <Link to={to} className="flex items-center justify-between py-3 text-sm transition hover:text-brand">
-        <span className="text-gray-600">{label}</span>
-        <span className={`text-2xl font-bold ${value > 0 ? 'text-brand' : 'text-gray-300'}`}>{value}</span>
+        <span className="text-body">{label}</span>
+        <span className={`text-2xl font-bold ${value > 0 ? 'text-brand' : 'text-mute'}`}>{value}</span>
       </Link>
     </li>
   );

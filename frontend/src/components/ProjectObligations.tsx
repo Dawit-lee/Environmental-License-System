@@ -60,7 +60,7 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
       : o.status === 'ACTIVE' ? '기한 미정'
         : o.lastTask ? taskStatusLabel(o.lastTask) : '종료';
 
-  if (!items) return <p className="text-sm text-gray-400">{error ?? '불러오는 중…'}</p>;
+  if (!items) return <p className="text-sm text-mute">{error ?? '불러오는 중…'}</p>;
 
   const permitById = new Map(permits.map((p) => [p.id, p]));
   const me = sessionUserId();
@@ -85,14 +85,14 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
     return showClosed || !r.closed;
   });
   const opened = all.find((r) => r.key === openKey);
-  const select = 'rounded-lg border border-line bg-white px-2 py-1 text-sm text-gray-700';
+  const select = 'rounded border border-line bg-white px-2 py-1 text-sm text-body';
   const closedCount = all.filter((r) => r.closed).length;
 
   return (
     <div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">AI 검토에서 승인된 의무사항입니다. 행을 누르면 이번 회차 업무에 증빙을 붙이고 완료할 수 있습니다.</p>
-        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+        <p className="text-sm text-mute">AI 검토에서 승인된 의무사항입니다. 행을 누르면 이번 회차 업무에 증빙을 붙이고 완료할 수 있습니다.</p>
+        <div className="flex flex-wrap items-center gap-4 text-sm text-body">
           <label className="flex items-center gap-2">
             종류
             <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className={select}>
@@ -119,11 +119,11 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
           )}
         </div>
       </div>
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
-      <div className="mt-4 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+      <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
         <table className="w-full min-w-[920px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-paper text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-body">
             <tr>
               <th className="px-4 py-3 font-medium">종류</th>
               <th className="px-4 py-3 font-medium">의무사항 · 조치</th>
@@ -143,9 +143,9 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
               const d = t ? dDay(t.dueDate) : null;
               return (
                 <tr key={r.key} onClick={() => setOpenKey(r.key)} className="cursor-pointer hover:bg-paper">
-                  <td className="px-4 py-2.5 text-gray-600">{r.corrective ? '조치' : '의무'}</td>
+                  <td className="px-4 py-2.5 text-body">{r.corrective ? '조치' : '의무'}</td>
                   <td className="max-w-[320px] px-4 py-2.5">
-                    <button type="button" className="block max-w-full truncate text-left font-medium text-gray-800" title={r.title}>{r.title}</button>
+                    <button type="button" className="block max-w-full truncate text-left font-medium text-ink" title={r.title}>{r.title}</button>
                   </td>
                   <td className="max-w-[220px] px-4 py-2.5">
                     {permit ? (
@@ -153,20 +153,20 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
                         className="block max-w-full truncate text-brand hover:underline">{permit.name}</button>
                     ) : '—'}
                   </td>
-                  <td className="px-4 py-2.5 text-gray-600">{r.obligation ? FREQ[r.obligation.frequency] : '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{t?.dueDate ?? '—'}</td>
-                  <td className={`px-4 py-2.5 ${d === null ? 'text-gray-400' : d < 0 ? 'font-semibold text-danger' : 'text-gray-600'}`}>
+                  <td className="px-4 py-2.5 text-body">{r.obligation ? FREQ[r.obligation.frequency] : '—'}</td>
+                  <td className="px-4 py-2.5 text-body">{t?.dueDate ?? '—'}</td>
+                  <td className={`px-4 py-2.5 ${d === null ? 'text-mute' : d < 0 ? 'font-semibold text-danger' : 'text-body'}`}>
                     {d === null ? '—' : d === 0 ? 'D-DAY' : d > 0 ? `D-${d}` : `D+${-d}`}
                   </td>
-                  <td className="max-w-[120px] truncate px-4 py-2.5 text-gray-600" title={t?.assigneeName ?? ''}>{t ? t.assigneeName ?? '미지정' : '—'}</td>
-                  <td className="px-4 py-2.5 text-gray-600">{t ? `${t.evidenceCount + t.measurementCount}건` : '—'}</td>
-                  <td className={`px-4 py-2.5 ${t && isOverdue(t) ? 'font-semibold text-danger' : 'text-gray-600'}`}>{r.status}</td>
+                  <td className="max-w-[120px] truncate px-4 py-2.5 text-body" title={t?.assigneeName ?? ''}>{t ? t.assigneeName ?? '미지정' : '—'}</td>
+                  <td className="px-4 py-2.5 text-body">{t ? `${t.evidenceCount + t.measurementCount}건` : '—'}</td>
+                  <td className={`px-4 py-2.5 ${t && isOverdue(t) ? 'font-semibold text-danger' : 'text-body'}`}>{r.status}</td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        {rows.length === 0 && all.length > 0 && <p className="py-10 text-center text-sm text-gray-400">조건에 맞는 항목이 없습니다.</p>}
+        {rows.length === 0 && all.length > 0 && <p className="py-10 text-center text-sm text-mute">조건에 맞는 항목이 없습니다.</p>}
         {all.length === 0 && (
           <EmptyState bare text="허가조건 중 지켜야 할 정기 할 일을 모아 담당자와 기한을 관리합니다. 인허가 상세에서 허가증을 올리고 [AI 검토]에서 조건을 승인하면 여기에 나옵니다.">
             <Link to={`/projects/${projectId}/permits`} className={primaryBtn}>허가증 올리러 가기</Link>

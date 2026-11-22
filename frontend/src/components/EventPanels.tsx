@@ -15,8 +15,8 @@ import { useEscape } from './useEscape';
 
 interface Member { userId: number; name: string }
 
-const field = 'w-full rounded-lg border border-line px-2.5 py-1.5 text-sm outline-none focus:border-brand';
-const btn = 'rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
+const field = 'w-full rounded border border-line px-2.5 py-1.5 text-sm outline-none focus:border-brand';
+const btn = 'rounded border border-line px-3 py-1.5 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
 const row = 'grid grid-cols-[88px_1fr] items-center gap-3';
 const SUBKINDS: Partial<Record<EventKind, string[]>> = {
   CLIENT_REPORT: ['착수', '중간', '최종', '월간', '격주'],
@@ -34,10 +34,10 @@ function Drawer({ label, sub, title, onClose, children }: {
         className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="min-w-0">
-            <p className="text-xs text-gray-500">{sub}</p>
-            <h2 className="mt-1 truncate text-lg font-semibold text-gray-900" title={title}>{title}</h2>
+            <p className="text-xs text-mute">{sub}</p>
+            <h2 className="mt-1 truncate text-lg font-semibold text-ink" title={title}>{title}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-gray-400 hover:text-gray-700">×</button>
+          <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-mute hover:text-body">×</button>
         </div>
         {children}
       </aside>
@@ -46,7 +46,7 @@ function Drawer({ label, sub, title, onClose, children }: {
 }
 
 const Line = ({ label, value }: { label: string; value: ReactNode }) => value ? (
-  <div className="grid grid-cols-[88px_1fr] gap-3 text-sm"><dt className="text-gray-500">{label}</dt><dd className="min-w-0 text-gray-800">{value}</dd></div>
+  <div className="grid grid-cols-[88px_1fr] gap-3 text-sm"><dt className="text-mute">{label}</dt><dd className="min-w-0 text-ink">{value}</dd></div>
 ) : null;
 
 /** Read-only detail of a calendar entry. onEdit shows [수정] for events (project calendar, members). */
@@ -131,8 +131,8 @@ export function EventForm({ projectId, event, defaultDate, disciplines, members,
   return (
     <Drawer label="이벤트" sub={event ? EVENT_KIND_LABEL[event.kind] : '새 이벤트'} title={event?.title ?? '이벤트 추가'} onClose={onClose}>
       <form className="flex-1 space-y-3 overflow-y-auto px-6 py-5" onSubmit={(e) => { e.preventDefault(); save(); }}>
-        {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
-        <label className={row}><span className="text-sm text-gray-500">종류</span>
+        {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+        <label className={row}><span className="text-sm text-mute">종류</span>
           <select className={field} value={form.kind} onChange={(e) => {
             const kind = e.target.value as EventKind;
             set({ kind, subkind: null, ...(kind === 'TRIP' ? { allDay: true } : {}) });
@@ -140,43 +140,43 @@ export function EventForm({ projectId, event, defaultDate, disciplines, members,
             {EVENT_KINDS.map((k) => <option key={k} value={k}>{EVENT_KIND_LABEL[k]}</option>)}
           </select></label>
         {SUBKINDS[form.kind] && (
-          <label className={row}><span className="text-sm text-gray-500">세부</span>
+          <label className={row}><span className="text-sm text-mute">세부</span>
             <select className={field} value={form.subkind ?? ''} onChange={(e) => set({ subkind: text(e.target.value) })}>
               <option value="">선택 안 함</option>
               {SUBKINDS[form.kind]!.map((s) => <option key={s} value={s}>{s}</option>)}
             </select></label>
         )}
-        <label className={row}><span className="text-sm text-gray-500">제목</span>
+        <label className={row}><span className="text-sm text-mute">제목</span>
           <input required maxLength={200} className={field} placeholder="예: 중간보고회" value={form.title}
             onChange={(e) => set({ title: e.target.value })} /></label>
-        <label className={row}><span className="text-sm text-gray-500">종일</span>
+        <label className={row}><span className="text-sm text-mute">종일</span>
           <input type="checkbox" className="justify-self-start" checked={form.allDay} onChange={(e) => set({ allDay: e.target.checked })} /></label>
-        <label className={row}><span className="text-sm text-gray-500">시작</span>
+        <label className={row}><span className="text-sm text-mute">시작</span>
           {form.allDay
             ? <input type="date" required className={field} value={dateOnly(form.startsAt)} onChange={(e) => set({ startsAt: `${e.target.value}T00:00` })} />
             : <input type="datetime-local" required className={field} value={form.startsAt} onChange={(e) => set({ startsAt: e.target.value })} />}</label>
-        <label className={row}><span className="text-sm text-gray-500">{form.allDay ? '마지막 날' : '종료'}</span>
+        <label className={row}><span className="text-sm text-mute">{form.allDay ? '마지막 날' : '종료'}</span>
           {form.allDay
             ? <input type="date" required className={field} value={dateOnly(form.endsAt)} onChange={(e) => set({ endsAt: `${e.target.value}T00:00` })} />
             : <input type="datetime-local" required className={field} value={form.endsAt} onChange={(e) => set({ endsAt: e.target.value })} />}</label>
-        <label className={row}><span className="text-sm text-gray-500">장소</span>
+        <label className={row}><span className="text-sm text-mute">장소</span>
           <input maxLength={200} className={field} placeholder="예: 가온시청 별관 3층" value={form.location ?? ''}
             onChange={(e) => set({ location: text(e.target.value) })} /></label>
-        <label className={row}><span className="text-sm text-gray-500">상대 기관</span>
+        <label className={row}><span className="text-sm text-mute">상대 기관</span>
           <input maxLength={200} required={NEEDS_COUNTERPART.includes(form.kind)} className={field}
             placeholder="예: 가온시 환경과, 한국환경공단" value={form.counterpartOrg ?? ''}
             onChange={(e) => set({ counterpartOrg: text(e.target.value) })} /></label>
-        <label className={row}><span className="text-sm text-gray-500">목적</span>
+        <label className={row}><span className="text-sm text-mute">목적</span>
           <input maxLength={500} className={field} placeholder="예: 소규모 환경영향평가 사전 협의" value={form.purpose ?? ''}
             onChange={(e) => set({ purpose: text(e.target.value) })} /></label>
-        <label className={row}><span className="text-sm text-gray-500">분야</span>
+        <label className={row}><span className="text-sm text-mute">분야</span>
           <select className={field} value={form.disciplineId ?? ''} onChange={(e) => set({ disciplineId: e.target.value ? Number(e.target.value) : null })}>
             <option value="">공통(미지정)</option>
             {disciplines.filter((d) => d.active || d.id === form.disciplineId).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select></label>
-        <div className={`${row} items-start`}><span className="pt-1 text-sm text-gray-500">참석자</span>
+        <div className={`${row} items-start`}><span className="pt-1 text-sm text-mute">참석자</span>
           <div className="space-y-1.5">
-            <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-line px-2.5 py-1.5">
+            <div className="max-h-32 space-y-1 overflow-y-auto rounded border border-line px-2.5 py-1.5">
               {members.map((m) => (
                 <label key={m.userId} className="flex items-center gap-2 truncate text-sm">
                   <input type="checkbox" checked={attending.has(m.userId)} onChange={(e) => set({
@@ -188,9 +188,9 @@ export function EventForm({ projectId, event, defaultDate, disciplines, members,
               ))}
             </div>
             {form.attendees.filter((a) => !a.userId).map((a) => (
-              <p key={a.externalName} className="flex items-center justify-between text-sm text-gray-700">
+              <p key={a.externalName} className="flex items-center justify-between text-sm text-body">
                 <span className="truncate">{a.externalName} (외부)</span>
-                <button type="button" className="text-xs text-gray-400 hover:text-danger"
+                <button type="button" className="text-xs text-mute hover:text-danger"
                   onClick={() => set({ attendees: form.attendees.filter((x) => x !== a) })}>빼기</button>
               </p>
             ))}
@@ -203,18 +203,18 @@ export function EventForm({ projectId, event, defaultDate, disciplines, members,
             </div>
           </div>
         </div>
-        <label className={`${row} items-start`}><span className="pt-1 text-sm text-gray-500">체크리스트</span>
+        <label className={`${row} items-start`}><span className="pt-1 text-sm text-mute">체크리스트</span>
           <textarea rows={3} maxLength={4000} className={field} placeholder="한 줄에 하나 (지참 서류·준비물)" value={form.checklist ?? ''}
             onChange={(e) => set({ checklist: text(e.target.value) })} /></label>
         {!event && (
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+          <label className="flex items-center gap-2 text-sm text-body">
             <input type="checkbox" checked={milestoneOn} onChange={(e) => setMilestone(e.target.checked)} />
             공정표에도 마일스톤 추가
           </label>
         )}
         <div className="flex justify-end pt-2">
           <button type="submit" disabled={busy}
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-40">저장</button>
+            className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-40">저장</button>
         </div>
       </form>
       {event && (

@@ -30,11 +30,11 @@ const STATUS_LABEL: Record<PermitStatus, string> = {
 };
 
 function dDayClasses(dDay: number | null): string {
-  if (dDay === null) return 'bg-gray-200 text-gray-600';
+  if (dDay === null) return 'bg-line-soft text-body';
   if (dDay <= 7) return 'bg-danger text-white';
   if (dDay <= 30) return 'bg-warn text-white';
   if (dDay <= 60) return 'bg-amber-400 text-amber-900';
-  return 'bg-gray-200 text-gray-600';
+  return 'bg-line-soft text-body';
 }
 
 function dDayLabel(dDay: number | null): string {
@@ -99,16 +99,16 @@ export default function PermitDetailDrawer({
             {/* Header */}
             <div className="flex items-start justify-between border-b border-line px-6 py-4">
               <div>
-                <span className="text-sm text-gray-500">
+                <span className="text-sm text-mute">
                   {CATEGORY_LABEL[permit.category]}
                 </span>
-                <h2 className="mt-2 text-lg font-semibold text-gray-900">{permit.name}</h2>
+                <h2 className="mt-2 text-lg font-semibold text-ink">{permit.name}</h2>
               </div>
               <button
                 type="button"
                 onClick={onClose}
                 aria-label="닫기"
-                className="rounded-lg p-1.5 text-gray-500 transition hover:bg-paper hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand/30"
+                className="rounded p-1.5 text-mute transition hover:bg-paper hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
               >
                 <span className="block h-5 w-5 text-center text-lg leading-5">✕</span>
               </button>
@@ -118,7 +118,7 @@ export default function PermitDetailDrawer({
             <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
               {/* 해당 사유 */}
               <Section title="해당 사유">
-                <div className="rounded-lg bg-paper p-3 text-sm leading-relaxed text-gray-700">
+                <div className="rounded bg-paper p-3 text-sm leading-relaxed text-body">
                   {permit.reason}
                 </div>
               </Section>
@@ -126,7 +126,7 @@ export default function PermitDetailDrawer({
               {/* 관련 법령 */}
               <Section title="관련 법령">
                 {permit.regulation && (
-                  <p className="mb-2 text-xs text-gray-500">
+                  <p className="mb-2 text-xs text-mute">
                     등록 시 입력한 근거:{' '}
                     <a
                       href={permit.regulationUrl ?? undefined}
@@ -143,8 +143,8 @@ export default function PermitDetailDrawer({
 
               {/* 승인기관 */}
               <Section title="승인기관">
-                <div className="flex items-center justify-between rounded-lg border border-line px-3 py-2.5">
-                  <span className="text-sm text-gray-700">{permit.authority}</span>
+                <div className="flex items-center justify-between rounded border border-line px-3 py-2.5">
+                  <span className="text-sm text-body">{permit.authority}</span>
                   <a
                     href={permit.authorityUrl ?? undefined}
                     target="_blank"
@@ -172,11 +172,11 @@ export default function PermitDetailDrawer({
                 )}
                 <div className="mt-4 flex items-center gap-2">
                   <span
-                    className={`inline-flex items-center rounded-lg px-3 py-1.5 text-base font-bold ${dDayClasses(permit.dDay)}`}
+                    className={`inline-flex items-center rounded px-3 py-1.5 text-base font-bold ${dDayClasses(permit.dDay)}`}
                   >
                     {dDayLabel(permit.dDay)}
                   </span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm text-mute">
                     상태: {STATUS_LABEL[permit.status]}
                   </span>
                   <Help k="permitStatus" />
@@ -185,13 +185,13 @@ export default function PermitDetailDrawer({
 
               {/* 다음 액션 */}
               <Section title="다음 액션">
-                <div className="rounded-lg border border-warn/30 bg-warn/10 p-3">
+                <div className="rounded border border-warn/30 bg-warn/10 p-3">
                   <p className="text-sm text-warn">{permit.nextAction}</p>
                   <a
                     href={permit.nextActionUrl ?? undefined}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 inline-flex rounded-lg bg-warn px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-warn-hover focus:outline-none focus:ring-2 focus:ring-warn/40"
+                    className="mt-3 inline-flex rounded bg-warn px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-warn-hover focus:outline-none focus:ring-2 focus:ring-warn/40"
                   >
                     {permit.authority} 바로가기
                   </a>
@@ -218,7 +218,7 @@ export default function PermitDetailDrawer({
                 <button
                   type="button"
                   onClick={() => setHistoryOpen((v) => !v)}
-                  className="flex w-full items-center justify-between rounded-lg border border-line px-3 py-2.5 text-sm text-gray-700 transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  className="flex w-full items-center justify-between rounded border border-line px-3 py-2.5 text-sm text-body transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20"
                 >
                   <span>이력 {history.length}건</span>
                   <span aria-hidden className={`transition-transform ${historyOpen ? 'rotate-180' : ''}`}>
@@ -229,8 +229,8 @@ export default function PermitDetailDrawer({
                   <ul className="mt-2 space-y-2">
                     {history.map((h) => (
                       <li key={h.id} className="flex gap-3 text-sm">
-                        <span className="shrink-0 text-gray-400">{new Date(h.changedAt).toLocaleDateString('sv-SE')}</span>
-                        <span className="text-gray-700">{historyText(h)}</span>
+                        <span className="shrink-0 text-mute">{new Date(h.changedAt).toLocaleDateString('sv-SE')}</span>
+                        <span className="text-body">{historyText(h)}</span>
                       </li>
                     ))}
                   </ul>
@@ -288,25 +288,25 @@ function PermitDates({ permit, onSaved }: { permit: PermitItem; onSaved: (p: Per
     <div className="space-y-2">
       {DATE_FIELDS.map((f) => (
         <label key={f.key} className="flex items-center gap-3 text-sm">
-          <span className="w-16 shrink-0 text-gray-500">{f.label}</span>
+          <span className="w-16 shrink-0 text-mute">{f.label}</span>
           <input type="date" value={draft[f.key]} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
-            className="min-w-0 flex-1 rounded-lg border border-line px-3 py-1.5 text-gray-800 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
+            className="min-w-0 flex-1 rounded border border-line px-3 py-1.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
         </label>
       ))}
       <label className="flex items-center gap-3 text-sm">
-        <span className="w-16 shrink-0 text-gray-500">상태</span>
+        <span className="w-16 shrink-0 text-mute">상태</span>
         <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as PermitStatus })}
-          className="min-w-0 flex-1 rounded-lg border border-line px-3 py-1.5 text-gray-800 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
+          className="min-w-0 flex-1 rounded border border-line px-3 py-1.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
           <option value="NOT_APPLIED">미신청</option>
           <option value="IN_PROGRESS">진행중</option>
           <option value="COMPLETED">취득완료</option>
         </select>
       </label>
-      <p className="text-xs text-gray-500">날짜를 넣으면 상태는 날짜로 정해집니다.</p>
+      <p className="text-xs text-mute">날짜를 넣으면 상태는 날짜로 정해집니다.</p>
       <div className="flex items-center justify-end gap-3">
-        {message && <span className="text-xs text-gray-500">{message}</span>}
+        {message && <span className="text-xs text-mute">{message}</span>}
         <button type="button" onClick={save} disabled={!dirty || busy}
-          className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40">
+          className="rounded bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40">
           저장
         </button>
       </div>
@@ -354,25 +354,25 @@ function ReportNotes({ permit, onSaved }: { permit: PermitItem; onSaved?: (p: Pe
     <div className="space-y-2">
       {NOTE_FIELDS.map((f) => (
         <label key={f.key} className="flex items-center gap-3 text-sm">
-          <span className="w-16 shrink-0 text-gray-500">{f.label}</span>
+          <span className="w-16 shrink-0 text-mute">{f.label}</span>
           <input
             value={draft[f.key]}
             maxLength={f.max}
             placeholder={f.hint}
             readOnly={!onSaved}
             onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
-            className="min-w-0 flex-1 rounded-lg border border-line px-3 py-1.5 text-gray-800 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="min-w-0 flex-1 rounded border border-line px-3 py-1.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
           />
         </label>
       ))}
       {onSaved && (
         <div className="flex items-center justify-end gap-3">
-          {message && <span className="text-xs text-gray-500">{message}</span>}
+          {message && <span className="text-xs text-mute">{message}</span>}
           <button
             type="button"
             onClick={save}
             disabled={!dirty || busy}
-            className="rounded-lg bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40"
+            className="rounded bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40"
           >
             저장
           </button>
@@ -387,7 +387,7 @@ function ReportNotes({ permit, onSaved }: { permit: PermitItem; onSaved?: (p: Pe
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section>
-      <h3 className="mb-2 text-sm font-semibold text-gray-900">{title}</h3>
+      <h3 className="mb-2 text-sm font-semibold text-ink">{title}</h3>
       {children}
     </section>
   );
@@ -396,12 +396,12 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 function Milestone({ label, value }: { label: string; value: string | null }) {
   return (
     <div className="flex flex-1 flex-col items-center text-center">
-      <span className="text-xs text-gray-400">{label}</span>
-      <span className="mt-1 text-sm font-medium text-gray-700">{value ?? '—'}</span>
+      <span className="text-xs text-mute">{label}</span>
+      <span className="mt-1 text-sm font-medium text-body">{value ?? '—'}</span>
     </div>
   );
 }
 
 function Arrow() {
-  return <span className="px-1 text-gray-300" aria-hidden>→</span>;
+  return <span className="px-1 text-line" aria-hidden>→</span>;
 }

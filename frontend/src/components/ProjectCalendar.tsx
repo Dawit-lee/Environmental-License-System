@@ -39,16 +39,16 @@ export default function ProjectCalendar({ projectId, disciplines, members, onOpe
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-1.5 text-xs text-gray-600">
+        <label className="flex items-center gap-1.5 text-xs text-body">
           <input type="checkbox" checked={showDeadlines} onChange={(e) => setShowDeadlines(e.target.checked)} />
           인허가 기한 표시
         </label>
-        <p className="text-xs text-gray-500">이벤트 {data.events.length}건 · 마일스톤 {data.milestones.length}건</p>
+        <p className="text-xs text-mute">이벤트 {data.events.length}건 · 마일스톤 {data.milestones.length}건</p>
         <button type="button" onClick={() => setEditing('new')}
-          className="ml-auto rounded-lg bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover">+ 이벤트</button>
+          className="ml-auto rounded bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover">+ 이벤트</button>
       </div>
-      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
-      <Suspense fallback={<div className="h-[640px] rounded-xl border border-line bg-white" />}>
+      {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      <Suspense fallback={<div className="h-[640px] rounded border border-line bg-white" />}>
         <ScheduleCalendar data={data} showDeadlines={showDeadlines} showProject={false}
           onRange={(from, to) => setRange([from, to])}
           onOpen={(entry) => (entry.type === 'milestone' ? onOpenItem(entry.milestone.id) : setOpen(entry))} />

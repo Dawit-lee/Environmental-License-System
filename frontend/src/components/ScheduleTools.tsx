@@ -13,12 +13,12 @@ import { useEscape } from './useEscape';
 // header (title + one line), sections, and a footer with a summary on the left and the action that says what it does.
 // ---------------------------------------------------------------------------
 
-export const btn = 'rounded-lg border border-line bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand disabled:opacity-40';
-export const primary = 'rounded-lg bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40';
-export const segBtn = (on: boolean) => `px-3 py-1.5 text-xs ${on ? 'bg-brand font-semibold text-white' : 'text-gray-600 hover:bg-paper'}`;
+export const btn = 'rounded border border-line bg-white px-3 py-1.5 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
+export const primary = 'rounded bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40';
+export const segBtn = (on: boolean) => `px-3 py-1.5 text-xs ${on ? 'bg-brand font-semibold text-white' : 'text-body hover:bg-paper'}`;
 const cell = 'max-w-[220px] truncate px-3 py-2';
 const head = 'px-3 py-2 font-medium';
-const dateInput = 'rounded-lg border border-line bg-white px-2 py-1 text-sm tabular-nums outline-none focus:border-brand';
+const dateInput = 'rounded border border-line bg-white px-2 py-1 text-sm tabular-nums outline-none focus:border-brand';
 const md = (d: string | null | undefined) => (d ? d.slice(2).replaceAll('-', '.') : '미정');
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -32,17 +32,17 @@ export function Modal({ title, subtitle, onClose, children, footer, wide, size }
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10">
       <div role="dialog" aria-modal="true" aria-label={title}
-        className={`w-full ${WIDTH[size ?? (wide ? 'lg' : 'md')]} rounded-xl bg-white shadow-xl`}>
+        className={`w-full ${WIDTH[size ?? (wide ? 'lg' : 'md')]} rounded bg-white shadow-xl`}>
         <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-xs text-gray-400">{subtitle}</p>}
+            <h2 className="text-lg font-semibold text-ink">{title}</h2>
+            {subtitle && <p className="mt-0.5 text-xs text-mute">{subtitle}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-gray-400 hover:text-gray-700">×</button>
+          <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-mute hover:text-body">×</button>
         </div>
         <div className="space-y-5 px-6 py-5">{children}</div>
         {footer && (
-          <div className="flex flex-wrap items-center gap-2 rounded-b-xl border-t border-line bg-paper px-6 py-3.5">{footer}</div>
+          <div className="flex flex-wrap items-center gap-2 rounded-b border-t border-line bg-paper px-6 py-3.5">{footer}</div>
         )}
       </div>
     </div>
@@ -51,13 +51,13 @@ export function Modal({ title, subtitle, onClose, children, footer, wide, size }
 
 /** Left side of a dialog footer. */
 export const Summary = ({ children }: { children?: ReactNode }) =>
-  <span className="mr-auto text-sm tabular-nums text-gray-500">{children}</span>;
+  <span className="mr-auto text-sm tabular-nums text-mute">{children}</span>;
 
 export function Section({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <section className="space-y-2.5">
-      <h3 className="flex items-baseline gap-2 text-sm font-semibold text-gray-900">
-        {title}{hint && <span className="text-xs font-normal text-gray-400">{hint}</span>}
+      <h3 className="flex items-baseline gap-2 text-sm font-semibold text-ink">
+        {title}{hint && <span className="text-xs font-normal text-mute">{hint}</span>}
       </h3>
       {children}
     </section>
@@ -67,11 +67,11 @@ export function Section({ title, hint, children }: { title: string; hint?: React
 /** Label / number boxes in one row (기준 확정). */
 function Stats({ items }: { items: [ReactNode, string, boolean?][] }) {
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)_minmax(0,1fr)] divide-x divide-line rounded-lg border border-line">
+    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)_minmax(0,1fr)] divide-x divide-line rounded border border-line">
       {items.map(([value, label, bad], i) => (
         <div key={i} className="min-w-0 px-4 py-3">
-          <div className={`truncate text-base font-semibold tabular-nums ${bad ? 'text-danger' : 'text-gray-900'}`}>{value}</div>
-          <div className="text-xs text-gray-400">{label}</div>
+          <div className={`truncate text-base font-semibold tabular-nums ${bad ? 'text-danger' : 'text-ink'}`}>{value}</div>
+          <div className="text-xs text-mute">{label}</div>
         </div>
       ))}
     </div>
@@ -79,7 +79,7 @@ function Stats({ items }: { items: [ReactNode, string, boolean?][] }) {
 }
 
 export const Alert = ({ error }: { error: string | null }) =>
-  error ? <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p> : null;
+  error ? <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p> : null;
 
 /** Runs one async action with busy/error state. */
 function useRun() {
@@ -149,36 +149,36 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
       </>}>
       <Alert error={error} />
       <div className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="w-16 text-gray-500">주 기준일</span>
-        <div className="inline-flex overflow-hidden rounded-lg border border-line bg-white">
+        <span className="w-16 text-mute">주 기준일</span>
+        <div className="inline-flex overflow-hidden rounded border border-line bg-white">
           {(['KICKOFF', 'SUBMISSION'] as const).map((b) => (
             <button key={b} type="button" aria-pressed={schedule.base === b} disabled={busy} className={segBtn(schedule.base === b)}
               onClick={() => schedule.base !== b && run(() => setBase(projectId, b).then(onChanged))}>{ANCHOR_LABEL[b]}</button>
           ))}
         </div>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-mute">
           {schedule.base === 'SUBMISSION' ? '새 항목의 기본값이고, 간트 축에 D-day로 표시됩니다.' : '새 항목의 기본값입니다.'}</span>
       </div>
       <table className="w-full whitespace-nowrap text-left text-sm">
-        <thead className="text-xs text-gray-400">
+        <thead className="text-xs text-mute">
           <tr><th className="py-1.5 pr-3 font-normal">기준일</th><th className="py-1.5 pr-3 font-normal">날짜</th>
             <th className="py-1.5 pr-3 font-normal">쓰는 항목</th><th className="py-1.5 font-normal">메모</th></tr>
         </thead>
         <tbody className="divide-y divide-line-soft">
           {ANCHORS.map((a) => (
             <tr key={a}>
-              <td className={`py-1.5 pr-3 ${changed.includes(a) ? 'font-semibold text-brand' : 'text-gray-700'}`}>
-                {ANCHOR_LABEL[a]}{projectDate(a) && <span className="ml-1 text-xs font-normal text-gray-400">프로젝트</span>}</td>
+              <td className={`py-1.5 pr-3 ${changed.includes(a) ? 'font-semibold text-brand' : 'text-body'}`}>
+                {ANCHOR_LABEL[a]}{projectDate(a) && <span className="ml-1 text-xs font-normal text-mute">프로젝트</span>}</td>
               <td className="py-1.5 pr-3">
                 <input type="date" aria-label={`${ANCHOR_LABEL[a]} 날짜`} value={dates[a]} className={dateInput}
                   onChange={(e) => setDates({ ...dates, [a]: e.target.value })} />
               </td>
-              <td className={`py-1.5 pr-3 tabular-nums ${uses(a) ? 'text-gray-600' : 'text-gray-300'}`}>{uses(a) ? `${uses(a)}건` : '—'}</td>
+              <td className={`py-1.5 pr-3 tabular-nums ${uses(a) ? 'text-body' : 'text-mute'}`}>{uses(a) ? `${uses(a)}건` : '—'}</td>
               <td className="py-1.5">
                 {!projectDate(a) && (
                   <input aria-label={`${ANCHOR_LABEL[a]} 메모`} maxLength={200} value={notes[a]} placeholder="메모" disabled={!dates[a]}
                     onChange={(e) => setNotes({ ...notes, [a]: e.target.value })}
-                    className="w-full min-w-32 rounded-lg border border-line px-2 py-1 text-sm outline-none focus:border-brand disabled:bg-paper" />
+                    className="w-full min-w-32 rounded border border-line px-2 py-1 text-sm outline-none focus:border-brand disabled:bg-paper" />
                 )}
               </td>
             </tr>
@@ -187,31 +187,31 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
       </table>
 
       {!!shown.length && (
-        <div className="space-y-3 rounded-lg border border-brand p-4">
+        <div className="space-y-3 rounded border border-brand p-4">
           {shown.map((p) => {
             const d = p.from ? differenceInCalendarDays(parseISO(p.to), parseISO(p.from)) : 0;
             return (
-              <p key={p.anchor} className="text-sm text-gray-700">
+              <p key={p.anchor} className="text-sm text-body">
                 <b className="text-brand">{ANCHOR_LABEL[p.anchor]} {md(p.from)} → {md(p.to)}</b>
-                {d !== 0 && <span className="ml-2 text-xs text-gray-400">{d > 0 ? `${d}일 늦춤` : `${-d}일 당김`}</span>}
+                {d !== 0 && <span className="ml-2 text-xs text-mute">{d > 0 ? `${d}일 늦춤` : `${-d}일 당김`}</span>}
               </p>
             );
           })}
-          <p className="text-xs leading-relaxed text-gray-500">
+          <p className="text-xs leading-relaxed text-mute">
             {moves.length ? <>이 날짜를 쓰는 미완료 항목 {moves.length}건이 함께 움직입니다.<br /></> : <>이 날짜를 쓰는 미완료 항목이 없습니다. 날짜만 바뀝니다.<br /></>}
             완료·고정 항목과 기준 계획은 그대로입니다.
           </p>
           {!!moves.length && (
-            <div className="max-h-52 overflow-y-auto rounded-lg border border-line">
+            <div className="max-h-52 overflow-y-auto rounded border border-line">
               <table className="w-full whitespace-nowrap text-left text-sm">
-                <thead className="sticky top-0 bg-paper text-xs text-gray-500">
+                <thead className="sticky top-0 bg-paper text-xs text-body">
                   <tr><th className={head}>항목</th><th className={head}>지금</th><th className={head}>이동 후</th></tr>
                 </thead>
                 <tbody className="divide-y divide-line-soft">
                   {moves.map((m) => (
                     <tr key={m.id}>
                       <td className={cell} title={m.title}>{m.title}</td>
-                      <td className="px-3 py-2 tabular-nums text-gray-400">{md(m.fromEnd)}</td>
+                      <td className="px-3 py-2 tabular-nums text-mute">{md(m.fromEnd)}</td>
                       <td className="px-3 py-2 tabular-nums">{md(m.toEnd)}</td>
                     </tr>
                   ))}
@@ -258,9 +258,9 @@ export function BaselineDialog({ projectId, schedule, onClose, onDone }: {
           <Stats items={[[`기준 ${schedule.baselineNo}차`, '지금 기준'], [`${late.length}건`, '기준보다 늦어짐', late.length > 0], [`${early}건`, '기준보다 당겨짐']]} />
           {!!late.length && (
             <Section title="늦어진 항목">
-              <div className="max-h-56 overflow-auto rounded-lg border border-line">
+              <div className="max-h-56 overflow-auto rounded border border-line">
                 <table className="w-full whitespace-nowrap text-left text-sm">
-                  <thead className="sticky top-0 bg-paper text-xs text-gray-500">
+                  <thead className="sticky top-0 bg-paper text-xs text-body">
                     <tr><th className={head}>항목</th><th className={head}>기준</th><th className={head}>지금</th>
                       <th className={`${head} text-right`}>차이</th><th className={head}>사유</th></tr>
                   </thead>
@@ -268,7 +268,7 @@ export function BaselineDialog({ projectId, schedule, onClose, onDone }: {
                     {late.map((i) => (
                       <tr key={i.id}>
                         <td className={cell} title={i.title}>{i.title}</td>
-                        <td className="px-3 py-2 tabular-nums text-gray-400">{md(i.baselineEnd)}</td>
+                        <td className="px-3 py-2 tabular-nums text-mute">{md(i.baselineEnd)}</td>
                         <td className="px-3 py-2 tabular-nums">{md(i.endDate)}</td>
                         <td className="px-3 py-2 text-right tabular-nums text-danger">+{i.slipDays}일</td>
                         <td className={cell} title={i.delayReason ?? ''}>{i.delayReason ?? '—'}</td>
@@ -279,24 +279,24 @@ export function BaselineDialog({ projectId, schedule, onClose, onDone }: {
               </div>
             </Section>
           )}
-          <p className="text-sm leading-relaxed text-gray-600">
+          <p className="text-sm leading-relaxed text-body">
             {next}차로 확정하면 지금 날짜가 새 기준이 됩니다.<br />{schedule.baselineNo}차 기준과 지연 이력은 남습니다.</p>
           <Section title="재확정 사유" hint="필수">
             <input aria-label="재확정 사유" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)}
               placeholder="예: 발주처 과업 변경 협의 결과 반영"
-              className="w-full rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand" />
+              className="w-full rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand" />
           </Section>
         </>
       ) : (
         <>
           <Stats items={[[`${items.length}건`, '항목'], [first ? `${md(first)} ~ ${md(last)}` : '—', '기간'], [`${undated}건`, '날짜 미정', undated > 0]]} />
           {undated > 0 && (
-            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm leading-relaxed text-danger">
+            <p className="rounded bg-red-50 px-3 py-2 text-sm leading-relaxed text-danger">
               날짜 미정 {undated}건은 기준 날짜 없이 저장됩니다.
               {!!missing.length && <><br />{missing.join('·')}이 비어 있어서입니다. [기준일]에서 넣으면 계산됩니다.</>}
             </p>
           )}
-          <p className="text-sm leading-relaxed text-gray-600">
+          <p className="text-sm leading-relaxed text-body">
             지금 일정을 기준 1차로 저장합니다.<br />이후 기준보다 늦추면 연기 사유를 받습니다.<br />지연 현황은 이 기준과 비교합니다.</p>
         </>
       )}
@@ -330,16 +330,16 @@ export function DelayTable({ projectId, baselined }: { projectId: number; baseli
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">기준 계획보다 늦은 항목 {rows.length}건 · 지연 일수 순</p>
+        <p className="text-sm text-mute">기준 계획보다 늦은 항목 {rows.length}건 · 지연 일수 순</p>
         <button type="button" className={btn} disabled={!rows.length} onClick={copy}>{copied ? '복사됨' : '주간보고용 복사'}</button>
       </div>
       {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-line bg-white px-6 py-12 text-center text-sm text-gray-500">
+        <p className="rounded border border-dashed border-line bg-white px-6 py-12 text-center text-sm text-mute">
           {baselined ? '지연된 항목이 없습니다.' : '기준을 확정하면 기준보다 늦어진 항목이 여기에 나옵니다. 계획 종료일이 지난 항목은 간트의 "기한 경과"로 봅니다.'}</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-line bg-white">
+        <div className="overflow-x-auto rounded border border-line bg-white">
           <table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className="bg-paper text-xs text-gray-500">
+            <thead className="bg-paper text-xs text-body">
               <tr>
                 <th className={head}>분야</th><th className={head}>항목</th><th className={head}>담당</th>
                 <th className={head}>기준 종료</th><th className={head}>현재 종료</th><th className={head}>실적</th>
@@ -352,9 +352,9 @@ export function DelayTable({ projectId, baselined }: { projectId: number; baseli
                   <td className={cell}>{r.disciplineName ?? '공통'}</td>
                   <td className={cell} title={r.title}>{r.title}</td>
                   <td className={cell}>{r.ownerName ?? '—'}</td>
-                  <td className="px-3 py-2 text-gray-500">{r.baselineEnd ?? '—'}</td>
+                  <td className="px-3 py-2 text-mute">{r.baselineEnd ?? '—'}</td>
                   <td className="px-3 py-2">{r.endDate}</td>
-                  <td className="px-3 py-2 text-gray-500">{r.actualEnd ?? '—'}</td>
+                  <td className="px-3 py-2 text-mute">{r.actualEnd ?? '—'}</td>
                   <td className="px-3 py-2 text-right text-danger">+{r.delayDays}일</td>
                   <td className={cell} title={r.reason ?? ''}>{r.reason ?? '—'}</td>
                   <td className="px-3 py-2 text-right">{r.successors || '—'}</td>
@@ -432,7 +432,7 @@ function MiniTimeline({ lanes, marks, relative }: { lanes: Lane[]; marks: { labe
   // a tick label right under a base-date label would be hidden by it
   const near = (s: string) => marks.some((m) => Math.abs(x(s) - x(m.date)) < 0.15);
   return (
-    <div className="overflow-x-auto rounded-lg border border-line">
+    <div className="overflow-x-auto rounded border border-line">
       <div className="relative min-w-[600px] pb-1.5">
         <div className="pointer-events-none absolute inset-y-0 left-28 right-4">
           {ticks.map(([s]) => <div key={s} className="absolute bottom-1.5 top-6 border-l border-dashed border-[#EEECE6]" style={{ left: pct(s) }} />)}
@@ -444,11 +444,11 @@ function MiniTimeline({ lanes, marks, relative }: { lanes: Lane[]; marks: { labe
           ))}
         </div>
         <div className="relative ml-28 mr-4 h-6 border-b border-line">
-          {ticks.filter(([s]) => !near(s)).map(([s, l]) => <span key={s} className="absolute top-1.5 -translate-x-1/2 whitespace-nowrap text-[11px] tabular-nums text-gray-400" style={{ left: pct(s) }}>{l}</span>)}
+          {ticks.filter(([s]) => !near(s)).map(([s, l]) => <span key={s} className="absolute top-1.5 -translate-x-1/2 whitespace-nowrap text-[11px] tabular-nums text-mute" style={{ left: pct(s) }}>{l}</span>)}
         </div>
         {lanes.map((l) => (
           <div key={l.name} className="flex h-[22px] items-center">
-            <span className="w-28 shrink-0 truncate pl-3 text-[11.5px] text-gray-500">{l.name}</span>
+            <span className="w-28 shrink-0 truncate pl-3 text-[11.5px] text-mute">{l.name}</span>
             <div className="relative mr-4 h-full flex-1">
               {l.items.map((i) => i.kind === 'MILESTONE'
                 ? <span key={i.id} title={`${i.title}${relative ? '' : ` ${md(i.end)}`}`}
@@ -536,14 +536,14 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
             const sel = t.id === chosen;
             return (
               <button key={t.id} type="button" role="radio" aria-checked={sel} onClick={() => choose(t)}
-                className={`grid gap-1.5 rounded-xl border bg-white px-4 py-3.5 text-left ${sel ? 'border-brand ring-1 ring-brand' : 'border-line hover:border-[#B9C6D3]'}`}>
-                <span className="flex items-center gap-2 text-sm font-semibold text-gray-900">
-                  <span className={`size-3.5 shrink-0 rounded-full ${sel ? 'border-4 border-brand' : 'border-[1.5px] border-gray-300'}`} />{t.name}
+                className={`grid gap-1.5 rounded border bg-white px-4 py-3.5 text-left ${sel ? 'border-brand ring-1 ring-brand' : 'border-line hover:border-[#B9C6D3]'}`}>
+                <span className="flex items-center gap-2 text-sm font-semibold text-ink">
+                  <span className={`size-3.5 shrink-0 rounded-full ${sel ? 'border-4 border-brand' : 'border-[1.5px] border-line'}`} />{t.name}
                 </span>
                 {TEMPLATE_USE[t.code ?? ''] && (
-                  <span className="text-xs leading-relaxed text-gray-500">{TEMPLATE_USE[t.code ?? ''].map((l) => <span key={l} className="block">{l}</span>)}</span>
+                  <span className="text-xs leading-relaxed text-mute">{TEMPLATE_USE[t.code ?? ''].map((l) => <span key={l} className="block">{l}</span>)}</span>
                 )}
-                <span className="text-xs tabular-nums text-gray-400">
+                <span className="text-xs tabular-nums text-mute">
                   {t.items.length}개 항목 · {new Set(t.items.map((i) => i.disciplineCode)).size}개 분야 · {span(t)}</span>
               </button>
             );
@@ -556,21 +556,21 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
           <Section title="기준일" hint="여기서 넣으면 프로젝트 기준일로 저장됩니다">
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
               {anchors.map((a) => (
-                <label key={a} className="flex items-center gap-2.5 text-gray-700">{ANCHOR_LABEL[a]}
+                <label key={a} className="flex items-center gap-2.5 text-body">{ANCHOR_LABEL[a]}
                   <input type="date" aria-label={`${ANCHOR_LABEL[a]} 날짜`} value={dates[a]}
-                    className={`${dateInput} ${dates[a] ? '' : 'border-dashed text-gray-400'}`}
+                    className={`${dateInput} ${dates[a] ? '' : 'border-dashed text-mute'}`}
                     onChange={(e) => setDates({ ...dates, [a]: e.target.value || (saved(a)?.date ?? '') })} />
                 </label>
               ))}
-              <span className="text-xs tabular-nums text-gray-500">
+              <span className="text-xs tabular-nums text-mute">
                 {!missing.length ? (first ? `${md(first)} ~ ${md(last)} · ${differenceInCalendarDays(parseISO(last!), parseISO(first)) + 1}일` : '')
                   : '비워 두면 날짜 미정으로 들어가고, 나중에 [기준일]에서 넣으면 계산됩니다.'}</span>
             </div>
-            {moving > 0 && <p className="text-xs text-gray-500">이 기준일을 쓰는 기존 항목 {moving}건도 함께 움직입니다.</p>}
+            {moving > 0 && <p className="text-xs text-mute">이 기준일을 쓰는 기존 항목 {moving}건도 함께 움직입니다.</p>}
           </Section>
 
           {schedule.items.length > 0 && (
-            <p className="rounded-lg bg-paper px-3.5 py-2.5 text-xs leading-relaxed text-gray-600">
+            <p className="rounded bg-paper px-3.5 py-2.5 text-xs leading-relaxed text-body">
               이 프로젝트에 이미 항목 {schedule.items.length}건이 있습니다.<br />기존 항목은 그대로 두고 아래 항목만 더합니다.
               {items.some((i) => existing.has(i.title.trim())) && <><br />이름이 같은 항목은 빼 두었습니다. 넣으려면 다시 체크하세요.</>}
             </p>
@@ -578,7 +578,7 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
 
           <Section title="일정 미리보기">
             {missing.length && !relative
-              ? <p className="rounded-lg border border-line px-4 py-6 text-center text-xs text-gray-400">{missing.map((a) => ANCHOR_LABEL[a]).join('·')}을 넣으면 일정 막대가 보입니다.</p>
+              ? <p className="rounded border border-line px-4 py-6 text-center text-xs text-mute">{missing.map((a) => ANCHOR_LABEL[a]).join('·')}을 넣으면 일정 막대가 보입니다.</p>
               : <MiniTimeline relative={relative}
                 marks={anchors.map((a) => ({ label: SHORT[a], date: tlDates[a] }))}
                 lanes={groups.map((g) => ({
@@ -588,32 +588,32 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
           </Section>
 
           <Section title="추가할 항목" hint="체크를 풀면 빠집니다">
-            <div className="max-h-80 overflow-auto rounded-lg border border-line">
+            <div className="max-h-80 overflow-auto rounded border border-line">
               {groups.map((g) => {
                 const gi = items.filter((i) => i.disciplineCode === g);
                 const n = gi.filter((i) => !off.has(i.id)).length;
                 return (
                   <div key={g ?? ''}>
-                    <label className="sticky top-0 z-10 flex items-center gap-2.5 border-b border-line bg-paper px-3.5 py-2 text-xs font-semibold text-gray-700">
+                    <label className="sticky top-0 z-10 flex items-center gap-2.5 border-b border-line bg-paper px-3.5 py-2 text-xs font-semibold text-body">
                       <input type="checkbox" checked={n === gi.length} aria-label={`${discName(g)} 전체`}
                         ref={(el) => { if (el) el.indeterminate = n > 0 && n < gi.length; }}
                         onChange={(e) => toggle(gi.map((i) => i.id), e.target.checked)} />
                       <span className="flex-1">{discName(g)}</span>
-                      <span className="font-normal tabular-nums text-gray-400">{n}/{gi.length}</span>
+                      <span className="font-normal tabular-nums text-mute">{n}/{gi.length}</span>
                     </label>
                     {gi.map((i) => {
                       const r = resolveTemplateItem(i, dates[i.anchor]);
                       const out = off.has(i.id);
                       return (
-                        <label key={i.id} className={`grid grid-cols-[16px_14px_minmax(0,1fr)_auto] items-center gap-2.5 whitespace-nowrap border-b border-line-soft px-3.5 py-1.5 text-sm last:border-b-0 sm:grid-cols-[16px_14px_minmax(0,1fr)_150px_64px] ${out ? 'text-gray-400' : 'text-gray-800'}`}>
+                        <label key={i.id} className={`grid grid-cols-[16px_14px_minmax(0,1fr)_auto] items-center gap-2.5 whitespace-nowrap border-b border-line-soft px-3.5 py-1.5 text-sm last:border-b-0 sm:grid-cols-[16px_14px_minmax(0,1fr)_150px_64px] ${out ? 'text-mute' : 'text-ink'}`}>
                           <input type="checkbox" checked={!out} onChange={(e) => toggle([i.id], e.target.checked)} />
                           <span className="flex justify-center"><KindMark kind={i.kind} faded={out} /></span>
                           <span className="truncate" title={i.title}>
-                            <span className={out ? 'line-through decoration-gray-300' : ''}>{i.title}</span>
-                            {existing.has(i.title.trim()) && <span className="ml-1.5 text-xs text-gray-400">이미 있음</span>}
+                            <span className={out ? 'line-through decoration-line' : ''}>{i.title}</span>
+                            {existing.has(i.title.trim()) && <span className="ml-1.5 text-xs text-mute">이미 있음</span>}
                           </span>
-                          <span className="hidden text-xs tabular-nums text-gray-500 sm:block">{offsetText(i)}</span>
-                          <span className={`text-right tabular-nums ${r && !out ? '' : 'text-gray-400'}`}>{md(r?.end)}</span>
+                          <span className="hidden text-xs tabular-nums text-mute sm:block">{offsetText(i)}</span>
+                          <span className={`text-right tabular-nums ${r && !out ? '' : 'text-mute'}`}>{md(r?.end)}</span>
                         </label>
                       );
                     })}
@@ -662,19 +662,19 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
         <button type="button" className={primary} disabled={busy || !ok} onClick={add}>{ok ? `${ok}건 추가` : '추가'}</button>
       </>}>
       <div>
-        <div className="grid grid-cols-6 divide-x divide-line rounded-t-lg border border-b-0 border-line bg-paper text-xs text-gray-500">
+        <div className="grid grid-cols-6 divide-x divide-line rounded-t border border-b-0 border-line bg-paper text-xs text-body">
           {PASTE_COLS.map((c) => <span key={c} className="truncate px-2.5 py-1.5">{c}</span>)}
         </div>
         <textarea aria-label="붙여 넣을 표" rows={6} value={text} spellCheck={false} onChange={(e) => setText(e.target.value)}
-          className="block w-full resize-y whitespace-pre rounded-b-lg border border-line px-3 py-2 font-mono text-xs leading-relaxed outline-none focus:border-brand"
+          className="block w-full resize-y whitespace-pre rounded-b border border-line px-3 py-2 font-mono text-xs leading-relaxed outline-none focus:border-brand"
           placeholder={'공정·기계\tP&ID 2차\t2027-03-02\t2027-04-13\t이가온\t15'} />
       </div>
       <Alert error={error} />
       {result && (
         <Section title="미리보기" hint={`${result.rows.length}행 · ${result.errors ? `오류 ${result.errors}행` : '모두 정상'}`}>
-          <div className="max-h-72 overflow-auto rounded-lg border border-line">
+          <div className="max-h-72 overflow-auto rounded border border-line">
             <table className="w-full whitespace-nowrap text-left text-sm">
-              <thead className="sticky top-0 bg-paper text-xs text-gray-500">
+              <thead className="sticky top-0 bg-paper text-xs text-body">
                 <tr>
                   <th className={`${head} text-right`}>행</th><th className={head}>분야</th><th className={head}>작업</th><th className={head}>시작</th>
                   <th className={head}>종료</th><th className={head}>담당</th><th className={`${head} text-right`}>보할</th><th className={head}>확인</th>
@@ -683,14 +683,14 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
               <tbody className="divide-y divide-line-soft">
                 {result.rows.map((r) => (
                   <tr key={r.line} className={r.error ? 'bg-red-50' : ''}>
-                    <td className="px-3 py-2 text-right tabular-nums text-gray-400">{r.line}</td>
+                    <td className="px-3 py-2 text-right tabular-nums text-mute">{r.line}</td>
                     <td className={cell}>{r.discipline || '공통'}</td>
-                    <td className={cell} title={r.title}>{r.title}{r.kind === 'MILESTONE' && !r.error && <span className="ml-1.5 text-xs text-gray-400">마일스톤</span>}</td>
+                    <td className={cell} title={r.title}>{r.title}{r.kind === 'MILESTONE' && !r.error && <span className="ml-1.5 text-xs text-mute">마일스톤</span>}</td>
                     <td className="px-3 py-2 tabular-nums">{r.kind === 'TASK' ? md(r.start) : ''}</td>
                     <td className="px-3 py-2 tabular-nums">{r.end ? md(r.end) : ''}</td>
                     <td className={cell}>{r.owner}</td>
                     <td className="px-3 py-2 text-right tabular-nums">{r.weight ?? ''}</td>
-                    <td className={`min-w-48 whitespace-normal px-3 py-2 ${r.error ? 'text-danger' : 'text-gray-400'}`}>{r.error ?? '정상'}</td>
+                    <td className={`min-w-48 whitespace-normal px-3 py-2 ${r.error ? 'text-danger' : 'text-mute'}`}>{r.error ?? '정상'}</td>
                   </tr>
                 ))}
               </tbody>

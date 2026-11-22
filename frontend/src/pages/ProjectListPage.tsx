@@ -26,7 +26,7 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 const STATUS_BADGE: Record<ProjectStatus, string> = {
   IN_PROGRESS: 'text-brand',
   COMPLETED: 'text-ok',
-  ON_HOLD: 'text-gray-600',
+  ON_HOLD: 'text-body',
 };
 
 type SortKey = 'name' | 'facility' | 'team' | 'pm' | 'em' | 'status' | 'progress' | 'nearExpiry' | 'location';
@@ -124,7 +124,7 @@ export default function ProjectListPage() {
   const toggleSort = (key: SortKey) => setSort((s) => ({ key, asc: s.key === key ? !s.asc : true }));
 
   const selectClasses =
-    'rounded-lg border border-line bg-white px-3 py-2 text-sm text-gray-700 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
+    'rounded border border-line bg-white px-3 py-2 text-sm text-body outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
   return (
     <div className="min-h-full bg-paper">
@@ -135,7 +135,7 @@ export default function ProjectListPage() {
           <button
             type="button"
             onClick={() => navigate('/projects/new')}
-            className="rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
+            className="rounded bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
           >
             + 새 프로젝트
           </button>
@@ -148,7 +148,7 @@ export default function ProjectListPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="프로젝트명 또는 위치 검색"
-            className="min-w-[220px] flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="min-w-[220px] flex-1 rounded border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20"
           />
           <select aria-label="부서/팀" value={scope ?? 'ME'} onChange={(e) => setScope(e.target.value)} className={selectClasses}>
             <option value="ME">내 프로젝트</option>
@@ -190,23 +190,23 @@ export default function ProjectListPage() {
         {error ? (
           <p className="mt-16 text-center text-sm text-danger">{error}</p>
         ) : projects === null ? (
-          <p className="mt-16 text-center text-sm text-gray-400">불러오는 중…</p>
+          <p className="mt-16 text-center text-sm text-mute">불러오는 중…</p>
         ) : projects.length === 0 ? (
           <div className="mt-16 flex flex-col items-center justify-center text-center">
             <div className="flex h-24 w-24 items-center justify-center rounded-full bg-line text-4xl">📁</div>
-            <p className="mt-4 text-sm text-gray-500">등록된 프로젝트가 없습니다</p>
+            <p className="mt-4 text-sm text-mute">등록된 프로젝트가 없습니다</p>
             <button
               type="button"
               onClick={() => navigate('/projects/new')}
-              className="mt-4 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
+              className="mt-4 rounded bg-brand px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
             >
               첫 프로젝트 추가하기
             </button>
           </div>
         ) : (
-          <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+          <div className="mt-6 overflow-x-auto rounded border border-line bg-white shadow-sm">
             <table className="w-full min-w-[640px] whitespace-nowrap xl:min-w-[1080px] text-left text-sm">
-              <thead className="bg-paper text-xs text-gray-500">
+              <thead className="bg-paper text-xs text-body">
                 <tr>
                   {COLUMNS.map((c) => (
                     <th
@@ -214,9 +214,9 @@ export default function ProjectListPage() {
                       aria-sort={sort.key === c.key ? (sort.asc ? 'ascending' : 'descending') : 'none'}
                       className={`px-4 py-3 font-medium ${c.className ?? ''}`}
                     >
-                      <button type="button" onClick={() => toggleSort(c.key)} className="inline-flex items-center gap-1 hover:text-gray-800">
+                      <button type="button" onClick={() => toggleSort(c.key)} className="inline-flex items-center gap-1 hover:text-ink">
                         {c.label}
-                        <span aria-hidden className={sort.key === c.key ? 'text-brand' : 'text-gray-300'}>
+                        <span aria-hidden className={sort.key === c.key ? 'text-brand' : 'text-line'}>
                           {sort.key === c.key && !sort.asc ? '▼' : '▲'}
                         </span>
                       </button>
@@ -238,13 +238,13 @@ export default function ProjectListPage() {
                           to={`/projects/${p.id}`}
                           onClick={(e) => e.stopPropagation()}
                           title={p.name}
-                          className="block truncate font-medium text-gray-800 hover:text-brand hover:underline"
+                          className="block truncate font-medium text-ink hover:text-brand hover:underline"
                         >
                           {p.name}
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        <span className="whitespace-nowrap text-gray-700">
+                        <span className="whitespace-nowrap text-body">
                           {FACILITY_LABEL[p.facilityType]}
                         </span>
                       </td>
@@ -261,10 +261,10 @@ export default function ProjectListPage() {
                           <div className="h-2 w-24 overflow-hidden rounded-full bg-line">
                             <div className="h-full rounded-full bg-ok" style={{ width: `${progress}%` }} />
                           </div>
-                          <span className="text-xs text-gray-500">{p.acquiredCount}/{p.permitCount}</span>
+                          <span className="text-xs text-mute">{p.acquiredCount}/{p.permitCount}</span>
                         </div>
                       </td>
-                      <td className={`px-4 py-3 text-right ${p.nearExpiryCount ? 'font-semibold text-danger' : 'text-gray-400'}`}>
+                      <td className={`px-4 py-3 text-right ${p.nearExpiryCount ? 'font-semibold text-danger' : 'text-mute'}`}>
                         {p.nearExpiryCount || '—'}
                       </td>
                       <Cell text={p.location} max={`max-w-[240px] ${WIDE}`} muted />
@@ -273,7 +273,7 @@ export default function ProjectListPage() {
                 })}
               </tbody>
             </table>
-            {rows.length === 0 && <p className="py-10 text-center text-sm text-gray-400">조건에 맞는 프로젝트가 없습니다</p>}
+            {rows.length === 0 && <p className="py-10 text-center text-sm text-mute">조건에 맞는 프로젝트가 없습니다</p>}
           </div>
         )}
       </div>
@@ -284,7 +284,7 @@ export default function ProjectListPage() {
 /** One-line cell: long text is cut with … and shown in full on hover. */
 function Cell({ text, max, muted }: { text: string; max: string; muted?: boolean }) {
   return (
-    <td className={`${max} px-4 py-3 ${muted ? 'text-gray-500' : 'text-gray-700'}`}>
+    <td className={`${max} px-4 py-3 ${muted ? 'text-mute' : 'text-body'}`}>
       <span className="block truncate" title={text || undefined}>{text || '—'}</span>
     </td>
   );

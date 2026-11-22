@@ -9,7 +9,7 @@ import {
 // date and offset are edited in place and saved on [저장], [삭제] removes it, and the last row adds one.
 // ---------------------------------------------------------------------------
 
-const input = 'rounded-lg border border-line px-2 py-1 text-sm outline-none focus:border-brand';
+const input = 'rounded border border-line px-2 py-1 text-sm outline-none focus:border-brand';
 const head = 'px-3 py-2 font-medium';
 
 export default function TemplateSettings() {
@@ -24,14 +24,14 @@ export default function TemplateSettings() {
 
   return (
     <section className="mt-6 space-y-6">
-      <p className="text-sm text-gray-500">프로젝트 › 일정 › [템플릿]으로 시작할 때 쓰는 항목입니다. 오프셋은 기준일로부터의 일수(음수 = 역산) 또는 개월 수입니다.</p>
-      {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      <p className="text-sm text-mute">프로젝트 › 일정 › [템플릿]으로 시작할 때 쓰는 항목입니다. 오프셋은 기준일로부터의 일수(음수 = 역산) 또는 개월 수입니다.</p>
+      {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
       {templates.map((t) => (
         <div key={t.id}>
-          <h2 className="mb-2 text-sm font-semibold text-gray-800">{t.name}</h2>
-          <div className="overflow-x-auto rounded-xl border border-line bg-white shadow-sm">
+          <h2 className="mb-2 text-sm font-semibold text-ink">{t.name}</h2>
+          <div className="overflow-x-auto rounded border border-line bg-white shadow-sm">
             <table className="w-full whitespace-nowrap text-left text-sm">
-              <thead className="bg-paper text-xs text-gray-500">
+              <thead className="bg-paper text-xs text-body">
                 <tr>
                   <th className={head}>종류</th><th className={head}>항목</th><th className={head}>기준일</th>
                   <th className={head}>기준일로부터</th><th className={head}>기간(일)</th>
@@ -61,7 +61,7 @@ function Row({ templateId, item, onError, onSaved }: {
 
   return (
     <tr>
-      <td className="px-3 py-1.5 text-gray-500">{item.kind === 'TASK' ? '작업' : '마일스톤'}</td>
+      <td className="px-3 py-1.5 text-mute">{item.kind === 'TASK' ? '작업' : '마일스톤'}</td>
       <td className="px-3 py-1.5">
         <input aria-label="항목" maxLength={200} className={`${input} w-56`} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
       </td>
@@ -91,7 +91,7 @@ function Row({ templateId, item, onError, onSaved }: {
       </td>
       <td className="space-x-1 px-3 py-1.5 text-right">
         <button type="button" disabled={!dirty}
-          className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-paper disabled:opacity-30"
+          className="rounded border border-line px-2.5 py-1 text-xs font-medium text-body hover:bg-paper disabled:opacity-30"
           onClick={async () => {
             onError(null);
             try {
@@ -102,7 +102,7 @@ function Row({ templateId, item, onError, onSaved }: {
             onSaved();
           }}>저장</button>
         <button type="button"
-          className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium text-gray-600 hover:border-danger hover:text-danger"
+          className="rounded border border-line px-2.5 py-1 text-xs font-medium text-body hover:border-danger hover:text-danger"
           onClick={async () => {
             if (!window.confirm(`'${item.title}'을 템플릿에서 삭제할까요? 이미 적용한 프로젝트 일정은 그대로입니다.`)) return;
             onError(null);
@@ -176,7 +176,7 @@ function NewRow({ templateId, disciplines, onError, onSaved }: {
       </td>
       <td className="px-3 py-1.5 text-right">
         <button type="button" disabled={!form.title.trim() || offset == null || (task && !form.durationDays)}
-          className="rounded-lg bg-brand px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-hover disabled:opacity-30"
+          className="rounded bg-brand px-2.5 py-1 text-xs font-medium text-white hover:bg-brand-hover disabled:opacity-30"
           onClick={async () => {
             onError(null);
             try {

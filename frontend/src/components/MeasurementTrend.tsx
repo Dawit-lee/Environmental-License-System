@@ -14,7 +14,7 @@ interface Measurement {
   limitLower: number | null; limitValue: number | null; warnRatio: number | null; level: Level;
 }
 
-const INPUT = 'rounded-lg border border-line bg-white px-3 py-1.5 text-sm text-gray-700 outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const INPUT = 'rounded border border-line bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
 const NAVY = '#1F4E79';
 const RED = '#991B1B';
 const W = 720, H = 260, LEFT = 52, RIGHT = 16, TOP = 14, BOTTOM = 28;
@@ -69,23 +69,23 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
   return (
     <>
       <h2 className="mt-8 text-lg font-bold text-brand">측정 추이 · {point.name}</h2>
-      {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
       <div className="mt-3 flex flex-wrap items-end gap-3">
-        <label className="text-xs text-gray-500">항목
+        <label className="text-xs text-mute">항목
           <select value={code} onChange={(e) => setItem(e.target.value)} className={`${INPUT} mt-1 block`}>
             {items.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
           </select>
         </label>
-        <label className="text-xs text-gray-500">시작일
+        <label className="text-xs text-mute">시작일
           <input type="date" required value={from} max={to} onChange={(e) => setFrom(e.target.value)} className={`${INPUT} mt-1 block`} />
         </label>
-        <label className="text-xs text-gray-500">종료일
+        <label className="text-xs text-mute">종료일
           <input type="date" required value={to} min={from} onChange={(e) => setTo(e.target.value)} className={`${INPUT} mt-1 block`} />
         </label>
-        <p className="pb-1.5 text-sm text-gray-500">{data.length}건 · 한도와 판정은 입력 시점 기준입니다.</p>
+        <p className="pb-1.5 text-sm text-mute">{data.length}건 · 한도와 판정은 입력 시점 기준입니다.</p>
       </div>
 
-      <div className="relative mt-3 rounded-xl border border-line bg-white p-3 shadow-sm">
+      <div className="relative mt-3 rounded border border-line bg-white p-3 shadow-sm">
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" onMouseMove={move} onMouseLeave={() => setHover(null)}
           aria-label={`${point.name} ${items.find((p) => p.code === code)?.name ?? ''} 측정 추이 ${from} ~ ${to}, ${data.length}건. 값은 아래 표에 있습니다.`}>
           {[0, 0.25, 0.5, 0.75, 1].map((t) => {
@@ -111,15 +111,15 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
               : <circle key={m.id} cx={x(m)} cy={y(m.value)} r="3" fill={NAVY} />))}
         </svg>
         {hover && (
-          <div role="tooltip" className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg border border-line bg-white px-3 py-2 text-xs text-gray-700 shadow-md"
+          <div role="tooltip" className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded border border-line bg-white px-3 py-2 text-xs text-body shadow-md"
             style={{ left: `clamp(90px, ${(x(hover) / W) * 100}%, calc(100% - 90px))`, top: `${(y(hover.value) / H) * 100}%`, marginTop: -4 }}>
-            <p className="font-medium text-gray-800">{hover.measuredOn}</p>
+            <p className="font-medium text-ink">{hover.measuredOn}</p>
             <p>{num(hover.value)} {hover.unit}{hover.belowDetection ? ' (불검출)' : ''} · <span className={levelClass(hover.level)}>{LEVEL[hover.level]}</span></p>
-            <p className="text-gray-500">{hover.limitValue === null ? '한도 없음' : `한도 ${limitText(hover.limitLower, hover.limitValue)} · 근접 ${near(hover).filter((v) => v !== null).join(' / ')}`}</p>
+            <p className="text-mute">{hover.limitValue === null ? '한도 없음' : `한도 ${limitText(hover.limitLower, hover.limitValue)} · 근접 ${near(hover).filter((v) => v !== null).join(' / ')}`}</p>
           </div>
         )}
-        {data.length === 0 && <p className="absolute inset-0 flex items-center justify-center text-sm text-gray-400">이 기간에 측정값이 없습니다.</p>}
-        <p className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-gray-600">
+        {data.length === 0 && <p className="absolute inset-0 flex items-center justify-center text-sm text-mute">이 기간에 측정값이 없습니다.</p>}
+        <p className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-body">
           <span><svg width="22" height="8" className="mr-1 inline"><line x1="0" x2="22" y1="4" y2="4" stroke={RED} strokeWidth="1.5" /></svg>한도</span>
           <span><svg width="22" height="8" className="mr-1 inline"><line x1="0" x2="22" y1="4" y2="4" stroke="#6B7280" strokeWidth="1.5" strokeDasharray="5 4" /></svg>근접선</span>
           <span><svg width="12" height="12" className="mr-1 inline"><circle cx="6" cy="6" r="3" fill={NAVY} /></svg>정상</span>
@@ -128,9 +128,9 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
         </p>
       </div>
 
-      <div className="mt-3 max-h-[360px] overflow-auto rounded-xl border border-line bg-white shadow-sm">
+      <div className="mt-3 max-h-[360px] overflow-auto rounded border border-line bg-white shadow-sm">
         <table className="w-full min-w-[720px] whitespace-nowrap text-left text-sm">
-          <thead className="sticky top-0 bg-paper text-xs text-gray-500">
+          <thead className="sticky top-0 bg-paper text-xs text-body">
             <tr>
               <th className="px-4 py-3 font-medium">측정일</th>
               <th className="px-4 py-3 text-right font-medium">측정값</th>
@@ -144,18 +144,18 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
           <tbody className="divide-y divide-line">
             {[...data].reverse().map((m) => (
               <tr key={m.id} className={m === hover ? 'bg-brand/5' : ''}>
-                <td className="px-4 py-2 text-gray-800">{m.measuredOn}</td>
-                <td className="px-4 py-2 text-right tabular-nums text-gray-800">{m.value}{m.belowDetection ? ' (불검출)' : ''}</td>
-                <td className="px-4 py-2 text-gray-600">{m.unit}</td>
-                <td className="px-4 py-2 text-right tabular-nums text-gray-600">{limitText(m.limitLower, m.limitValue)}</td>
-                <td className="px-4 py-2 text-right tabular-nums text-gray-600">{near(m).filter((v) => v !== null).join(' / ') || '—'}</td>
-                <td className="px-4 py-2 text-right tabular-nums text-gray-600">{m.limitValue === null || m.limitLower !== null || m.belowDetection ? '—' : `${Math.round((m.value / m.limitValue) * 1000) / 10}%`}</td>
+                <td className="px-4 py-2 text-ink">{m.measuredOn}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-ink">{m.value}{m.belowDetection ? ' (불검출)' : ''}</td>
+                <td className="px-4 py-2 text-body">{m.unit}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-body">{limitText(m.limitLower, m.limitValue)}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-body">{near(m).filter((v) => v !== null).join(' / ') || '—'}</td>
+                <td className="px-4 py-2 text-right tabular-nums text-body">{m.limitValue === null || m.limitLower !== null || m.belowDetection ? '—' : `${Math.round((m.value / m.limitValue) * 1000) / 10}%`}</td>
                 <td className={`px-4 py-2 ${levelClass(m.level)}`}>{LEVEL[m.level]}</td>
               </tr>
             ))}
           </tbody>
         </table>
-        {data.length === 0 && <p className="py-8 text-center text-sm text-gray-400">이 기간에 측정값이 없습니다.</p>}
+        {data.length === 0 && <p className="py-8 text-center text-sm text-mute">이 기간에 측정값이 없습니다.</p>}
       </div>
     </>
   );

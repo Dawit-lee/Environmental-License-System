@@ -21,12 +21,12 @@ interface Member { userId: number; canSelfApprove: boolean; canBulkApprove: bool
 
 const QC: Record<QuoteCheck, { label: string; cls: string }> = {
   MISMATCH: { label: '원문 불일치', cls: 'text-danger' },
-  UNVERIFIABLE: { label: '원문 대조 필요', cls: 'text-gray-700' },
+  UNVERIFIABLE: { label: '원문 대조 필요', cls: 'text-body' },
   VERIFIED: { label: '원문 확인됨', cls: 'text-ok' },
 };
-const MANUAL_BADGE = { label: '직접 추가', cls: 'text-gray-600' };
+const MANUAL_BADGE = { label: '직접 추가', cls: 'text-body' };
 const ST: Record<SuggestionStatus, { label: string; cls: string }> = {
-  PENDING: { label: '검토 대기', cls: 'text-gray-600' },
+  PENDING: { label: '검토 대기', cls: 'text-body' },
   SUBMITTED: { label: '승인 요청됨', cls: 'text-sky-800' },
   ACCEPTED: { label: '승인', cls: 'text-ok' },
   EDITED_ACCEPTED: { label: '수정 후 승인', cls: 'text-ok' },
@@ -60,10 +60,10 @@ const EMPTY: ObligationPayload = {
   citation_raw: '', summary: '', requirement_text: '', type: 'MEASURE_SURVEY', category: 'AIR_QUALITY', frequency: 'MONTHLY',
 };
 
-const btn = 'rounded-lg px-3.5 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-40';
+const btn = 'rounded px-3.5 py-2 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-40';
 const btnPrimary = `${btn} bg-brand text-white hover:bg-brand-hover`;
-const btnGhost = `${btn} border border-line text-gray-700 hover:bg-paper`;
-const input = 'w-full rounded-lg border border-line px-3 py-1.5 text-sm';
+const btnGhost = `${btn} border border-line text-body hover:bg-paper`;
+const input = 'w-full rounded border border-line px-3 py-1.5 text-sm';
 
 /** With `projectId` (project tab) the project dropdown is hidden. */
 export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: number }) {
@@ -158,32 +158,32 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
       <div className={fixedId ? '' : 'mx-auto max-w-7xl px-4 py-8 sm:px-6'}>
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            {!fixedId && <p className="text-xs font-semibold tracking-wide text-gray-500">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>}
+            {!fixedId && <p className="text-xs font-semibold tracking-wide text-mute">허가조건 검토 · {project?.name ?? '프로젝트 없음'}</p>}
             <h1 className="mt-1 flex items-center text-2xl font-bold text-brand">AI 검토<Help k="review" /></h1>
-            <p className="mt-1 max-w-2xl text-sm text-gray-500">
+            <p className="mt-1 max-w-2xl text-sm text-mute">
               검토 중인 조건은 승인 전까지 인허가 대장과 기한 알림에 들어가지 않습니다. 원문과 다른 항목이 맨 위에 옵니다.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {!fixedId && <label className="flex items-center gap-2 text-sm text-gray-600">
+            {!fixedId && <label className="flex items-center gap-2 text-sm text-body">
               프로젝트
               <select
                 value={projectId ?? ''}
                 onChange={(e) => setProjectId(Number(e.target.value))}
-                className="rounded-lg border border-line bg-white px-2.5 py-1.5 text-sm"
+                className="rounded border border-line bg-white px-2.5 py-1.5 text-sm"
               >
                 {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </label>}
             {me && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-mute">
                 내 권한: {lead ? '혼자 승인' : '승인 요청만'}{me.canBulkApprove && ' · 일괄 승인'}
               </span>
             )}
           </div>
         </div>
 
-        {error && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+        {error && <p role="alert" className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
 
         {projectId && <RevisionSuggestions projectId={projectId} />}
         {projectId && <ScheduleSuggestionReview key={projectId} projectId={projectId} />}
@@ -194,7 +194,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
               key={f}
               type="button"
               onClick={() => setFilter(f)}
-              className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${filter === f ? 'bg-brand text-white' : 'bg-white text-gray-600 hover:bg-line'}`}
+              className={`rounded px-3.5 py-1.5 text-sm font-medium transition ${filter === f ? 'bg-brand text-white' : 'bg-white text-body hover:bg-line'}`}
             >
               {f === 'ALL' ? '전체' : ST[f].label} ({f === 'ALL' ? items.length : items.filter((s) => s.status === f).length})
             </button>
@@ -203,9 +203,9 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
 
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           {/* List */}
-          <section className="min-w-0 rounded-xl border border-line bg-white shadow-sm">
+          <section className="min-w-0 rounded border border-line bg-white shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
-              <h2 className="text-sm font-semibold text-gray-800">검토 대상 조건 {rows.length}건</h2>
+              <h2 className="text-sm font-semibold text-ink">검토 대상 조건 {rows.length}건</h2>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setMode('add')} disabled={!permits.length} className={btnGhost}
                   title={permits.length ? undefined : '인허가 항목을 먼저 등록하세요'}>+ 직접 추가</button>
@@ -217,8 +217,8 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
             {bulkResults && (
               <div role="status" className="border-b border-line bg-paper px-4 py-3 text-sm">
                 <div className="flex items-center justify-between">
-                  <b className="text-gray-800">일괄 승인 결과: {bulkResults.filter((r) => r.ok).length}건 승인 · {bulkResults.filter((r) => !r.ok).length}건 제외</b>
-                  <button type="button" onClick={() => setBulkResults(null)} className="text-xs text-gray-500 hover:underline">닫기</button>
+                  <b className="text-ink">일괄 승인 결과: {bulkResults.filter((r) => r.ok).length}건 승인 · {bulkResults.filter((r) => !r.ok).length}건 제외</b>
+                  <button type="button" onClick={() => setBulkResults(null)} className="text-xs text-mute hover:underline">닫기</button>
                 </div>
                 <ul className="mt-2 space-y-1">
                   {bulkResults.map((r) => {
@@ -228,7 +228,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                       <li key={r.id} className="flex gap-2">
                         <span className={`shrink-0 ${r.ok ? 'text-ok' : 'text-danger'}`}>{r.ok ? '✓ 승인' : '✕ 제외'}</span>
                         <span className="font-mono text-xs leading-5">{label}</span>
-                        {!r.ok && <span className="text-gray-600">— {r.reason}</span>}
+                        {!r.ok && <span className="text-body">— {r.reason}</span>}
                       </li>
                     );
                   })}
@@ -237,7 +237,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
             )}
             <div className="overflow-x-auto">
               <table className="w-full table-fixed text-left text-sm">
-                <thead className="bg-paper text-xs text-gray-500">
+                <thead className="bg-paper text-xs text-body">
                   <tr>
                     {me?.canBulkApprove && <th className="w-10 px-3 py-2.5" />}
                     <th className="w-24 px-3 py-2.5 font-medium">조건번호</th>
@@ -277,15 +277,15 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                           {p.citation_synthetic && <span className="ml-1 font-sans text-warn" title="문서에 번호가 없어 시스템이 만든 키">*</span>}
                           {dupKeys.has(`${s.runId}:${p.citation_key}`) && <span className="ml-1 font-sans text-danger" title="같은 문서 안에서 조건번호가 겹칩니다">중복</span>}
                         </td>
-                        <td className="truncate px-3 py-2.5 text-gray-800" title={p.summary}>{p.summary}</td>
-                        <td className="truncate px-3 py-2.5 text-gray-600">{FREQ[p.frequency]}</td>
+                        <td className="truncate px-3 py-2.5 text-ink" title={p.summary}>{p.summary}</td>
+                        <td className="truncate px-3 py-2.5 text-body">{FREQ[p.frequency]}</td>
                         <td className="truncate px-3 py-2.5 text-xs"><Badge {...(p.quote_check ? QC[p.quote_check] : MANUAL_BADGE)} /></td>
                         <td className="truncate px-3 py-2.5 text-xs"><Badge {...ST[s.status]} /></td>
                       </tr>
                     );
                   })}
                   {!rows.length && (
-                    <tr><td colSpan={6} className="whitespace-normal px-3 py-8 text-center text-sm text-gray-500">
+                    <tr><td colSpan={6} className="whitespace-normal px-3 py-8 text-center text-sm text-mute">
                       검토할 조건이 없습니다.<br />인허가 상세에서 허가증을 올리면 AI가 조건을 뽑아 여기에 올립니다.<br />직접 넣으려면 [+ 직접 추가]를 누르세요.
                     </td></tr>
                   )}
@@ -295,7 +295,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
           </section>
 
           {/* Detail */}
-          <section className="min-w-0 rounded-xl border border-line bg-white p-5 shadow-sm">
+          <section className="min-w-0 rounded border border-line bg-white p-5 shadow-sm">
             {mode === 'add' && projectId != null ? (
               <PayloadForm
                 title="조건 직접 추가"
@@ -326,13 +326,13 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
                 run={run}
               />
             ) : (
-              <p className="text-sm text-gray-400">왼쪽에서 조건을 선택하세요.</p>
+              <p className="text-sm text-mute">왼쪽에서 조건을 선택하세요.</p>
             )}
           </section>
         </div>
       </div>
       {toast && (
-        <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded-lg bg-gray-900 px-4 py-2 text-sm text-white shadow-lg">{toast}</div>
+        <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 rounded bg-inverse px-4 py-2 text-sm text-white shadow-lg">{toast}</div>
       )}
     </div>
   );
@@ -362,7 +362,7 @@ function Detail({ s, lead, permitName, onEdit, run }: {
     <>
       {promptUi}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold text-gray-800">
+        <h2 className="text-base font-semibold text-ink">
           {p.citation_raw && <><span className="font-mono">{p.citation_raw}</span> · </>}{p.summary}
         </h2>
         <Badge {...ST[s.status]} />
@@ -383,8 +383,8 @@ function Detail({ s, lead, permitName, onEdit, run }: {
         {s.status === 'REJECTED' && s.rejectReason && <Callout tone="red" title="거절 사유">{s.rejectReason}</Callout>}
 
         <div>
-          <p className="mb-1 text-xs font-semibold text-gray-500">{p.source_quote ? `원문 인용 (${p.page_no ?? '?'}쪽)` : '조건 전문'}</p>
-          <blockquote className="rounded-r-lg border-l-4 border-brand bg-paper px-3 py-2 text-sm">{p.source_quote || p.requirement_text}</blockquote>
+          <p className="mb-1 text-xs font-semibold text-mute">{p.source_quote ? `원문 인용 (${p.page_no ?? '?'}쪽)` : '조건 전문'}</p>
+          <blockquote className="rounded-r border-l-4 border-brand bg-paper px-3 py-2 text-sm">{p.source_quote || p.requirement_text}</blockquote>
         </div>
 
         {s.origin === 'AI' && p.page_no && (
@@ -399,7 +399,7 @@ function Detail({ s, lead, permitName, onEdit, run }: {
           <Info label="유형" value={TYPE[p.type] ?? p.type} />
           {lead && decidable && (
             <label className="text-sm">
-              <span className="mb-1 block text-xs font-medium text-gray-500">첫 기한일 (선택, 없으면 기한 미정)</span>
+              <span className="mb-1 block text-xs font-medium text-mute">첫 기한일 (선택, 없으면 기한 미정)</span>
               <input type="date" value={firstDue} onChange={(e) => setFirstDue(e.target.value)} className={input} />
             </label>
           )}
@@ -437,7 +437,7 @@ function Detail({ s, lead, permitName, onEdit, run }: {
           )}
         </div>
 
-        <p className="text-xs text-gray-400">
+        <p className="text-xs text-mute">
           기록: {s.origin === 'MANUAL' ? '직접 추가' : 'AI 추출'}
           {events.slice(1).map((e) => ` → ${e.actorId == null ? '시스템 ' : ''}${EVENT[e.type]}`).join('')}
         </p>
@@ -461,13 +461,13 @@ function PageViewer({ id, pageNo, onViewed }: { id: number; pageNo: number; onVi
   }, [id, pageNo]);
   return (
     <div>
-      <p className="mb-1 text-xs font-semibold text-gray-500">원문 {pageNo}쪽</p>
-      <div className="max-h-[480px] overflow-auto rounded-lg border border-line bg-gray-50">
+      <p className="mb-1 text-xs font-semibold text-mute">원문 {pageNo}쪽</p>
+      <div className="max-h-[480px] overflow-auto rounded border border-line bg-paper">
         {url ? (
           <img src={url} alt={`원문 ${pageNo}쪽`} className="w-full"
             onLoad={() => recordPageView(id, pageNo).then(onViewed, () => undefined)} />
         ) : (
-          <p className="px-3 py-8 text-center text-sm text-gray-400">{error || '원문 페이지를 불러오는 중…'}</p>
+          <p className="px-3 py-8 text-center text-sm text-mute">{error || '원문 페이지를 불러오는 중…'}</p>
         )}
       </div>
     </div>
@@ -490,7 +490,7 @@ function PayloadForm({ title, permits, initial, onSave, onCancel }: {
   };
   return (
     <form onSubmit={submit} className="space-y-3">
-      <h2 className="text-base font-semibold text-gray-800">{title}</h2>
+      <h2 className="text-base font-semibold text-ink">{title}</h2>
       {permits && (
         <Field label="인허가 항목">
           <select value={permitId ?? ''} onChange={(e) => setPermitId(Number(e.target.value))} className={input}>
@@ -533,7 +533,7 @@ function PayloadForm({ title, permits, initial, onSave, onCancel }: {
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block text-sm">
-      <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
+      <span className="mb-1 block text-xs font-medium text-mute">{label}</span>
       {children}
     </label>
   );
@@ -546,8 +546,8 @@ function Badge({ label, cls }: { label: string; cls: string }) {
 function Info({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-sm">
-      <span className="mb-1 block text-xs font-medium text-gray-500">{label}</span>
-      <span className="text-gray-800">{value}</span>
+      <span className="mb-1 block text-xs font-medium text-mute">{label}</span>
+      <span className="text-ink">{value}</span>
     </div>
   );
 }
@@ -555,9 +555,9 @@ function Info({ label, value }: { label: string; value: string }) {
 const TONE = { red: 'bg-red-50 text-danger', amber: 'bg-amber-50 text-warn', sky: 'bg-sky-50 text-sky-800' };
 function Callout({ tone, title, children }: { tone: keyof typeof TONE; title: string; children: ReactNode }) {
   return (
-    <div className={`flex gap-2 rounded-lg px-3 py-2 text-sm ${TONE[tone]}`}>
+    <div className={`flex gap-2 rounded px-3 py-2 text-sm ${TONE[tone]}`}>
       <b className="shrink-0">{title}</b>
-      <span className="text-gray-700">{children}</span>
+      <span className="text-body">{children}</span>
     </div>
   );
 }

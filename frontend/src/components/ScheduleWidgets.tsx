@@ -9,7 +9,7 @@ import { Help } from './Onboarding';
 // Schedule widgets (설계 §6.5): dashboard "이번 주 이벤트" and "지연 항목(분야별)", overview "일정" card.
 // ---------------------------------------------------------------------------
 
-const card = 'rounded-xl border border-line bg-white p-5 shadow-sm';
+const card = 'rounded border border-line bg-white p-5 shadow-sm';
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
 /** Events overlapping this week (Mon–Sun) in my calendar scope, one line each. */
@@ -22,12 +22,12 @@ export function WeekEvents() {
   return (
     <section className={card}>
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">이번 주 이벤트</h2>
+        <h2 className="text-lg font-semibold text-ink">이번 주 이벤트</h2>
         <Link to="/calendar" className="text-xs text-brand hover:underline">회사 달력</Link>
       </div>
       <div className="mt-3 overflow-x-auto">
         <table className={`w-full ${events?.length ? 'min-w-[560px]' : ''} table-fixed whitespace-nowrap text-left text-sm`}>
-          <thead className="bg-paper text-xs text-gray-500">
+          <thead className="bg-paper text-xs text-body">
             <tr>
               <th className="w-40 px-3 py-2.5 font-medium">일시</th>
               <th className="w-24 px-3 py-2.5 font-medium">종류</th>
@@ -36,14 +36,14 @@ export function WeekEvents() {
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {events?.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-gray-400">이번 주 이벤트가 없습니다.</td></tr>}
+            {events?.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-mute">이번 주 이벤트가 없습니다.</td></tr>}
             {events?.map((e) => (
               <tr key={e.id} className="hover:bg-paper">
-                <td className="truncate px-3 py-2.5 text-gray-600">{eventWhen(e)}</td>
-                <td className="truncate px-3 py-2.5 text-gray-600">{EVENT_KIND_LABEL[e.kind]}</td>
-                <td className="truncate px-3 py-2.5 font-medium text-gray-800" title={e.title}>{e.title}</td>
+                <td className="truncate px-3 py-2.5 text-body">{eventWhen(e)}</td>
+                <td className="truncate px-3 py-2.5 text-body">{EVENT_KIND_LABEL[e.kind]}</td>
+                <td className="truncate px-3 py-2.5 font-medium text-ink" title={e.title}>{e.title}</td>
                 <td className="truncate px-3 py-2.5">
-                  <Link to={`/projects/${e.projectId}/schedule`} className="text-gray-700 hover:text-brand hover:underline" title={e.projectName}>{e.projectName}</Link>
+                  <Link to={`/projects/${e.projectId}/schedule`} className="text-body hover:text-brand hover:underline" title={e.projectName}>{e.projectName}</Link>
                 </td>
               </tr>
             ))}
@@ -63,12 +63,12 @@ export interface DelayedCount {
 export function DelayedByDiscipline({ counts }: { counts: DelayedCount[] | null }) {
   return (
     <section className={card}>
-      <h2 className="text-lg font-semibold text-gray-900">기한 경과 일정 (분야별)<Help k="overdue" align="right" /></h2>
+      <h2 className="text-lg font-semibold text-ink">기한 경과 일정 (분야별)<Help k="overdue" align="right" /></h2>
       <ul className="mt-3 divide-y divide-line text-sm">
-        {counts?.length === 0 && <li className="py-3 text-gray-400">기한이 지난 일정 항목이 없습니다.</li>}
+        {counts?.length === 0 && <li className="py-3 text-mute">기한이 지난 일정 항목이 없습니다.</li>}
         {counts?.map(({ discipline, count }) => (
           <li key={discipline} className="flex justify-between py-2.5">
-            <span className="truncate text-gray-700">{discipline}</span>
+            <span className="truncate text-body">{discipline}</span>
             <span className="text-danger">{count}건</span>
           </li>
         ))}
@@ -94,22 +94,22 @@ export function ScheduleSummary({ projectId }: { projectId: number }) {
   return (
     <section className={card}>
       <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">일정</h2>
-        <Link to={base} className={`text-sm ${delayed ? 'text-danger' : 'text-gray-500'} hover:underline`}>기한 경과 {delayed}건</Link>
+        <h2 className="text-lg font-semibold text-ink">일정</h2>
+        <Link to={base} className={`text-sm ${delayed ? 'text-danger' : 'text-mute'} hover:underline`}>기한 경과 {delayed}건</Link>
       </div>
-      <p className="mt-3 text-xs text-gray-500">다음 마일스톤</p>
+      <p className="mt-3 text-xs text-mute">다음 마일스톤</p>
       <ul className="mt-1 space-y-1 text-sm">
-        {milestones.length === 0 && <li className="text-gray-400">예정된 마일스톤이 없습니다.</li>}
+        {milestones.length === 0 && <li className="text-mute">예정된 마일스톤이 없습니다.</li>}
         {milestones.map((m) => (
           <li key={m.id} className="flex justify-between gap-3">
-            <span className="truncate text-gray-800" title={m.title}>{m.title}</span>
-            <span className="shrink-0 text-gray-500">{m.endDate}</span>
+            <span className="truncate text-ink" title={m.title}>{m.title}</span>
+            <span className="shrink-0 text-mute">{m.endDate}</span>
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-xs text-gray-500">다음 이벤트</p>
-      <p className="mt-1 truncate text-sm text-gray-800" title={next?.title}>
-        {next ? `${eventWhen(next)} ${EVENT_KIND_LABEL[next.kind]} · ${next.title}` : <span className="text-gray-400">없음</span>}
+      <p className="mt-3 text-xs text-mute">다음 이벤트</p>
+      <p className="mt-1 truncate text-sm text-ink" title={next?.title}>
+        {next ? `${eventWhen(next)} ${EVENT_KIND_LABEL[next.kind]} · ${next.title}` : <span className="text-mute">없음</span>}
       </p>
     </section>
   );

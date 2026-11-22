@@ -78,7 +78,7 @@ const BASE_FIELDS = ['facility_type', 'capacity_tpd', 'sido', 'address', 'propon
 
 const law = (name: string) => `https://www.law.go.kr/법령/${name.replace(/\s/g, '')}`;
 const input =
-  'w-full rounded-lg border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
+  'w-full rounded border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
 
 /**
  * New project wizard. With `projectId` it is the project's 설정 tab: the same form prefilled from the project and its
@@ -357,15 +357,15 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
         </ol>
 
         {error && (
-          <p role="alert" className="mb-4 rounded-lg border border-danger/30 bg-red-50 px-4 py-3 text-sm text-danger">
+          <p role="alert" className="mb-4 rounded border border-danger/30 bg-red-50 px-4 py-3 text-sm text-danger">
             {error}
           </p>
         )}
 
         {step === 1 ? (
-          <section className="rounded-xl border border-line bg-white p-6 shadow-sm sm:p-8">
+          <section className="rounded border border-line bg-white p-6 shadow-sm sm:p-8">
             <h1 className="text-2xl font-bold text-brand">{editId ? '프로젝트 정보' : '프로젝트 정보 입력'}</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-mute">
               {editId
                 ? '정보를 고친 뒤 저장합니다. 사업 속성을 바꿨다면 인허가를 다시 도출하세요. 바뀐 판정만 검토 목록에 새로 올라갑니다.'
                 : '사업 속성을 입력하면 다음 단계에서 필요한 인허가가 자동으로 도출됩니다.'}
@@ -433,10 +433,10 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                     return (
                       <label
                         key={waste.value}
-                        className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition hover:border-brand focus-within:ring-2 focus-within:ring-brand/20 ${
+                        className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition hover:border-brand focus-within:ring-2 focus-within:ring-brand/20 ${
                           checked
                             ? 'border-brand bg-brand/5 text-brand'
-                            : 'border-line text-gray-700'
+                            : 'border-line text-body'
                         }`}
                       >
                         <input
@@ -454,7 +454,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
               </Field>
 
               <Field label="사업구분" required>
-                <div className="flex gap-4 py-2 text-sm text-gray-700">
+                <div className="flex gap-4 py-2 text-sm text-body">
                   {(['NEW', 'EXPANSION'] as const).map((k) => (
                     <label key={k} className="flex cursor-pointer items-center gap-2">
                       <input
@@ -474,9 +474,9 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
               <Field label="시설용량" required>
                 <div className="flex items-center gap-2">
                   <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="0" className={input} />
-                  <span className="shrink-0 text-sm text-gray-500">톤/일</span>
+                  <span className="shrink-0 text-sm text-mute">톤/일</span>
                 </div>
-                <p className={`mt-1 text-xs ${Number(capacity) >= 100 ? 'text-warn' : 'text-gray-500'}`}>100톤/일 이상 시 설치승인 대상</p>
+                <p className={`mt-1 text-xs ${Number(capacity) >= 100 ? 'text-warn' : 'text-mute'}`}>100톤/일 이상 시 설치승인 대상</p>
               </Field>
 
               {projectKind === 'EXPANSION' && (
@@ -490,20 +490,20 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                       placeholder="0"
                       className={input}
                     />
-                    <span className="shrink-0 text-sm text-gray-500">톤/일</span>
+                    <span className="shrink-0 text-sm text-mute">톤/일</span>
                   </div>
-                  <p className="mt-1 text-xs text-gray-500">증설은 변경승인·변경신고(30% 이상) 판정에 필요합니다</p>
+                  <p className="mt-1 text-xs text-mute">증설은 변경승인·변경신고(30% 이상) 판정에 필요합니다</p>
                 </Field>
               )}
 
               <Field label="착수일">
                 <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} />
-                <p className="mt-1 text-xs text-gray-500">설계를 시작하는 날입니다. 일정의 착수일 기준이 됩니다.</p>
+                <p className="mt-1 text-xs text-mute">설계를 시작하는 날입니다. 일정의 착수일 기준이 됩니다.</p>
               </Field>
 
               <Field label="착공예정일">
                 <input type="date" value={constructionStartDate} onChange={(e) => setConstructionStartDate(e.target.value)} className={input} />
-                <p className="mt-1 text-xs text-gray-500">공사를 시작하는 날입니다. 인허가 판정과 일정의 착공일 기준에 씁니다.</p>
+                <p className="mt-1 text-xs text-mute">공사를 시작하는 날입니다. 인허가 판정과 일정의 착공일 기준에 씁니다.</p>
               </Field>
 
               {editId && (
@@ -549,7 +549,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   type="button"
                   disabled={!canSave || busy}
                   onClick={() => handleNext(false)}
-                  className="rounded-lg border border-line px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded border border-line px-5 py-2.5 text-sm font-semibold text-body transition hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   저장
                 </button>
@@ -558,25 +558,25 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 type="button"
                 disabled={!canProceed || busy}
                 onClick={() => handleNext()}
-                className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {busy ? phase || '처리 중…' : editId ? '저장 후 인허가 다시 도출 →' : '다음: 인허가 자동 도출 →'}
               </button>
             </div>
           </section>
         ) : (
-          <section className="rounded-xl border border-line bg-white p-6 shadow-sm sm:p-8">
+          <section className="rounded border border-line bg-white p-6 shadow-sm sm:p-8">
             <h1 className="text-2xl font-bold text-brand">인허가 자동 도출</h1>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-mute">
               규칙표로 판정했습니다. 해당·판정 보류 항목은 검토 목록에 대기 중이며, 승인해야 인허가 항목이 됩니다.
             </p>
 
             {/* Summary bar */}
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-brand/5 px-4 py-3">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded bg-brand/5 px-4 py-3">
               <p className="text-sm font-semibold text-brand">
                 해당 {result?.applicable ?? 0}개 · 판정 보류 {result?.onHold ?? 0}개 · 해당없음 {result?.notApplicable ?? 0}개
               </p>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-body">
                 ruleset-v{result?.rulesetVersion} · {result && new Date(result.ranAt).toLocaleString('ko-KR')}
               </p>
             </div>
@@ -586,7 +586,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
             )}
 
             {result?.warnings?.map((w) => (
-              <p key={w.rule_key} className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-warn">
+              <p key={w.rule_key} className="mt-2 rounded bg-amber-50 px-3 py-2 text-sm text-warn">
                 {w.permit_name}: {w.message} (등록된 항목은 그대로 둡니다)
               </p>
             ))}
@@ -594,7 +594,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
             {/* Inputs the on-hold rows are waiting for */}
             {Object.keys(waiting).length > 0 && (
               <div className="mt-4 space-y-2">
-                <p className="text-sm font-semibold text-gray-700">추가 정보 필요</p>
+                <p className="text-sm font-semibold text-body">추가 정보 필요</p>
                 {Object.entries(waiting).map(([k, w]) => {
                   const m = missing.find((x) => x.field === k)!;
                   const cfg = EXTRA_INPUT[k] ?? {
@@ -610,9 +610,9 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   return (
                     <div
                       key={k}
-                      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-dashed border-warn/50 bg-amber-50 px-3 py-2 text-sm"
+                      className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded border border-dashed border-warn/50 bg-amber-50 px-3 py-2 text-sm"
                     >
-                      <label htmlFor={`extra-${k}`} className="w-32 font-medium text-gray-800">
+                      <label htmlFor={`extra-${k}`} className="w-32 font-medium text-ink">
                         {w.label}
                       </label>
                       {cfg.options ? (
@@ -621,7 +621,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                           disabled={busy}
                           defaultValue=""
                           onChange={(e) => e.target.value && fillExtra(k, m.type === 'BOOL' ? e.target.value === 'true' : e.target.value)}
-                          className="w-40 rounded-md border border-line bg-white px-2 py-1 text-sm"
+                          className="w-40 rounded border border-line bg-white px-2 py-1 text-sm"
                         >
                           <option value="">선택</option>
                           {cfg.options.map((o) => (
@@ -644,11 +644,11 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                             const v = e.currentTarget.value.trim();
                             if (v !== '') fillExtra(k, Number(v) * (cfg.scale ?? 1));
                           }}
-                          className="w-32 rounded-md border border-line bg-white px-2 py-1 text-sm"
+                          className="w-32 rounded border border-line bg-white px-2 py-1 text-sm"
                         />
                       )}
-                      <span className="text-gray-500">{cfg.unit}</span>
-                      <span className="text-gray-600">
+                      <span className="text-mute">{cfg.unit}</span>
+                      <span className="text-body">
                         → {w.permits.join(', ')} <b>{w.permits.length}건</b> 판정 대기
                       </span>
                     </div>
@@ -670,16 +670,16 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
               ))}
               {openApplicable.length > 0 && (
                 <button type="button" disabled={busy} onClick={approveAll}
-                  className="ml-auto rounded-lg bg-ok px-3.5 py-1.5 text-sm font-semibold text-white transition hover:bg-ok-hover focus:outline-none focus:ring-2 focus:ring-ok/30 disabled:opacity-50">
+                  className="ml-auto rounded bg-ok px-3.5 py-1.5 text-sm font-semibold text-white transition hover:bg-ok-hover focus:outline-none focus:ring-2 focus:ring-ok/30 disabled:opacity-50">
                   해당 일괄 승인 ({openApplicable.length})
                 </button>
               )}
             </div>
 
             {/* Table */}
-            <div className="mt-4 overflow-x-auto rounded-lg border border-line">
+            <div className="mt-4 overflow-x-auto rounded border border-line">
               <table className="w-full min-w-[760px] whitespace-nowrap text-left text-sm">
-                <thead className="bg-paper text-xs uppercase text-gray-500">
+                <thead className="bg-paper text-xs uppercase text-body">
                   <tr>
                     <th className="px-4 py-3 font-medium">검토</th>
                     <th className="px-4 py-3 font-medium">판정</th>
@@ -713,13 +713,13 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                           {p.determination === 'ON_HOLD' ? '판정 보류' : '해당'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-medium text-gray-800">{p.permit_name}</td>
+                      <td className="px-4 py-3 font-medium text-ink">{p.permit_name}</td>
                       <td className="px-4 py-3">
-                        <span className="whitespace-nowrap text-gray-700">
+                        <span className="whitespace-nowrap text-body">
                           {CATEGORY_LABEL[p.category]}
                         </span>
                       </td>
-                      <td className="max-w-[420px] truncate px-4 py-3 text-gray-600"
+                      <td className="max-w-[420px] truncate px-4 py-3 text-body"
                         title={p.hold_info ? `${p.hold_info.missing_inputs.join(', ')} 필요 · ${p.hold_info.criterion}` : p.reason}>
                         {p.hold_info ? (
                           <>
@@ -732,10 +732,10 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                       <td className="max-w-[280px] truncate px-4 py-3">
                         <LawLink row={p} />
                       </td>
-                      <td className="px-4 py-3 text-gray-600">
+                      <td className="px-4 py-3 text-body">
                         {p.approval_stage}
                         {p.required_by_text && (
-                          <span className="ml-2 text-xs text-gray-400">
+                          <span className="ml-2 text-xs text-mute">
                             {p.required_by_text}
                             {byRule[p.rule_key]?.payload.required_by_date && ` (${byRule[p.rule_key].payload.required_by_date})`}
                           </span>
@@ -759,11 +759,11 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   {showClosed ? '재실행으로 정리된 제안 접기' : `재실행으로 정리된 제안 ${closed.length}건 보기`}
                 </button>
                 {showClosed && (
-                  <ul className="mt-2 divide-y divide-line rounded-lg border border-line text-sm">
+                  <ul className="mt-2 divide-y divide-line rounded border border-line text-sm">
                     {closed.map((s) => (
                       <li key={s.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5">
-                        <span className="font-medium text-gray-500">{s.payload.permit_name}</span>
-                        <span className="text-gray-600">시스템 · {s.rejectReason}</span>
+                        <span className="font-medium text-mute">{s.payload.permit_name}</span>
+                        <span className="text-body">시스템 · {s.rejectReason}</span>
                       </li>
                     ))}
                   </ul>
@@ -783,11 +783,11 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   {showNotApplicable ? '해당없음 접기' : `해당없음 ${notApplicable.length}건 보기`}
                 </button>
                 {showNotApplicable && (
-                  <ul className="mt-2 divide-y divide-line rounded-lg border border-line text-sm">
+                  <ul className="mt-2 divide-y divide-line rounded border border-line text-sm">
                     {notApplicable.map((p) => (
                       <li key={p.rule_key} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-4 py-2.5">
-                        <span className="font-medium text-gray-500">{p.permit_name}</span>
-                        <span className="text-gray-600">{p.reason}</span>
+                        <span className="font-medium text-mute">{p.permit_name}</span>
+                        <span className="text-body">{p.reason}</span>
                         <span className="ml-auto">
                           <LawLink row={p} />
                         </span>
@@ -802,14 +802,14 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
               <button
                 type="button"
                 onClick={() => setStep(1)}
-                className="rounded-lg border border-line px-5 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20"
+                className="rounded border border-line px-5 py-2.5 text-sm font-semibold text-body transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20"
               >
                 ← 이전
               </button>
               <button
                 type="button"
                 onClick={() => (editId ? setStep(1) : navigate(`/projects/${projectId}`))}
-                className="rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
+                className="rounded bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
               >
                 완료
               </button>
@@ -834,23 +834,23 @@ function ReviewCell({
   onApprove: (s: PermitSuggestion) => void;
   onReject: (s: PermitSuggestion) => void;
 }) {
-  if (!s) return <span className="text-gray-400">—</span>;
+  if (!s) return <span className="text-mute">—</span>;
   if (s.status === 'ACCEPTED' || s.status === 'EDITED_ACCEPTED') return <span className="text-ok">승인됨</span>;
-  if (s.status === 'REJECTED') return <span className="text-gray-500" title={s.rejectReason ?? ''}>거절됨</span>;
+  if (s.status === 'REJECTED') return <span className="text-mute" title={s.rejectReason ?? ''}>거절됨</span>;
   const onHold = (s.editedPayload ?? s.payload).determination === 'ON_HOLD';
   const btn =
-    'rounded-md border px-2 py-1 text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand/30';
+    'rounded border px-2 py-1 text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand/30';
   return (
     <div className="flex flex-col gap-1">
       <div className="flex gap-1 whitespace-nowrap">
         <button type="button" disabled={busy} onClick={() => onApprove(s)} className={`${btn} border-ok text-ok hover:bg-emerald-50`}>
           {onHold ? '해당으로 승인' : '승인'}
         </button>
-        <button type="button" disabled={busy} onClick={() => onReject(s)} className={`${btn} border-line text-gray-600 hover:bg-paper`}>
+        <button type="button" disabled={busy} onClick={() => onReject(s)} className={`${btn} border-line text-body hover:bg-paper`}>
           거절
         </button>
       </div>
-      {s.status === 'SUBMITTED' && <span className="text-xs text-gray-500">결재 중</span>}
+      {s.status === 'SUBMITTED' && <span className="text-xs text-mute">결재 중</span>}
       {s.payload.warning && <span className="text-xs text-warn">{s.payload.warning}</span>}
       {duplicate && <span className="text-xs text-warn">중복 가능: 같은 이름의 항목이 있습니다</span>}
     </div>
@@ -870,7 +870,7 @@ function LawLink({ row }: { row: JudgementRow }) {
       {text}
     </a>
   ) : (
-    <span className="text-gray-600">{text}</span>
+    <span className="text-body">{text}</span>
   );
 }
 
@@ -891,13 +891,13 @@ function StepDot({
     <li className="flex items-center gap-2">
       <span
         className={`flex h-7 w-7 items-center justify-center rounded-full text-sm font-semibold transition ${
-          active ? 'bg-brand text-white' : 'bg-line text-gray-500'
+          active ? 'bg-brand text-white' : 'bg-line text-mute'
         }`}
       >
         {index}
       </span>
       <span
-        className={`font-medium ${current ? 'text-brand' : active ? 'text-gray-700' : 'text-gray-400'}`}
+        className={`font-medium ${current ? 'text-brand' : active ? 'text-body' : 'text-mute'}`}
       >
         {label}
       </span>
@@ -918,7 +918,7 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <label className="mb-1.5 block text-sm font-medium text-gray-700">
+      <label className="mb-1.5 block text-sm font-medium text-body">
         {label}
         {required && <span className="ml-0.5 text-danger">*</span>}
       </label>
@@ -940,10 +940,10 @@ function CategoryTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
+      className={`rounded px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
         active
           ? 'bg-brand text-white'
-          : 'bg-paper text-gray-600 hover:bg-line'
+          : 'bg-paper text-body hover:bg-line'
       }`}
     >
       {label}

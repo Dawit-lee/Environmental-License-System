@@ -57,6 +57,7 @@
  *   brand-text              links and blue text (6.8:1 on white)
  *   brand-subtle/-border    info box, selected row
  *   inverse                 dark utility bar
+ *   ink / body / mute       gray text: body copy, secondary, dates and units (mute on white only)
  *   line        default border and table divider
  *   line-soft   lighter row divider inside tables and lists
  *   paper       neutral gray: row hover, table header, soft panels
@@ -76,6 +77,9 @@
   --color-brand-subtle: #ecf2fe;
   --color-brand-border: #d8e5fd;
   --color-inverse: #1e2124;
+  --color-ink: var(--ink);
+  --color-body: var(--body);
+  --color-mute: var(--mute);
   --color-line: #cdd1d5;
   --color-line-soft: #e6e8ea;
   --color-paper: #f4f5f6;
@@ -125,7 +129,7 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  /* DESIGN.md radius: xs 2px for badges, sm 4px for everything else (rounded-lg/xl too, until step 2) */
+  /* DESIGN.md radius: xs 2px for badges, sm 4px for everything else; lg/xl stay 4px for library markup */
   --radius-sm: 2px;
   --radius-md: var(--radius);
   --radius-lg: var(--radius);

@@ -21,12 +21,12 @@ class ErrorBoundary extends Component<{ resetKey: string; children: ReactNode },
     if (!this.state.error) return this.props.children;
     return (
       <div role="alert" className="mx-auto max-w-md p-8 text-center">
-        <h1 className="text-lg font-bold text-gray-800">화면을 불러오지 못했습니다</h1>
-        <p className="mt-2 text-sm text-gray-600">새 버전이 배포됐거나 잠시 오류가 났을 수 있습니다.</p>
+        <h1 className="text-lg font-bold text-ink">화면을 불러오지 못했습니다</h1>
+        <p className="mt-2 text-sm text-body">새 버전이 배포됐거나 잠시 오류가 났을 수 있습니다.</p>
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="mt-4 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/30"
+          className="mt-4 rounded bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/30"
         >
           새로고침
         </button>
@@ -49,7 +49,7 @@ export function RouteBoundary({ children }: { children: ReactNode }) {
   }, [pathname]);
   return (
     <ErrorBoundary resetKey={pathname}>
-      <Suspense fallback={<p className="p-8 text-sm text-gray-500">불러오는 중…</p>}>{children}</Suspense>
+      <Suspense fallback={<p className="p-8 text-sm text-mute">불러오는 중…</p>}>{children}</Suspense>
     </ErrorBoundary>
   );
 }

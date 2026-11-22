@@ -38,7 +38,7 @@ export type HelpKey = keyof typeof HELP;
 const tipBox =
   // hidden (not invisible): an invisible box still widens the page near the right edge.
   // keyboard focus only (focus-visible): a clicked button keeps focus, and the tip would float beside the dialog it opened.
-  'pointer-events-none hidden absolute top-full z-40 mt-1.5 w-64 whitespace-normal rounded-lg bg-gray-900 px-3 py-2 text-left text-xs font-normal leading-relaxed text-white shadow-lg group-hover:block group-has-[:focus-visible]:block';
+  'pointer-events-none hidden absolute top-full z-40 mt-1.5 w-64 whitespace-normal rounded bg-inverse px-3 py-2 text-left text-xs font-normal leading-relaxed text-white shadow-lg group-hover:block group-has-[:focus-visible]:block';
 
 /** Wraps a control: its one-line explanation shows on hover or keyboard focus (not mouse-click focus). */
 export function Tip({ k, children, align = 'right' }: { k: HelpKey; children: ReactNode; align?: 'left' | 'right' }) {
@@ -55,7 +55,7 @@ export function Help({ k, align = 'left' }: { k: HelpKey; align?: 'left' | 'righ
   return (
     <Tip k={k} align={align}>
       <button type="button" aria-label={`${HELP[k].term} 설명: ${HELP[k].text}`}
-        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-gray-300 text-[10px] font-semibold leading-none text-gray-500 hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/30">
+        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-line text-[10px] font-semibold leading-none text-mute hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/30">
         ?
       </button>
     </Tip>
@@ -66,14 +66,14 @@ export function Help({ k, align = 'left' }: { k: HelpKey; align?: 'left' | 'righ
 export function EmptyState({ text, children, bare }: { text: string; children?: ReactNode; bare?: boolean }) {
   // bare: inside an existing table card, so no second border
   return (
-    <div className={`${bare ? '' : 'rounded-xl border border-dashed border-line bg-white'} px-6 py-10 text-center`}>
-      {text.split(/(?<=\.)\s+/).map((line) => <p key={line} className="text-sm text-gray-600">{line}</p>)}
+    <div className={`${bare ? '' : 'rounded border border-dashed border-line bg-white'} px-6 py-10 text-center`}>
+      {text.split(/(?<=\.)\s+/).map((line) => <p key={line} className="text-sm text-body">{line}</p>)}
       {children && <div className="mt-4 flex flex-wrap items-center justify-center gap-2">{children}</div>}
     </div>
   );
 }
-export const primaryBtn = 'rounded-lg bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover';
-export const secondaryBtn = 'rounded-lg border border-line bg-white px-3.5 py-1.5 text-xs font-medium text-gray-700 hover:border-brand hover:text-brand';
+export const primaryBtn = 'rounded bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover';
+export const secondaryBtn = 'rounded border border-line bg-white px-3.5 py-1.5 text-xs font-medium text-body hover:border-brand hover:text-brand';
 
 // --- 시작하기 checklist ------------------------------------------------------
 
@@ -143,17 +143,17 @@ export function GettingStarted({ projects, permits }: { projects: Project[]; per
   const doneCount = steps.filter((s) => s.done).length;
 
   return (
-    <section aria-label="시작하기" className="mt-6 rounded-xl border border-brand/20 bg-white p-5 shadow-sm">
+    <section aria-label="시작하기" className="mt-6 rounded border border-brand/20 bg-white p-5 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">시작하기 <span className="text-sm font-normal text-gray-500">{doneCount}/{steps.length}</span></h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <h2 className="text-lg font-semibold text-ink">시작하기 <span className="text-sm font-normal text-mute">{doneCount}/{steps.length}</span></h2>
+          <p className="mt-1 text-sm text-mute">
             {target ? <>“{target.name}” 기준으로 확인합니다.</> : '첫 프로젝트를 만들면 다음 단계가 열립니다.'}
           </p>
         </div>
         <div className="flex items-center gap-3 text-xs">
           <Link to="/guide" className="text-brand hover:underline">사용 가이드</Link>
-          <button type="button" onClick={() => setOnboardingDismissed(true)} className="text-gray-500 hover:text-gray-800">
+          <button type="button" onClick={() => setOnboardingDismissed(true)} className="text-mute hover:text-ink">
             {doneCount === steps.length ? '닫기' : '숨기기'}
           </button>
         </div>
@@ -166,18 +166,18 @@ export function GettingStarted({ projects, permits }: { projects: Project[]; per
           const body = (
             <>
               <span aria-hidden className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
-                s.done ? 'bg-ok text-white' : 'border border-gray-300 text-gray-500'}`}>
+                s.done ? 'bg-ok text-white' : 'border border-line text-mute'}`}>
                 {s.done ? '✓' : i + 1}
               </span>
               <span className="min-w-0">
-                <span className={`block text-sm font-medium ${s.done ? 'text-gray-400 line-through' : 'text-gray-800'}`}>
+                <span className={`block text-sm font-medium ${s.done ? 'text-mute line-through' : 'text-ink'}`}>
                   {s.label}<span className="sr-only">{s.done ? ' (완료)' : ''}</span>
                 </span>
-                <span className="block text-xs text-gray-500">{s.desc}</span>
+                <span className="block text-xs text-mute">{s.desc}</span>
               </span>
             </>
           );
-          const cls = 'flex items-start gap-3 rounded-lg px-3 py-2.5';
+          const cls = 'flex items-start gap-3 rounded px-3 py-2.5';
           return (
             <li key={s.label}>
               {s.to ? (

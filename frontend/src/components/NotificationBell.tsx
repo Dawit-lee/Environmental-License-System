@@ -58,7 +58,7 @@ export default function NotificationBell() {
         onClick={() => setOpen((o) => !o)}
         aria-label={`알림 ${unread}건 읽지 않음`}
         aria-expanded={open}
-        className="relative rounded-lg px-2.5 py-1.5 text-lg transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30"
+        className="relative rounded px-2.5 py-1.5 text-lg transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30"
       >
         <span aria-hidden>🔔</span>
         {unread > 0 && (
@@ -69,9 +69,9 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden whitespace-normal rounded-xl border border-line bg-white shadow-lg">
+        <div className="absolute right-0 top-full z-30 mt-2 w-80 max-w-[calc(100vw-2rem)] overflow-hidden whitespace-normal rounded border border-line bg-white shadow-lg">
           <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-            <span className="text-sm font-semibold text-gray-900">알림</span>
+            <span className="text-sm font-semibold text-ink">알림</span>
             {unread > lawNew && (
               <button
                 type="button"
@@ -86,14 +86,14 @@ export default function NotificationBell() {
             <button
               type="button"
               onClick={() => { setOpen(false); navigate('/inbox?kind=LAW'); }}
-              className="flex w-full gap-2 border-b border-line px-4 py-2.5 text-left text-sm font-medium text-gray-800 transition hover:bg-paper"
+              className="flex w-full gap-2 border-b border-line px-4 py-2.5 text-left text-sm font-medium text-ink transition hover:bg-paper"
             >
               <span aria-hidden>⚖️</span>
               <span>법령 개정 미확인 {lawNew}건</span>
             </button>
           )}
           {items.length === 0 && lawNew === 0 ? (
-            <p className="px-4 py-6 text-center text-sm text-gray-400">알림이 없습니다.</p>
+            <p className="px-4 py-6 text-center text-sm text-mute">알림이 없습니다.</p>
           ) : (
             <ul className="max-h-96 divide-y divide-line overflow-y-auto">
               {items.map((n) => { const due = dueLabel(n); return (
@@ -102,7 +102,7 @@ export default function NotificationBell() {
                     type="button"
                     onClick={() => openItem(n)}
                     className={`block w-full px-4 py-2.5 text-left text-sm transition hover:bg-paper ${
-                      n.readAt ? 'text-gray-500' : 'text-gray-800'
+                      n.readAt ? 'text-mute' : 'text-ink'
                     }`}
                   >
                     {due && (
