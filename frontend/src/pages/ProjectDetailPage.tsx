@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, NavLink, Navigate, useParams } from 'react-router';
+import { useContext, useEffect, useMemo, useState } from 'react';
+import { Link, Navigate, useParams } from 'react-router';
 import type { PermitCategory, PermitItem, PermitStatus, Project } from '../types';
 import { CATEGORY_LABEL, FACILITY_LABEL, PERMIT_STATUS, filterPermits } from './listFilters';
 import { Badge, dueBadge } from '../components/ui/Badge';
@@ -7,6 +7,8 @@ import { Button } from '../components/ui/Button';
 import { Select } from '../components/ui/Field';
 import { Table } from '../components/ui/Table';
 import { cn, focusRing } from '../components/ui/cn';
+import { PageHeader } from '../components/ui/PageHeader';
+import { OpenProjectContext, projectTabs } from '../components/SideNav';
 import { EmptyBlock, FilterChips, type ActiveFilter } from '../components/ListParts';
 import { api, apiBlob } from '../api/client';
 import { latestDerivation, type DerivationWarning } from '../api/derivation';
@@ -28,7 +30,7 @@ import { Alert } from '../components/ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ProjectDetailPage — the project hub: summary + lifecycle stage + routed tabs
-// (/projects/:id/:tab). 인허가 tab = permit table; each row opens the drawer.
+// (/projects/:id/:tab); the tabs are the project's sub menu in the left menu (SideNav). 인허가 tab = permit table; each row opens the drawer.
 // ---------------------------------------------------------------------------
 
 /** Less important columns: hidden under 1280 px (the drawer shows them) so the key ones fit without scrolling. */
@@ -37,18 +39,6 @@ const WIDE = 'hidden xl:table-cell';
 const CATEGORY_TAB_ORDER: PermitCategory[] = [
   'LOCATION', 'FACILITY', 'CONSTRUCTION', 'ELECTRICAL', 'ENVIRONMENT',
 ];
-
-const TABS = [
-  { key: 'overview', label: '개요' },
-  { key: 'permits', label: '인허가' },
-  { key: 'obligations', label: '의무사항' },
-  { key: 'review', label: 'AI 검토' },
-  { key: 'laws', label: '법령 영향' },
-  { key: 'schedule', label: '일정' },
-  { key: 'operations', label: '운영' },
-  { key: 'documents', label: '문서' },
-  { key: 'settings', label: '설정' },
-] as const;
 
 /** 인허가 진행 현황 보고 1쪽 (design-schedule/08): built from current values on every click. */
 async function downloadReport(projectId: number) {
@@ -71,6 +61,9 @@ export default function ProjectDetailPage() {
   const [ruleWarnings, setRuleWarnings] = useState<DerivationWarning[]>([]);
   const [reloads, setReloads] = useState(0); // 설정 saves → refresh the header
   const [reporting, setReporting] = useState(false); // the report takes ~2 s to build
+  const showInNav = useContext(OpenProjectContext);
+  useEffect(() => { showInNav(project); }, [project, showInNav]);
+  useEffect(() => () => showInNav(null), [showInNav]);
 
   useEffect(() => {
     // approved items the current rules no longer find applicable; no derivation yet → 404, nothing to show
@@ -129,36 +122,17 @@ export default function ProjectDetailPage() {
     );
   }
 
-  // the other tabs are member-only on the server (403), so a company viewer is not shown dead tabs
-  const tabs = (project.member ? TABS : TABS.filter((t) => t.key === 'overview' || t.key === 'permits'))
-    .filter((t) => t.key !== 'operations' || project.operationsEnabled); // opt-in module (설정 › 모듈)
+  const tabs = projectTabs(project);
+  const tabLabel = tabs.find((t) => t.key === tab)?.label ?? '개요';
 
   return (
     <div className="min-h-full bg-paper">
       <div className="py-8">
-        {/* Breadcrumb */}
-        <nav className="text-sm text-mute">
-          <Link to="/projects" className="transition hover:text-brand hover:underline">
-            프로젝트 목록
-          </Link>
-          <span className="mx-2 text-line">›</span>
-          <span className="text-body">{project.name}</span>
-        </nav>
+        <PageHeader title={tabLabel} trail={[{ to: '/projects', label: '프로젝트' }, { to: `/projects/${id}/overview`, label: project.name }]} />
 
-        {/* Summary card: full on 개요, one line on the other tabs so the schedule and tables get the height */}
+        {/* Summary card on 개요 only; the other tabs keep just the notices so the schedule and tables get the height */}
         {tab !== 'overview' ? (
-          <section className="mt-4 rounded border border-line bg-white px-5 py-3 shadow-sm">
-            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-              <h1 className="truncate text-lg font-bold text-ink" title={project.name}>{project.name}</h1>
-              <span className="text-sm text-mute">
-                {FACILITY_LABEL[project.facilityType]} · {STAGES[lifecycleStage(project, permits)]} 단계
-              </span>
-              <span className="text-sm text-mute sm:ml-auto">
-                인허가 {stats.total} · 취득완료 {stats.completed} · <span className={stats.nearExpiry ? 'text-warn' : ''}>만료임박 {stats.nearExpiry}</span> · 미신청 {stats.notApplied}
-              </span>
-            </div>
-            <Notices project={project} warnings={ruleWarnings} />
-          </section>
+          <Notices project={project} warnings={ruleWarnings} />
         ) : (
         <section className="mt-4 rounded border border-line bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -166,7 +140,7 @@ export default function ProjectDetailPage() {
               <span className="text-sm text-mute">
                 {FACILITY_LABEL[project.facilityType]}
               </span>
-              <h1 className="mt-2 text-2xl font-bold text-ink">{project.name}</h1>
+              <h2 className="mt-2 text-2xl font-bold text-ink">{project.name}</h2>
               <p className="mt-1 text-sm text-mute">{project.location}</p>
             </div>
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
@@ -198,20 +172,6 @@ export default function ProjectDetailPage() {
           <StageBar current={lifecycleStage(project, permits)} />
         </section>
         )}
-
-        <nav className="mt-6 flex gap-1 overflow-x-auto overflow-y-hidden border-b border-line" aria-label="프로젝트 메뉴">
-          {tabs.map((t) => (
-            <NavLink
-              key={t.key}
-              to={`/projects/${id}/${t.key}`}
-              className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
-                tab === t.key ? 'border-brand text-brand' : 'border-transparent text-mute hover:text-ink'
-              }`}
-            >
-              {t.label}
-            </NavLink>
-          ))}
-        </nav>
 
         <div className="mt-6">
           {tab === 'overview' && <ProjectOverview project={project} permits={permits} />}
