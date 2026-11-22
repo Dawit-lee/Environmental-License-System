@@ -1,15 +1,17 @@
-import { lazy, useEffect, useState, type MouseEvent } from 'react';
+import { lazy, useEffect, useMemo, useState, type MouseEvent } from 'react';
 import { BrowserRouter, Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import SharePage from './pages/SharePage';
 import { setOnboardingDismissed } from './components/Onboarding';
 import NotificationBell from './components/NotificationBell';
-import { MainNav, navFor } from './components/MainNav';
+import { NavDrawer, OpenProjectContext, SideNav, navFor, projectTabs } from './components/SideNav';
 import { focusRing } from './components/ui/cn';
 import { RouteBoundary } from './components/ErrorBoundary';
 import { logout, type Session } from './api/auth';
-import { isMaster } from './api/client';
+import { api, isMaster } from './api/client';
+import { loadTodos, type Todo } from './api/todos';
+import type { Project } from './types';
 import { getCompany } from './api/extraction';
 
 // routed screens load on demand to keep the first chunk small
@@ -56,12 +58,25 @@ export default function PermitApp() {
   const [session, setSession] = useState<Session | null>(loadSession);
   const [menuOpen, setMenuOpen] = useState(false);
   const [company, setCompany] = useState<string | null>(null);
+  const [mine, setMine] = useState<Project[]>([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [openProject, setOpenProject] = useState<Project | null>(null);
   const user = session?.user.email ?? null;
-  const nav = navFor(isMaster());
-  // company name for the utility bar; best effort, the bar works without it
+  const nav = navFor(isMaster(), todos.length);
+  // company name for the utility bar, my projects and open to-dos for the left menu; best effort, the shell works without them
+  // shortcut: counts load once per sign-in (2 calls per project); add a server count endpoint if they must stay live
   useEffect(() => {
-    if (user) getCompany().then((c) => setCompany(c.name), () => setCompany(null));
+    if (!user) return;
+    getCompany().then((c) => setCompany(c.name), () => setCompany(null));
+    api<Project[]>('/api/projects').then((ps) => { setMine(ps); return loadTodos(ps); }).then(setTodos, () => setTodos([]));
   }, [user]);
+  // shortcut: no visit history yet, so 최근 프로젝트 = my newest projects (highest id)
+  const recent = useMemo(() => [...mine].sort((a, b) => b.id - a.id).slice(0, 3), [mine]);
+  const navProject = openProject && {
+    id: openProject.id,
+    name: openProject.name,
+    tabs: projectTabs(openProject, todos.filter((t) => t.kind === 'REVIEW' && t.projectId === openProject.id).length),
+  };
 
   const handleLogin = (s: Session) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
@@ -89,11 +104,12 @@ export default function PermitApp() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       ) : (
+        <OpenProjectContext.Provider value={setOpenProject}>
         <div className="flex min-h-screen flex-col bg-paper text-ink">
           <PageTitle nav={nav} />
           {/* Utility bar — service name, then company · user, bell, help and logout on every screen */}
           <div className="bg-inverse text-sm text-inverse-subtle">
-            <div className="mx-auto flex h-10 max-w-[1200px] items-center justify-between gap-3 px-4 sm:px-6">
+            <div className="flex h-10 items-center justify-between gap-3 px-4 sm:px-6">
               <span className="hidden truncate sm:block">환경시설 인허가 관리 시스템</span>
               <div className="ml-auto flex shrink-0 items-center gap-1 whitespace-nowrap">
                 <span className="mr-2 hidden max-w-[360px] truncate md:inline" title={user}>
@@ -109,21 +125,33 @@ export default function PermitApp() {
             </div>
           </div>
 
-          {/* Header — logo and the horizontal main menu (a 메뉴 button below lg) */}
-          <header className="relative border-b border-line bg-white">
-            <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-8 px-4 sm:px-6">
-              <Link to="/dashboard" onClick={() => setMenuOpen(false)} className={`flex shrink-0 items-center gap-2.5 rounded ${focusRing}`}>
-                <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true" className="text-brand-text">
-                  <rect x="1" y="1" width="26" height="26" rx="4" fill="currentColor" />
-                  <path d="M8 15l4 4 8-9" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                <span className="text-[19px] font-bold text-ink">인허가 관리</span>
-              </Link>
-              <MainNav items={nav} open={menuOpen} onToggle={() => setMenuOpen((o) => !o)} />
-            </div>
+          {/* Below lg: logo and a 메뉴 button that opens the left menu as a drawer */}
+          <header className="flex h-14 items-center justify-between border-b border-line bg-white px-4 sm:px-6 lg:hidden">
+            <Link to="/dashboard" className={`flex items-center gap-2.5 rounded ${focusRing}`}>
+              <svg width="26" height="26" viewBox="0 0 28 28" aria-hidden="true" className="text-brand">
+                <rect x="1" y="1" width="26" height="26" rx="4" fill="currentColor" />
+                <path d="M8 15l4 4 8-9" stroke="#fff" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <span className="text-lg font-bold text-ink">인허가 관리</span>
+            </Link>
+            <button type="button" onClick={() => setMenuOpen(true)} aria-expanded={menuOpen} aria-controls="side-nav-drawer"
+              className={`flex h-11 items-center gap-2 rounded border border-line px-3 text-[17px] font-bold text-ink ${focusRing}`}>
+              <span aria-hidden>☰</span>메뉴
+            </button>
           </header>
+          <NavDrawer open={menuOpen} onClose={() => setMenuOpen(false)}>
+            <SideNav items={nav} project={navProject} recent={recent} onNavigate={() => setMenuOpen(false)} />
+          </NavDrawer>
 
-          <main className="mx-auto w-full min-w-0 max-w-[1200px] flex-1 px-4 pb-14 sm:px-6">
+          <div className="flex flex-1">
+            {/* Left menu — lg and up; sticks while the page scrolls */}
+            <aside className="hidden w-[248px] shrink-0 border-r border-line bg-white lg:block">
+              <div className="sticky top-0 h-[calc(100vh-2.5rem)] overflow-y-auto">
+                <SideNav items={nav} project={navProject} recent={recent} />
+              </div>
+            </aside>
+
+          <main className="mx-auto w-full min-w-0 max-w-[1200px] flex-1 px-4 pb-14 sm:px-6 lg:px-8">
             <RouteBoundary>
             <Routes>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
@@ -144,7 +172,9 @@ export default function PermitApp() {
             </Routes>
             </RouteBoundary>
           </main>
+          </div>
         </div>
+        </OpenProjectContext.Provider>
       )}
     </BrowserRouter>
   );
