@@ -7,6 +7,7 @@ import {
 import type { Discipline } from '../api/schedule';
 import type { CalendarEntry } from './ScheduleCalendar';
 import { useEscape } from './useEscape';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // EventPanels — right-side panels for the calendars: EntryDetail (read-only, any calendar entry) and EventForm
@@ -131,7 +132,7 @@ export function EventForm({ projectId, event, defaultDate, disciplines, members,
   return (
     <Drawer label="이벤트" sub={event ? EVENT_KIND_LABEL[event.kind] : '새 이벤트'} title={event?.title ?? '이벤트 추가'} onClose={onClose}>
       <form className="flex-1 space-y-3 overflow-y-auto px-6 py-5" onSubmit={(e) => { e.preventDefault(); save(); }}>
-        {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+        {error && <Alert tone="danger">{error}</Alert>}
         <label className={row}><span className="text-sm text-mute">종류</span>
           <select className={field} value={form.kind} onChange={(e) => {
             const kind = e.target.value as EventKind;

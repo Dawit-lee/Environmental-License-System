@@ -11,6 +11,7 @@ import type { PermitDocument, PermitItem } from '../types';
 import { monthsBefore } from './ComplianceReportDraft';
 import { LEVEL, levelClass } from './PointMeasurements';
 import { useEscape } from './useEscape';
+import { Alert } from './ui/Alert';
 
 /** Default report period of a 보고·제출 task: one cycle back from its due date (same months as the server's Frequency). */
 const CYCLE_MONTHS: Partial<Record<Obligation['frequency'], number>> = { MONTHLY: 1, QUARTERLY: 3, SEMIANNUAL: 6, ANNUAL: 12 };
@@ -144,7 +145,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
         </div>
 
         <div className="flex-1 space-y-6 overflow-y-auto px-6 py-5">
-          {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+          {error && <Alert tone="danger">{error}</Alert>}
 
           {!task && obligation?.status === 'ACTIVE' && (
             <section>

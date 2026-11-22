@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { LEVEL, levelClass, limitText, type Level } from './PointMeasurements';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // MeasurementPaste — 운영 탭 "엑셀 붙여넣기" of one emission point (operations-compliance/05): 측정일·항목·값 copied
@@ -61,7 +62,7 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
       <p className="mt-2 text-sm text-mute">
         엑셀에서 측정일·항목·값 3열을 복사해 붙여넣습니다. 첫 행이 제목이면 건너뜁니다. 항목은 코드(CO)나 이름(일산화탄소) 모두 되고, 최대 500행입니다.
       </p>
-      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
       {saved && <p role="status" className="mt-3 rounded bg-paper px-3 py-2 text-sm text-body">{saved}</p>}
       <textarea value={text} rows={5} aria-label="붙여넣을 측정값" spellCheck={false}
         placeholder={'측정일\t항목\t값\n2026-01-05\tCO\t12.5'}

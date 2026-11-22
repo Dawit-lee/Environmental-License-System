@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, sessionUserId } from '../api/client';
 import { getCompanyUsers, type CompanyUser } from '../api/org';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ProjectMembers — 프로젝트 › 설정: who works on the project and what they may approve.
@@ -55,7 +56,7 @@ export default function ProjectMembers({ projectId }: { projectId: number }) {
       <p className="mt-1 text-sm text-mute">
         {admin ? '멤버를 추가하고 승인 권한을 정합니다.' : '프로젝트 어드민만 바꿀 수 있습니다.'}
       </p>
-      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
 
       <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
         <table className="w-full min-w-[720px] whitespace-nowrap text-left text-sm">

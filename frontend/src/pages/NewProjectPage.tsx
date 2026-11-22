@@ -19,6 +19,7 @@ import { acceptSuggestion, bulkAccept, editSuggestion, rejectSuggestion } from '
 import { ANCHOR_LABEL, setAnchor } from '../api/schedule';
 import type { FacilityType, Project, ProjectStatus } from '../types';
 import { usePrompt } from '../components/PromptDialog';
+import { Alert } from '../components/ui/Alert';
 
 // ---------------------------------------------------------------------------
 // NewProjectPage — two-step wizard.
@@ -586,9 +587,9 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
             )}
 
             {result?.warnings?.map((w) => (
-              <p key={w.rule_key} className="mt-2 rounded bg-amber-50 px-3 py-2 text-sm text-warn">
+              <Alert key={w.rule_key} tone="warning" className="mt-2">
                 {w.permit_name}: {w.message} (등록된 항목은 그대로 둡니다)
-              </p>
+              </Alert>
             ))}
 
             {/* Inputs the on-hold rows are waiting for */}

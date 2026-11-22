@@ -6,6 +6,7 @@ import {
 import DisciplineSettings from '../components/DisciplineSettings';
 import TemplateSettings from '../components/TemplateSettings';
 import { usePrompt } from '../components/PromptDialog';
+import { Alert } from '../components/ui/Alert';
 
 // ---------------------------------------------------------------------------
 // OrgPage — company master only: departments > teams, which team each user is in, and the 분야 list.
@@ -65,7 +66,7 @@ export default function OrgPage() {
         {tab === 'templates' && <TemplateSettings />}
         {tab === 'org' && (<>
         <p className="mt-4 text-sm text-mute">부서와 팀을 만들고 사용자를 팀에 배정합니다. 팀을 지우면 소속 사용자·프로젝트는 미지정이 됩니다.</p>
-        {error && <p role="alert" className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+        {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
 
         <section className="mt-6 space-y-4">
           {depts.map((d) => (

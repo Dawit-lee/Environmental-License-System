@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router';
 import { api } from '../api/client';
 import { getTask, type Task } from '../api/tasks';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // PointMeasurements — 운영 탭 "측정값 입력" of one emission point (operations-compliance/04): one row per limit in
@@ -137,7 +138,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
           <button type="button" className={BTN} onClick={() => setParams({}, { replace: true })}>연결 해제</button>
         </p>
       )}
-      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
       {saved && <p role="status" className="mt-3 rounded bg-paper px-3 py-2 text-sm text-body">{saved}</p>}
 
       <form onSubmit={save} className="mt-3">

@@ -17,6 +17,7 @@ import ProjectModules from '../components/ProjectModules';
 import ProjectMembers from '../components/ProjectMembers';
 import ProjectDelete from '../components/ProjectDelete';
 import { EmptyState, Tip, primaryBtn } from '../components/Onboarding';
+import { Alert } from '../components/ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ProjectDetailPage — the project hub: summary + lifecycle stage + routed tabs
@@ -404,9 +405,9 @@ function Notices({ project, warnings }: { project: Project; warnings: Derivation
         </p>
       )}
       {warnings.map((w) => (
-        <p key={w.rule_key} className="mt-3 rounded bg-amber-50 px-3 py-2 text-sm text-warn">
+        <Alert key={w.rule_key} tone="warning" className="mt-3">
           {w.permit_name} — {w.message}
-        </p>
+        </Alert>
       ))}
     </>
   );

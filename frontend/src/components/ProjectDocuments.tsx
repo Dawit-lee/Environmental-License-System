@@ -5,6 +5,7 @@ import { getAiProvider, getCompany, getRun, startScheduleExtraction, type AiRun 
 import ComplianceReportDraft from './ComplianceReportDraft';
 import { EmptyState, HELP } from './Onboarding';
 import type { DocType, PermitDocument, PermitItem } from '../types';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ProjectDocuments — 프로젝트 › 문서: files of every permit in one list. Upload, AI extraction and
@@ -131,7 +132,7 @@ export default function ProjectDocuments({ projectId, permits, onOpenPermit }: {
         </button>
         {!aiOn && <span className="text-xs text-mute">회사 설정에서 AI 추출이 꺼져 있어 [일정 추출]을 쓸 수 없습니다.</span>}
       </div>
-      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
       <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
         <table className="w-full min-w-[980px] whitespace-nowrap text-left text-sm">
           <thead className="bg-paper text-xs text-body">

@@ -6,6 +6,7 @@ import type { PermitItem } from '../types';
 import ObligationTaskDrawer from './ObligationTaskDrawer';
 import { Link } from 'react-router';
 import { EmptyState, primaryBtn, secondaryBtn } from './Onboarding';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ProjectObligations — 프로젝트 › 의무사항: approved obligations of every permit, nearest due date first.
@@ -119,7 +120,7 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
           )}
         </div>
       </div>
-      {error && <p role="alert" className="mt-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
 
       <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
         <table className="w-full min-w-[920px] whitespace-nowrap text-left text-sm">

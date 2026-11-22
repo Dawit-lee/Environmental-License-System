@@ -61,6 +61,7 @@
  *   line        default border and table divider
  *   line-soft   lighter row divider inside tables and lists
  *   paper       neutral gray: row hover, table header, soft panels
+ *   disabled    text on disabled buttons and inputs
  *   danger      overdue, expired, destructive      (-bg/-border for boxes)
  *   warn        due soon, needs action            (-bg/-border)
  *   ok          done, acquired                    (-bg/-border)
@@ -83,6 +84,7 @@
   --color-line: #cdd1d5;
   --color-line-soft: #e6e8ea;
   --color-paper: #f4f5f6;
+  --color-disabled: #8a949e; /* text-disabled: disabled button and input text */
   --color-danger: #bd2c0f;
   --color-danger-hover: #9a2309;
   --color-danger-bg: #fdefec;

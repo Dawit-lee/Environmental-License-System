@@ -5,6 +5,7 @@ import type { PermitItem } from '../types';
 import MeasurementPaste from './MeasurementPaste';
 import MeasurementTrend from './MeasurementTrend';
 import PointMeasurements, { limitText, nearLines } from './PointMeasurements';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ProjectOperations — 프로젝트 › 운영: emission points, their permit limits and measured values (operations-compliance F2).
@@ -128,7 +129,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
 
   return (
     <div>
-      {error && <p role="alert" className="mb-3 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger" className="mb-3">{error}</Alert>}
 
       {/* 배출구 */}
       <div className="flex items-center justify-between gap-3">

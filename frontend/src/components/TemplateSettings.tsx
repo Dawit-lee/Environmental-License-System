@@ -3,6 +3,7 @@ import {
   ANCHOR_LABEL, ANCHORS, createTemplateItem, deleteTemplateItem, getDisciplines, getTemplates, updateTemplateItem,
   type Anchor, type Discipline, type ItemKind, type Template, type TemplateItem,
 } from '../api/schedule';
+import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // TemplateSettings — 조직 관리 › 일정 템플릿 (company master): a plain table per template; each row's title, base
@@ -25,7 +26,7 @@ export default function TemplateSettings() {
   return (
     <section className="mt-6 space-y-6">
       <p className="text-sm text-mute">프로젝트 › 일정 › [템플릿]으로 시작할 때 쓰는 항목입니다. 오프셋은 기준일로부터의 일수(음수 = 역산) 또는 개월 수입니다.</p>
-      {error && <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <Alert tone="danger">{error}</Alert>}
       {templates.map((t) => (
         <div key={t.id}>
           <h2 className="mb-2 text-sm font-semibold text-ink">{t.name}</h2>

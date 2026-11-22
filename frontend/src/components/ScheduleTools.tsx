@@ -6,6 +6,7 @@ import {
   type TemplateItem,
 } from '../api/schedule';
 import { useEscape } from './useEscape';
+import { Alert as Notice } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ScheduleTools — the 일정 tab's design-schedule/03 pieces: base dates (with the move preview), 기준 확정,
@@ -79,7 +80,7 @@ function Stats({ items }: { items: [ReactNode, string, boolean?][] }) {
 }
 
 export const Alert = ({ error }: { error: string | null }) =>
-  error ? <p role="alert" className="rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p> : null;
+  error ? <Notice tone="danger">{error}</Notice> : null;
 
 /** Runs one async action with busy/error state. */
 function useRun() {

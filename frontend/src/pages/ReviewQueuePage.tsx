@@ -10,6 +10,7 @@ import RevisionSuggestions from '../components/RevisionSuggestions';
 import ScheduleSuggestionReview from '../components/ScheduleSuggestionReview';
 import { usePrompt } from '../components/PromptDialog';
 import { Help } from '../components/Onboarding';
+import { Alert } from '../components/ui/Alert';
 
 // ---------------------------------------------------------------------------
 // ReviewQueuePage — ③ human review of permit conditions (obligations).
@@ -183,7 +184,7 @@ export default function ReviewQueuePage({ projectId: fixedId }: { projectId?: nu
           </div>
         </div>
 
-        {error && <p role="alert" className="mt-4 rounded bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
+        {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
 
         {projectId && <RevisionSuggestions projectId={projectId} />}
         {projectId && <ScheduleSuggestionReview key={projectId} projectId={projectId} />}
