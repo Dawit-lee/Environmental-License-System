@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import type { Deadline } from '../api/notifications';
-import { UpcomingDeadlines, summaryItems } from './dashboard';
+import { UpcomingDeadlines, permitSummaryItems, summaryItems } from './dashboard';
+import type { PermitItem } from '../types';
 import { SummaryStrip } from './ui/SummaryStrip';
 
 beforeAll(() => {
@@ -68,5 +69,16 @@ describe('UpcomingDeadlines', () => {
   it('says so when nothing is due, and shows a load error instead', () => {
     expect(html(<UpcomingDeadlines deadlines={[]} />)).toContain('30일 안에 닥치는 기한이 없습니다.');
     expect(html(<UpcomingDeadlines deadlines={[]} error="불러오지 못했습니다" />)).toContain('불러오지 못했습니다');
+  });
+});
+
+describe('project 개요 summary strip', () => {
+  const permits = (...s: PermitItem['status'][]) => s.map((status) => ({ status }) as PermitItem);
+
+  it('counts permits by status and colours 만료 임박 only when there is one', () => {
+    const items = permitSummaryItems(permits('COMPLETED', 'COMPLETED', 'NEAR_EXPIRY', 'NOT_APPLIED'));
+    expect(items.map((i) => i.value)).toEqual([4, 2, 1, 1]);
+    expect(items[2].tone).toBe('warning');
+    expect(permitSummaryItems(permits('COMPLETED'))[2].tone).toBeUndefined();
   });
 });

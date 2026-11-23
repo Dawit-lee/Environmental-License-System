@@ -18,7 +18,8 @@ import LawAmendmentsPage from './LawAmendmentsPage';
 import ProjectSchedule from '../components/ProjectSchedule';
 import NewProjectPage from './NewProjectPage';
 import ProjectOverview from '../components/ProjectOverview';
-import { STAGES, lifecycleStage } from '../components/dashboard';
+import { STAGES, lifecycleStage, permitSummaryItems } from '../components/dashboard';
+import { SummaryStrip } from '../components/ui/SummaryStrip';
 import ProjectObligations from '../components/ProjectObligations';
 import ProjectDocuments from '../components/ProjectDocuments';
 import ProjectOperations from '../components/ProjectOperations';
@@ -86,14 +87,6 @@ export default function ProjectDetailPage() {
     return () => { stale = true; };
   }, [id, reloads]);
 
-  const stats = useMemo(() => {
-    const total = permits.length;
-    const completed = permits.filter((p) => p.status === 'COMPLETED').length;
-    const nearExpiry = permits.filter((p) => p.status === 'NEAR_EXPIRY').length; // same rule as the 상태 분포
-    const notApplied = permits.filter((p) => p.status === 'NOT_APPLIED').length;
-    return { total, completed, nearExpiry, notApplied };
-  }, [permits]);
-
   const visible = useMemo(() => filterPermits(permits, { category: activeCategory, status: statusFilter }), [permits, activeCategory, statusFilter]);
 
   const permitFilters: ActiveFilter[] = [
@@ -134,43 +127,36 @@ export default function ProjectDetailPage() {
         {tab !== 'overview' ? (
           <Notices project={project} warnings={ruleWarnings} />
         ) : (
-        <section className="mt-4 rounded border border-line bg-white p-6 shadow-sm">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <span className="text-sm text-mute">
-                {FACILITY_LABEL[project.facilityType]}
-              </span>
-              <h2 className="mt-2 text-2xl font-bold text-ink">{project.name}</h2>
-              <p className="mt-1 text-sm text-mute">{project.location}</p>
+        <>
+        <section className="mt-4 rounded border border-line bg-white">
+          <div className="flex flex-wrap items-start justify-between gap-x-10 gap-y-4 p-6">
+            <div className="min-w-0">
+              <p className="text-[15px] text-body">{FACILITY_LABEL[project.facilityType]}</p>
+              <h2 className="mt-1 text-2xl font-bold break-keep text-ink">{project.name}</h2>
+              <p className="mt-1 text-[15px] text-body">{project.location}</p>
             </div>
-            <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-              <dt className="text-mute">시설용량</dt>
-              <dd className="text-body">{project.capacity ?? '—'} {project.capacityUnit}</dd>
-              <dt className="text-mute">착수일</dt>
-              <dd className="text-body">{project.startDate ?? '—'}</dd>
-              <dt className="text-mute">착공예정일</dt>
-              <dd className="text-body">{project.constructionStartDate ?? '—'}</dd>
-              <dt className="text-mute">준공예정일</dt>
-              <dd className="text-body">{project.expectedEndDate ?? '—'}</dd>
-              <dt className="text-mute">부서/팀</dt>
-              <dd className="text-body">{project.teamName ? `${project.departmentName} / ${project.teamName}` : '—'}</dd>
-              <dt className="text-mute">PM / EM</dt>
-              <dd className="text-body">{project.pmName ?? '—'} / {project.emName ?? '—'}</dd>
+            <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 text-[15px]">
+              <dt className="text-body">시설용량</dt>
+              <dd className="tabular-nums text-ink">{project.capacity ?? '—'} {project.capacityUnit}</dd>
+              <dt className="text-body">착수일</dt>
+              <dd className="tabular-nums text-ink">{project.startDate ?? '—'}</dd>
+              <dt className="text-body">착공예정일</dt>
+              <dd className="tabular-nums text-ink">{project.constructionStartDate ?? '—'}</dd>
+              <dt className="text-body">준공예정일</dt>
+              <dd className="tabular-nums text-ink">{project.expectedEndDate ?? '—'}</dd>
+              <dt className="text-body">부서/팀</dt>
+              <dd className="text-ink">{project.teamName ? `${project.departmentName} / ${project.teamName}` : '—'}</dd>
+              <dt className="text-body">PM / EM</dt>
+              <dd className="text-ink">{project.pmName ?? '—'} / {project.emName ?? '—'}</dd>
             </dl>
           </div>
-
-          <Notices project={project} warnings={ruleWarnings} />
-
-          {/* Stats row */}
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Stat label="전체 인허가" value={stats.total} tone="text-brand" />
-            <Stat label="취득완료" value={stats.completed} tone="text-ok" />
-            <Stat label="만료임박" value={stats.nearExpiry} tone="text-warn" />
-            <Stat label="미신청" value={stats.notApplied} tone="text-danger" />
+          <div className="border-t border-line px-6 pt-1 pb-6">
+            <Notices project={project} warnings={ruleWarnings} />
+            <StageBar current={lifecycleStage(project, permits)} />
           </div>
-
-          <StageBar current={lifecycleStage(project, permits)} />
         </section>
+        <SummaryStrip className="mt-4" items={permitSummaryItems(permits)} />
+        </>
         )}
 
         <div className="mt-6">
@@ -328,31 +314,22 @@ function Notices({ project, warnings }: { project: Project; warnings: Derivation
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: number; tone: string }) {
-  return (
-    <div className="rounded bg-paper p-4 text-center">
-      <div className={`text-2xl font-bold ${tone}`}>{value}</div>
-      <div className="mt-1 text-xs text-mute">{label}</div>
-    </div>
-  );
-}
-
+/** Carbon progress indicator: a 4px line per stage (done and current blue) and the state in words. */
 function StageBar({ current }: { current: number }) {
   return (
-    <ol className="mt-6 flex items-center gap-1 text-xs" aria-label="생애주기 단계">
-      {STAGES.map((label, i) => (
-        <li key={label} className="flex flex-1 items-center gap-1">
-          <span
-            aria-current={i === current ? 'step' : undefined}
-            className={`flex-1 rounded px-2 py-1.5 text-center font-medium ${
-              i === current ? 'bg-brand text-white' : i < current ? 'bg-brand/10 text-brand' : 'bg-paper text-body'
-            }`}
-          >
-            {label}
-          </span>
-          {i < STAGES.length - 1 && <span aria-hidden className="text-line">→</span>}
-        </li>
-      ))}
-    </ol>
+    <div className="mt-5">
+      <h3 className="text-[15px] font-bold text-ink">생애주기 단계</h3>
+      <ol className="mt-3 grid grid-cols-5 gap-1" aria-label="생애주기 단계">
+        {STAGES.map((label, i) => (
+          <li key={label} aria-current={i === current ? 'step' : undefined}
+            className={cn('min-w-0 border-t-4 pt-2 text-[15px]', i <= current ? 'border-brand' : 'border-line')}>
+            <span className={cn('block truncate', i === current ? 'font-bold text-ink' : 'text-body')}>{label}</span>
+            <span className={cn('block truncate', i === current ? 'text-brand-text' : 'text-body')}>
+              {i < current ? '완료' : i === current ? '진행 중' : '예정'}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }

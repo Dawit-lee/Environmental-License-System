@@ -92,25 +92,33 @@ export function ScheduleSummary({ projectId }: { projectId: number }) {
   const delayed = items.filter((i) => i.status === 'DELAYED').length;
   const base = `/projects/${projectId}/schedule`;
   return (
-    <section className={card}>
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-lg font-semibold text-ink">일정</h2>
-        <Link to={base} className={`text-sm ${delayed ? 'text-danger' : 'text-mute'} hover:underline`}>기한 경과 {delayed}건</Link>
+    <section className="rounded border border-line bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
+        <h2 className="text-[19px] font-bold text-ink">일정</h2>
+        <Link to={base} className={`whitespace-nowrap text-[15px] ${delayed ? 'text-danger' : 'text-body'} hover:underline`}>기한 경과 <span className="tabular-nums">{delayed}</span>건</Link>
       </div>
-      <p className="mt-3 text-xs text-mute">다음 마일스톤</p>
-      <ul className="mt-1 space-y-1 text-sm">
-        {milestones.length === 0 && <li className="text-mute">예정된 마일스톤이 없습니다.</li>}
-        {milestones.map((m) => (
-          <li key={m.id} className="flex justify-between gap-3">
-            <span className="truncate text-ink" title={m.title}>{m.title}</span>
-            <span className="shrink-0 text-mute">{m.endDate}</span>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-3 text-xs text-mute">다음 이벤트</p>
-      <p className="mt-1 truncate text-sm text-ink" title={next?.title}>
-        {next ? `${eventWhen(next)} ${EVENT_KIND_LABEL[next.kind]} · ${next.title}` : <span className="text-mute">없음</span>}
-      </p>
+      <dl className="grid grid-cols-1 gap-4 px-5 py-4 text-[15px] md:grid-cols-2">
+        <div className="min-w-0">
+          <dt className="font-bold text-ink">다음 마일스톤</dt>
+          <dd>
+            <ul className="mt-1 space-y-1">
+              {milestones.length === 0 && <li className="text-body">예정된 마일스톤이 없습니다.</li>}
+              {milestones.map((m) => (
+                <li key={m.id} className="flex justify-between gap-3">
+                  <span className="truncate text-ink" title={m.title}>{m.title}</span>
+                  <span className="shrink-0 tabular-nums text-body">{m.endDate}</span>
+                </li>
+              ))}
+            </ul>
+          </dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="font-bold text-ink">다음 이벤트</dt>
+          <dd className="mt-1 truncate text-ink" title={next?.title}>
+            {next ? `${eventWhen(next)} ${EVENT_KIND_LABEL[next.kind]} · ${next.title}` : <span className="text-body">없음</span>}
+          </dd>
+        </div>
+      </dl>
     </section>
   );
 }

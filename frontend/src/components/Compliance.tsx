@@ -1,7 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import { DUE_SOON_DAYS } from '../terms';
 import { useNavigate } from 'react-router';
 import { api } from '../api/client';
+import { SummaryStrip, type SummaryItem } from './ui/SummaryStrip';
+import { Table } from './ui/Table';
 
 // ---------------------------------------------------------------------------
 // Compliance — 규제 대응 현황 (operations-compliance F4): 기한 내 이행률 and the counts shown beside it.
@@ -34,32 +36,23 @@ const query = (o: Record<string, string | number | null>) => {
   return q ? `?${q}` : '';
 };
 
-function Metric({ label, value, sub, tone = 'text-ink' }: { label: string; value: ReactNode; sub: string; tone?: string }) {
-  return (
-    <div className={card}>
-      <div className={`whitespace-nowrap text-3xl font-bold ${tone}`}>{value}</div>
-      <div className="mt-1 truncate text-sm text-body" title={label}>{label}</div>
-      <div className="mt-0.5 truncate text-xs text-mute" title={sub}>{sub}</div>
-    </div>
-  );
-}
-
-/** The four headline numbers, the counts kept apart from the rate, and the formula in words. */
+/** The headline numbers in one strip (DESIGN.md 요약 숫자), the counts kept apart from the rate, and the formula in words. */
 function MetricCards({ m, company, operations }: { m: Metrics; company: boolean; operations: boolean }) {
   const t = m.tasks;
+  const items: SummaryItem[] = [
+    { label: '기한 내 이행률', value: t.percent === null ? '해당 없음' : t.percent, unit: t.percent === null ? undefined : '%' },
+    { label: '기한 경과', value: t.overdue, unit: '건', tone: t.overdue > 0 ? 'danger' : undefined, alert: t.overdue > 0 },
+    ...(operations ? [{ label: '미조치 초과', value: t.openCorrective, unit: '건', tone: t.openCorrective > 0 ? 'danger' as const : undefined }] : []),
+    { label: '기한 임박', value: t.dueSoon, unit: '건', tone: t.dueSoon > 0 ? 'warning' : undefined },
+  ];
   return (
     <>
-      <div className={`mt-4 grid grid-cols-2 gap-4 ${operations ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-        <Metric label="기한 내 이행률" value={pct(t.percent)} tone={t.percent === null ? 'text-mute' : 'text-brand'}
-          sub={t.percent === null ? '기간 안에 기한이 지난 업무 없음' : `기한 내 완료 ${t.onTime}건 / 기한 도래 ${t.due}건`} />
-        <Metric label="기한 경과" value={t.overdue} tone={alarm(t.overdue)} sub="열린 업무 중 기한이 지난 것" />
-        {operations && <Metric label="미조치 초과" value={t.openCorrective} tone={alarm(t.openCorrective)} sub="열린 조치 업무" />}
-        <Metric label="기한 임박" value={t.dueSoon} sub={`열린 업무 중 오늘 ~ ${DUE_SOON_DAYS}일 뒤`} />
-      </div>
-      <p className="mt-3 text-sm text-body">
-        지연 완료 {t.late}건 · {operations && `측정 초과 ${m.exceeded}건 · 측정 근접 ${m.near}건 · `}허가 만료 임박 {m.nearExpiry}건 · 현장 반영 대기 {m.siteOpen}건
+      <SummaryStrip className="mt-4" items={items} />
+      <p className="mt-3 text-[15px] text-body">
+        {t.percent === null ? '기간 안에 기한이 지난 업무 없음' : `기한 내 완료 ${t.onTime}건 / 기한 도래 ${t.due}건`}
+        {' · '}지연 완료 {t.late}건 · {operations && `측정 초과 ${m.exceeded}건 · 측정 근접 ${m.near}건 · `}허가 만료 임박 {m.nearExpiry}건 · 현장 반영 대기 {m.siteOpen}건
       </p>
-      <p className="mt-1 text-xs text-mute">
+      <p className="mt-1 text-[13px] text-body">
         산식: 이행률 = 기간 안에 기한이 지난 업무(의무 + 조치, 취소 제외) 중 기한 안에 완료한 건수 ÷ 기한이 지난 업무 건수.
         지연 완료와 기한 경과는 분자에서 빠집니다. 기한이 지난 업무가 없으면 100%가 아니라 "해당 없음"입니다.
         {company && ' 회사 전체는 프로젝트 이행률의 평균이 아니라 건수를 합산해 계산합니다.'}
@@ -72,9 +65,9 @@ function MetricCards({ m, company, operations }: { m: Metrics; company: boolean;
 }
 
 function Period({ from, to, onChange }: { from: string; to: string; onChange: (from: string, to: string) => void }) {
-  const input = 'rounded border border-line bg-white px-2 py-1 text-sm text-body';
+  const input = 'h-10 rounded border border-input bg-white px-2 text-[15px] tabular-nums text-ink';
   return (
-    <label className="flex items-center gap-1.5 whitespace-nowrap text-sm text-body">
+    <label className="flex flex-wrap items-center gap-1.5 text-[15px] text-body">
       기간
       <input type="date" aria-label="기간 시작" className={input} value={from} max={to}
         onChange={(e) => e.target.value && onChange(e.target.value, to)} />
@@ -204,7 +197,7 @@ export function CompanyCompliance({ stageOf }: { stageOf: (projectId: number) =>
   );
 }
 
-/** 프로젝트 › 개요: the same cards for one project and the rate per permit item. Hidden when the user may not see it. */
+/** 프로젝트 › 개요: the same strip for one project and the rate per permit item. Hidden when the user may not see it. */
 export function ProjectCompliance({ projectId }: { projectId: number }) {
   const [period, setPeriod] = useState({ from: '', to: '' });
   const [data, setData] = useState<ProjectSummary | null>(null);
@@ -217,43 +210,39 @@ export function ProjectCompliance({ projectId }: { projectId: number }) {
   return (
     <section>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <h2 className="text-lg font-semibold text-ink">규제 대응 현황</h2>
+        <h2 className="text-[19px] font-bold text-ink">규제 대응 현황</h2>
         <div className="ml-auto"><Period from={data.from} to={data.to} onChange={(from, to) => setPeriod({ from, to })} /></div>
       </div>
       <MetricCards m={data.total} company={false} operations={data.operations} />
-      <div className={`${card} mt-6`}>
-        <h3 className="font-semibold text-ink">인허가 항목별 이행률</h3>
-        <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[480px] whitespace-nowrap text-left text-sm">
-            <thead className="bg-paper text-xs text-body">
-              <tr>
-                <th className={th}>인허가 항목</th>
-                <th className={`${th} text-right`}>기한 도래</th>
-                <th className={`${th} text-right`}>기한 내 완료</th>
-                <th className={`${th} text-right`}>지연 완료</th>
-                <th className={`${th} text-right`}>이행률</th>
+      <h3 className="mt-6 mb-3 text-[17px] font-bold text-ink">인허가 항목별 이행률</h3>
+      <Table caption="인허가 항목별 기한 내 이행률" className="min-w-[480px] whitespace-nowrap">
+        <thead>
+          <tr>
+            <th scope="col">인허가 항목</th>
+            <th scope="col" className="text-right">기한 도래</th>
+            <th scope="col" className="text-right">기한 내 완료</th>
+            <th scope="col" className="text-right">지연 완료</th>
+            <th scope="col" className="text-right">이행률</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.permits.length === 0 && (
+            <tr><td colSpan={5} className="text-center text-body">기간 안에 기한이 지난 업무가 없습니다.</td></tr>
+          )}
+          {data.permits.map((p) => {
+            const name = p.name ?? '인허가 항목 미지정';
+            return (
+              <tr key={p.permitItemId ?? 0}>
+                <td className="w-full max-w-0 truncate" title={name}>{name}</td>
+                <td className="text-right tabular-nums text-body">{p.due}</td>
+                <td className="text-right tabular-nums text-body">{p.onTime}</td>
+                <td className={`text-right tabular-nums ${alarm(p.late)}`}>{p.late}</td>
+                <td className={`text-right tabular-nums ${p.percent === null ? 'text-body' : 'font-bold text-ink'}`}>{pct(p.percent)}</td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {data.permits.length === 0 && (
-                <tr><td colSpan={5} className="px-3 py-6 text-center text-mute">기간 안에 기한이 지난 업무가 없습니다.</td></tr>
-              )}
-              {data.permits.map((p) => {
-                const name = p.name ?? '인허가 항목 미지정';
-                return (
-                  <tr key={p.permitItemId ?? 0}>
-                    <td className={`${td} w-full max-w-0 truncate font-medium text-ink`} title={name}>{name}</td>
-                    <td className={`${td} text-right text-body`}>{p.due}</td>
-                    <td className={`${td} text-right text-body`}>{p.onTime}</td>
-                    <td className={`${td} text-right text-body`}>{p.late}</td>
-                    <td className={`${td} text-right text-ink`}>{pct(p.percent)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
+            );
+          })}
+        </tbody>
+      </Table>
     </section>
   );
 }
