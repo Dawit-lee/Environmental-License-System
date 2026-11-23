@@ -2,24 +2,24 @@
 .schedule-gantt .wx-willow-theme {
   --wx-font-family: inherit;
   --wx-font-size: 13px;
-  --wx-color-font: var(--foreground);
-  --wx-color-font-alt: var(--muted-foreground);
+  --wx-color-font: var(--color-ink);
+  --wx-color-font-alt: var(--color-body);
   --wx-background: var(--card);
-  --wx-background-alt: var(--muted);
-  --wx-border-color: var(--border);
+  --wx-background-alt: var(--color-paper);
+  --wx-border-color: var(--color-line-soft);
   --wx-color-primary: var(--color-brand);
   --wx-color-danger: var(--color-danger);
   --wx-gantt-task-color: var(--color-brand);
   --wx-gantt-task-fill-color: var(--color-brand-hover);
   --wx-gantt-task-border-color: var(--color-brand-hover);
   --wx-gantt-task-font-color: #ffffff;
-  --wx-gantt-summary-color: #9ca3af;
-  --wx-gantt-summary-fill-color: #6b7280;
-  --wx-gantt-summary-border-color: #6b7280;
+  --wx-gantt-summary-color: var(--color-disabled);
+  --wx-gantt-summary-fill-color: var(--color-mute);
+  --wx-gantt-summary-border-color: var(--color-mute);
   --wx-gantt-milestone-color: var(--color-brand);
-  --wx-gantt-link-color: #6b7280;
-  --wx-gantt-select-color: rgba(31, 78, 121, 0.08);
-  --wx-gantt-bar-border-radius: 4px;
+  --wx-gantt-link-color: var(--color-mute);
+  --wx-gantt-select-color: var(--color-brand-subtle);
+  --wx-gantt-bar-border-radius: 2px;
   --wx-gantt-bar-shadow: none;
 }
 
@@ -49,7 +49,7 @@
   position: absolute;
   top: 0;
   height: 100%;
-  background: rgba(107, 114, 128, 0.08);
+  background: var(--color-paper);
 }
 .schedule-gantt .wx-scale .schedule-weekend { color: var(--color-danger); }
 

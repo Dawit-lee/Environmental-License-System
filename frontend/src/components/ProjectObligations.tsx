@@ -3,10 +3,16 @@ import { sessionUserId } from '../api/client';
 import { listProjectObligations, type Obligation } from '../api/revisions';
 import { isOverdue, listProjectTasks, taskStatusLabel, type Task } from '../api/tasks';
 import type { PermitItem } from '../types';
-import ObligationTaskDrawer from './ObligationTaskDrawer';
+import ObligationTaskDrawer, { TASK_TONE } from './ObligationTaskDrawer';
 import { Link } from 'react-router';
-import { EmptyState, primaryBtn, secondaryBtn } from './Onboarding';
+import { EmptyBlock, FilterChips, SkeletonRows, type ActiveFilter } from './ListParts';
 import { Alert } from './ui/Alert';
+import { Badge, dueBadge } from './ui/Badge';
+import { Button } from './ui/Button';
+import { Select } from './ui/Field';
+import { SummaryStrip } from './ui/SummaryStrip';
+import { Table } from './ui/Table';
+import { cn, focusRing } from './ui/cn';
 
 // ---------------------------------------------------------------------------
 // ProjectObligations — 프로젝트 › 의무사항: approved obligations of every permit, nearest due date first.
@@ -32,6 +38,8 @@ interface Row {
   closed: boolean;
   status: string;
 }
+
+const linkBtn = cn('inline-flex h-12 items-center rounded px-4 text-[17px]', focusRing);
 
 const dDay = (date: string) => Math.round((Date.parse(date) - Date.parse(today())) / 86_400_000);
 
@@ -61,7 +69,8 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
       : o.status === 'ACTIVE' ? '기한 미정'
         : o.lastTask ? taskStatusLabel(o.lastTask) : '종료';
 
-  if (!items) return <p className="text-sm text-mute">{error ?? '불러오는 중…'}</p>;
+  if (!items && error) return <Alert tone="danger" title="의무사항을 불러오지 못했습니다.">{error}</Alert>;
+  if (!items) return <Table caption="의무사항 불러오는 중"><SkeletonRows cols={6} /></Table>;
 
   const permitById = new Map(permits.map((p) => [p.id, p]));
   const me = sessionUserId();
@@ -86,93 +95,110 @@ export default function ProjectObligations({ projectId, permits, onOpenPermit }:
     return showClosed || !r.closed;
   });
   const opened = all.find((r) => r.key === openKey);
-  const select = 'rounded border border-line bg-white px-2 py-1 text-sm text-body';
   const closedCount = all.filter((r) => r.closed).length;
+  const openTasks = all.flatMap((r) => (r.task ? [r.task] : []));
+  const overdueCount = openTasks.filter(isOverdue).length;
+  const filters: ActiveFilter[] = [
+    ...(kind !== 'all' ? [{ key: 'kind', label: `종류: ${kind === 'obligation' ? '의무' : '조치'}`, clear: () => setKind('all') }] : []),
+    ...(who !== 'all' ? [{ key: 'who', label: `담당: ${who === 'me' ? '나' : '미지정'}`, clear: () => setWho('all') }] : []),
+    ...(state !== 'all' ? [{ key: 'state', label: `상태: ${{ open: '열림', overdue: '기한 경과', done: '완료' }[state]}`, clear: () => setState('all') }] : []),
+  ];
+  const clearAll = () => { setKind('all'); setWho('all'); setState('all'); };
 
   return (
     <div>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-mute">AI 검토에서 승인된 의무사항입니다. 행을 누르면 이번 회차 업무에 증빙을 붙이고 완료할 수 있습니다.</p>
-        <div className="flex flex-wrap items-center gap-4 text-sm text-body">
-          <label className="flex items-center gap-2">
-            종류
-            <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className={select}>
-              <option value="all">전체</option><option value="obligation">의무</option><option value="corrective">조치</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            담당
-            <select value={who} onChange={(e) => setWho(e.target.value as typeof who)} className={select}>
-              <option value="all">전체</option><option value="me">나</option><option value="none">미지정</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            상태
-            <select value={state} onChange={(e) => setState(e.target.value as typeof state)} className={select}>
-              <option value="all">전체</option><option value="open">열림</option><option value="overdue">기한 경과</option><option value="done">완료</option>
-            </select>
-          </label>
-          {closedCount > 0 && state === 'all' && (
-            <label className="flex items-center gap-2">
-              <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} className="accent-brand" />
-              종료·완료된 항목 보기 ({closedCount})
-            </label>
-          )}
-        </div>
-      </div>
-      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
+      <p className="break-keep text-base text-body">AI 검토에서 승인된 의무사항입니다. 행을 누르면 이번 회차 업무에 증빙을 붙이고 완료할 수 있습니다.</p>
+      {all.length > 0 && (
+        <SummaryStrip className="mt-6" items={[
+          { label: '의무사항', value: all.filter((r) => r.obligation).length, unit: '건' },
+          { label: '조치 업무', value: all.filter((r) => r.corrective).length, unit: '건' },
+          { label: '열린 업무', value: openTasks.length, unit: '건', tone: 'info' },
+          { label: '기한 경과', value: overdueCount, unit: '건', tone: overdueCount ? 'danger' : undefined, alert: overdueCount > 0 },
+        ]} />
+      )}
 
-      <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
-        <table className="w-full min-w-[920px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-paper text-xs text-body">
-            <tr>
-              <th className="px-4 py-3 font-medium">종류</th>
-              <th className="px-4 py-3 font-medium">의무사항 · 조치</th>
-              <th className="px-4 py-3 font-medium">인허가</th>
-              <th className="px-4 py-3 font-medium">주기</th>
-              <th className="px-4 py-3 font-medium">기한</th>
-              <th className="px-4 py-3 font-medium">D-day</th>
-              <th className="px-4 py-3 font-medium">담당</th>
-              <th className="px-4 py-3 font-medium">증빙</th>
-              <th className="px-4 py-3 font-medium">상태</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-line">
-            {rows.map((r) => {
-              const permit = r.permitItemId ? permitById.get(r.permitItemId) : undefined;
-              const t = r.task;
-              const d = t ? dDay(t.dueDate) : null;
-              return (
-                <tr key={r.key} onClick={() => setOpenKey(r.key)} className="cursor-pointer hover:bg-paper">
-                  <td className="px-4 py-2.5 text-body">{r.corrective ? '조치' : '의무'}</td>
-                  <td className="max-w-[320px] px-4 py-2.5">
-                    <button type="button" className="block max-w-full truncate text-left font-medium text-ink" title={r.title}>{r.title}</button>
-                  </td>
-                  <td className="max-w-[220px] px-4 py-2.5">
-                    {permit ? (
-                      <button type="button" onClick={(e) => { e.stopPropagation(); onOpenPermit(permit); }} title={permit.name}
-                        className="block max-w-full truncate text-brand hover:underline">{permit.name}</button>
-                    ) : '—'}
-                  </td>
-                  <td className="px-4 py-2.5 text-body">{r.obligation ? FREQ[r.obligation.frequency] : '—'}</td>
-                  <td className="px-4 py-2.5 text-body">{t?.dueDate ?? '—'}</td>
-                  <td className={`px-4 py-2.5 ${d === null ? 'text-mute' : d < 0 ? 'font-semibold text-danger' : 'text-body'}`}>
-                    {d === null ? '—' : d === 0 ? 'D-DAY' : d > 0 ? `D-${d}` : `D+${-d}`}
-                  </td>
-                  <td className="max-w-[120px] truncate px-4 py-2.5 text-body" title={t?.assigneeName ?? ''}>{t ? t.assigneeName ?? '미지정' : '—'}</td>
-                  <td className="px-4 py-2.5 text-body">{t ? `${t.evidenceCount + t.measurementCount}건` : '—'}</td>
-                  <td className={`px-4 py-2.5 ${t && isOverdue(t) ? 'font-semibold text-danger' : 'text-body'}`}>{r.status}</td>
+      {/* 필터 줄: 종류·담당·상태 + 종료 항목 보기 */}
+      <div className="mt-6 flex flex-wrap items-end gap-3">
+        <Select label="종류" className="w-full sm:w-40" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+          <option value="all">전체</option><option value="obligation">의무</option><option value="corrective">조치</option>
+        </Select>
+        <Select label="담당" className="w-full sm:w-40" value={who} onChange={(e) => setWho(e.target.value as typeof who)}>
+          <option value="all">전체</option><option value="me">나</option><option value="none">미지정</option>
+        </Select>
+        <Select label="상태" className="w-full sm:w-40" value={state} onChange={(e) => setState(e.target.value as typeof state)}>
+          <option value="all">전체</option><option value="open">열림</option><option value="overdue">기한 경과</option><option value="done">완료</option>
+        </Select>
+        {closedCount > 0 && state === 'all' && (
+          <label className="flex h-12 items-center gap-2 text-[15px] text-ink">
+            <input type="checkbox" checked={showClosed} onChange={(e) => setShowClosed(e.target.checked)} className={cn('size-5 accent-brand', focusRing)} />
+            종료·완료된 항목 보기 (<span className="tabular-nums">{closedCount}</span>)
+          </label>
+        )}
+      </div>
+      <FilterChips filters={filters} onClearAll={clearAll} />
+      {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
+
+      <div className="mt-6">
+        {all.length === 0 ? (
+          <EmptyBlock
+            title="등록된 의무사항이 없습니다."
+            description="인허가 상세에서 허가증을 올리고 AI 검토에서 조건을 승인하면, 지켜야 할 정기 할 일이 담당자·기한과 함께 여기에 모입니다."
+            action={(
+              <div className="flex flex-wrap justify-center gap-2">
+                <Link to={`/projects/${projectId}/review`} className={cn(linkBtn, 'border border-input bg-white text-ink hover:bg-paper')}>AI 검토 열기</Link>
+                <Link to={`/projects/${projectId}/permits`} className={cn(linkBtn, 'bg-brand font-bold text-white hover:bg-brand-hover')}>허가증 올리러 가기</Link>
+              </div>
+            )}
+          />
+        ) : rows.length === 0 ? (
+          <EmptyBlock title="조건에 맞는 항목이 없습니다." action={<Button variant="tertiary" onClick={clearAll}>필터 모두 지우기</Button>} />
+        ) : (
+          <>
+            <p className="mb-2 text-[15px] text-body" aria-live="polite"><span className="tabular-nums font-bold text-ink">{rows.length}</span>건</p>
+            <Table density="compact" caption="의무사항·조치 업무 목록" className="min-w-[960px] whitespace-nowrap">
+              <thead>
+                <tr>
+                  <th scope="col">의무사항 · 조치</th>
+                  <th scope="col">상태</th>
+                  <th scope="col">종류</th>
+                  <th scope="col">인허가</th>
+                  <th scope="col">주기</th>
+                  <th scope="col" className="text-right">기한</th>
+                  <th scope="col">남은 날</th>
+                  <th scope="col">담당</th>
+                  <th scope="col" className="text-right">증빙</th>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-        {rows.length === 0 && all.length > 0 && <p className="py-10 text-center text-sm text-mute">조건에 맞는 항목이 없습니다.</p>}
-        {all.length === 0 && (
-          <EmptyState bare text="허가조건 중 지켜야 할 정기 할 일을 모아 담당자와 기한을 관리합니다. 인허가 상세에서 허가증을 올리고 [AI 검토]에서 조건을 승인하면 여기에 나옵니다.">
-            <Link to={`/projects/${projectId}/permits`} className={primaryBtn}>허가증 올리러 가기</Link>
-            <Link to={`/projects/${projectId}/review`} className={secondaryBtn}>AI 검토 열기</Link>
-          </EmptyState>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const permit = r.permitItemId ? permitById.get(r.permitItemId) : undefined;
+                  const t = r.task;
+                  const due = t ? dueBadge(dDay(t.dueDate)) : null;
+                  return (
+                    <tr key={r.key} onClick={() => setOpenKey(r.key)} className={cn('cursor-pointer', openKey === r.key && 'bg-brand-subtle')}>
+                      <td className="max-w-[320px]">
+                        <button type="button" title={r.title}
+                          className={cn('block max-w-full truncate rounded-sm text-left font-bold text-brand-text hover:underline', focusRing)}>{r.title}</button>
+                      </td>
+                      <td><Badge tone={TASK_TONE[r.status] ?? 'neutral'}>{r.status}</Badge></td>
+                      <td>{r.corrective ? <Badge tone="warning">조치</Badge> : <span className="text-body">의무</span>}</td>
+                      <td className="max-w-[220px]">
+                        {permit ? (
+                          <button type="button" onClick={(e) => { e.stopPropagation(); onOpenPermit(permit); }} title={permit.name}
+                            className={cn('block max-w-full truncate rounded-sm text-left text-body hover:text-brand-text hover:underline', focusRing)}>{permit.name}</button>
+                        ) : <span className="text-mute">—</span>}
+                      </td>
+                      <td className="text-body">{r.obligation ? FREQ[r.obligation.frequency] : <span className="text-mute">—</span>}</td>
+                      <td className="text-right tabular-nums text-body">{t?.dueDate ?? <span className="text-mute">—</span>}</td>
+                      <td>{due ? <Badge tone={due.tone} className="tabular-nums">{due.text}</Badge> : <span className="text-mute">—</span>}</td>
+                      <td className="max-w-[120px] truncate text-body" title={t?.assigneeName ?? ''}>{t ? t.assigneeName ?? '미지정' : <span className="text-mute">—</span>}</td>
+                      <td className="text-right tabular-nums text-body">{t ? `${t.evidenceCount + t.measurementCount}건` : <span className="text-mute">—</span>}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </Table>
+          </>
         )}
       </div>
       {opened && (
