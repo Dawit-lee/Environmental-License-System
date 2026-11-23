@@ -157,9 +157,9 @@ export function DeadlineTimeline({ deadlines }: { deadlines: Deadline[] }) {
 export function PendingRow({ to, label, value }: { to: string; label: string; value: number }) {
   return (
     <li>
-      <Link to={to} className="flex items-center justify-between py-3 text-sm transition hover:text-brand">
-        <span className="text-body">{label}</span>
-        <span className={`text-2xl font-bold ${value > 0 ? 'text-brand' : 'text-mute'}`}>{value}</span>
+      <Link to={to} className="flex min-h-12 items-center justify-between gap-3 py-2 text-[15px] text-body hover:text-brand-text hover:underline">
+        <span>{label}</span>
+        <span className="whitespace-nowrap tabular-nums"><strong className="text-2xl font-bold text-ink">{value}</strong> 건</span>
       </Link>
     </li>
   );
@@ -240,5 +240,17 @@ export function summaryItems(c: { projects: number; permits: number; overdue: nu
     { label: <>기한 임박<Help k="dueSoon" /></>, value: c.dueSoon, unit: '건', tone: c.dueSoon > 0 ? 'warning' : undefined },
     { label: '미신청 인허가', value: c.notApplied, unit: '건' },
     { label: 'AI 검토 대기', value: c.reviewOpen, unit: '건', tone: c.reviewOpen > 0 ? 'info' : undefined },
+  ];
+}
+
+/** 프로젝트 › 개요 strip: permit counts by status; 만료 임박 turns amber only when it is not zero. */
+export function permitSummaryItems(permits: PermitItem[]): SummaryItem[] {
+  const n = (s: PermitStatus) => permits.filter((p) => p.status === s).length;
+  const near = n('NEAR_EXPIRY');
+  return [
+    { label: '전체 인허가', value: permits.length, unit: '건' },
+    { label: '취득 완료', value: n('COMPLETED'), unit: '건' },
+    { label: '만료 임박', value: near, unit: '건', tone: near > 0 ? 'warning' : undefined },
+    { label: '미신청', value: n('NOT_APPLIED'), unit: '건' },
   ];
 }
