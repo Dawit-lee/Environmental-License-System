@@ -11,7 +11,7 @@ import { Alert, Modal, Section, Summary, btn, primary, segBtn } from './Schedule
 
 const EXPIRY = [30, 90, 180];
 const when = (s: string | null) => (s ? new Date(s).toLocaleString('ko-KR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
-const pill = (on: boolean) => `rounded border px-3 py-1 text-xs ${on ? 'border-brand bg-[#EAF0F6] font-medium text-brand' : 'border-line bg-white text-body hover:border-[#B9C6D3]'}`;
+const pill = (on: boolean) => `rounded border px-3 py-1 text-xs ${on ? 'border-brand bg-brand-subtle font-medium text-brand-text' : 'border-line bg-white text-body hover:border-brand'}`;
 
 export default function ShareDialog({ projectId, disciplines, onClose }: {
   projectId: number; disciplines: Discipline[]; onClose: () => void;
@@ -138,7 +138,7 @@ export default function ShareDialog({ projectId, disciplines, onClose }: {
             </thead>
             <tbody className="divide-y divide-line-soft">
               {links.map((l) => (
-                <tr key={l.id} className={`${l.active ? '' : 'text-mute'} ${created?.link.id === l.id ? 'bg-[#EAF0F6]' : ''}`}>
+                <tr key={l.id} className={`${l.active ? '' : 'text-mute'} ${created?.link.id === l.id ? 'bg-brand-subtle' : ''}`}>
                   <td className="max-w-[220px] truncate px-3 py-2" title={names(l.disciplineIds)}>{names(l.disciplineIds)}</td>
                   <td className="px-3 py-2">{l.includeEvents ? '포함' : '—'}</td>
                   <td className="px-3 py-2">{l.createdByName ?? '—'}</td>
@@ -156,7 +156,7 @@ export default function ShareDialog({ projectId, disciplines, onClose }: {
                   </td>
                 </tr>
               ))}
-              {!links.length && <tr><td colSpan={6} className="px-3 py-6 text-center text-mute">만든 링크가 없습니다.</td></tr>}
+              {!links.length && <tr><td colSpan={6} className="px-3 py-6 whitespace-normal text-left text-mute">만든 링크가 없습니다.</td></tr>}
             </tbody>
           </table>
         </div>

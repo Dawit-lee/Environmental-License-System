@@ -42,7 +42,7 @@ export default function DisciplineSettings() {
       {promptUi}
       <p className="text-sm text-mute">프로젝트 일정의 분야 목록입니다. 비활성 분야는 새 항목에서만 숨고, 기존 항목에는 그대로 보입니다.</p>
       {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
-      <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
+      <div className="mt-4 overflow-x-auto rounded border border-line bg-white">
         <table className="w-full whitespace-nowrap text-left text-sm">
           <thead className="bg-paper text-xs text-body">
             <tr>
@@ -80,7 +80,7 @@ export default function DisciplineSettings() {
         if (name.trim()) run(() => createDiscipline(name.trim())).then(() => setName(''));
       }}>
         <input aria-label="새 분야 이름" placeholder="새 분야 이름" maxLength={100} value={name} onChange={(e) => setName(e.target.value)}
-          className="rounded border border-line px-3 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
+          className="rounded border border-input px-3 py-1.5 text-sm focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" />
         <button type="submit" className="rounded bg-brand px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-brand-hover">분야 추가</button>
       </form>
     </section>

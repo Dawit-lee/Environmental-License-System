@@ -27,7 +27,7 @@ interface Limit {
 
 const MEDIUM: Record<Medium, string> = { AIR: '대기', WATER: '수질' };
 const today = () => new Date().toLocaleDateString('sv-SE'); // local day; toISOString is UTC and is yesterday before 09:00 KST
-const INPUT = 'rounded border border-line bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const INPUT = 'rounded border border-input bg-white px-3 py-1.5 text-sm text-body focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 const BTN = 'rounded border border-line px-3 py-1 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
 const PRIMARY = 'rounded bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
 
@@ -133,7 +133,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
 
       {/* 배출구 */}
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-brand">배출구·방류구</h2>
+        <h2 className="text-lg font-bold text-ink">배출구·방류구</h2>
         <button type="button" className={BTN} onClick={() => setPointForm({ ...emptyPoint })}>+ 배출구 추가</button>
       </div>
 
@@ -169,7 +169,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
         </form>
       )}
 
-      <div className="mt-3 overflow-x-auto rounded border border-line bg-white shadow-sm">
+      <div className="mt-3 overflow-x-auto rounded border border-line bg-white">
         <table className="w-full min-w-[720px] whitespace-nowrap text-left text-sm">
           <thead className="bg-paper text-xs text-body">
             <tr>
@@ -211,7 +211,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
       {selected && (
         <>
           <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-bold text-brand">허가 한도 · {selected.name}</h2>
+            <h2 className="text-lg font-bold text-ink">허가 한도 · {selected.name}</h2>
             <div className="flex items-center gap-4">
               {pastCount > 0 && (
                 <label className="flex items-center gap-2 text-sm text-body">
@@ -283,7 +283,7 @@ export default function ProjectOperations({ projectId, permits }: { projectId: n
             </form>
           )}
 
-          <div className="mt-3 overflow-x-auto rounded border border-line bg-white shadow-sm">
+          <div className="mt-3 overflow-x-auto rounded border border-line bg-white">
             <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
               <thead className="bg-paper text-xs text-body">
                 <tr>

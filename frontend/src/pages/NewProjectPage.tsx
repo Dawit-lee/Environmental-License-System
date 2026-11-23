@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router';
 import { api, sessionUserId } from '../api/client';
 import { getCompanyUsers, getDepartments, type CompanyUser, type Department } from '../api/org';
@@ -679,7 +679,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
               ))}
               {openApplicable.length > 0 && (
                 <button type="button" disabled={busy} onClick={approveAll}
-                  className="ml-auto rounded bg-ok px-3.5 py-1.5 text-sm font-semibold text-white transition hover:bg-ok-hover focus:outline-none focus:ring-2 focus:ring-ok/30 disabled:opacity-50">
+                  className="ml-auto rounded bg-ok px-3.5 py-1.5 text-sm font-semibold text-white transition hover:bg-ok-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50">
                   해당 일괄 승인 ({openApplicable.length})
                 </button>
               )}
@@ -763,7 +763,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   type="button"
                   aria-expanded={showClosed}
                   onClick={() => setShowClosed((v) => !v)}
-                  className="text-sm font-medium text-brand underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  className="text-sm font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
                   {showClosed ? '재실행으로 정리된 제안 접기' : `재실행으로 정리된 제안 ${closed.length}건 보기`}
                 </button>
@@ -787,7 +787,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   type="button"
                   aria-expanded={showNotApplicable}
                   onClick={() => setShowNotApplicable((v) => !v)}
-                  className="text-sm font-medium text-brand underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  className="text-sm font-medium text-brand underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
                   {showNotApplicable ? '해당없음 접기' : `해당없음 ${notApplicable.length}건 보기`}
                 </button>
@@ -836,7 +836,7 @@ function ReviewCell({
   if (s.status === 'REJECTED') return <span className="text-mute" title={s.rejectReason ?? ''}>거절됨</span>;
   const onHold = (s.editedPayload ?? s.payload).determination === 'ON_HOLD';
   const btn =
-    'rounded border px-2 py-1 text-xs font-medium transition disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-brand/30';
+    'rounded border px-2 py-1 text-xs font-medium transition disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
   return (
     <div className="flex flex-col gap-1">
       <div className="flex gap-1 whitespace-nowrap">
@@ -862,7 +862,7 @@ function LawLink({ row }: { row: JudgementRow }) {
       href={law(name)}
       target="_blank"
       rel="noreferrer"
-      className="text-brand underline-offset-2 transition hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30"
+      className="text-brand underline-offset-2 transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
     >
       {text}
     </a>
@@ -918,9 +918,16 @@ function Field({
   children: ReactNode;
 }) {
   const Label = Tag === 'fieldset' ? 'legend' : 'label';
+  const id = useId();
+  const box = useRef<HTMLDivElement & HTMLFieldSetElement>(null);
+  // the control is a child (raw input or PersonSelect), so tie the label to it once it is in the DOM
+  useEffect(() => {
+    const control = box.current?.querySelector('input, select, textarea');
+    if (Tag === 'div' && control && !control.id) control.id = id;
+  });
   return (
-    <Tag className={cn('flex min-w-0 flex-col gap-2', className)}>
-      <Label className="text-[15px] font-bold text-ink">
+    <Tag ref={box} className={cn('flex min-w-0 flex-col gap-2', className)}>
+      <Label htmlFor={Tag === 'div' ? id : undefined} className="text-[15px] font-bold text-ink">
         {label}
         {required && <span className="ml-1 font-normal text-body">(필수)</span>}
       </Label>
@@ -952,7 +959,7 @@ function CategoryTab({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded px-3.5 py-1.5 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-brand/30 ${
+      className={`rounded px-3.5 py-1.5 text-sm font-medium transition ${focusRing} ${
         active
           ? 'bg-brand text-white'
           : 'bg-paper text-body hover:bg-line'

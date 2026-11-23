@@ -115,7 +115,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
     <div className="min-h-full bg-paper">
       <div className={projectId ? '' : 'py-8'}>
         <p className="text-xs font-semibold tracking-wide text-mute">매일 06:00 법제처 개정 목록 확인</p>
-        <h1 className="mt-1 text-2xl font-bold text-brand">법령 개정 알림</h1>
+        <h1 className="mt-1 text-2xl font-bold text-ink">법령 개정 알림</h1>
         <p className="mt-1 max-w-2xl text-sm text-mute">
           연결한 조문이나 하위 법령이 바뀌면 직접 영향, 같은 법의 다른 조문만 바뀌면 참고로 분류합니다.
         </p>
@@ -143,7 +143,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
           </p>
         ) : (
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
-          <section className="min-w-0 overflow-x-auto rounded border border-line bg-white shadow-sm">
+          <section className="min-w-0 overflow-x-auto rounded border border-line bg-white">
             <table className="w-full min-w-[480px] whitespace-nowrap text-left text-sm">
               <thead className="bg-paper text-xs text-body">
                 <tr>
@@ -179,7 +179,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
           </section>
 
           {detail && sel ? (
-          <section className="min-w-0 space-y-4 rounded border border-line bg-white p-5 shadow-sm">
+          <section className="min-w-0 space-y-4 rounded border border-line bg-white p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-base font-semibold text-ink">{sel.lawName}</h2>
               <div className="flex gap-1.5">
@@ -231,7 +231,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
               </span>
               <textarea value={memo} disabled={reviewed} onChange={(e) => setMemo(e.target.value)}
                 placeholder="예: 운전기록 보존기간 3년으로 운영 매뉴얼 수정 필요"
-                className="min-h-[72px] w-full rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
+                className="min-h-[72px] w-full rounded border border-input px-3 py-2 text-sm focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" />
               {memoError && <span className="text-xs text-danger">확인 메모를 적어 주세요. 예: 영향 없음 / 조치 필요</span>}
             </label>
             <div className="flex flex-wrap gap-2">
@@ -247,7 +247,7 @@ export default function LawAmendmentsPage({ projectId }: { projectId?: number })
             <p className="border-t border-line pt-3 text-xs text-mute">{detail.source}</p>
           </section>
           ) : (
-            <section className="rounded border border-line bg-white p-5 text-sm text-mute shadow-sm">불러오는 중…</section>
+            <section className="rounded border border-line bg-white p-5 text-sm text-mute">불러오는 중…</section>
           )}
         </div>
         )}

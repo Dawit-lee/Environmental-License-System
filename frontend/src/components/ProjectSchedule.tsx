@@ -15,7 +15,7 @@ import ReadOnlySchedule from './ReadOnlySchedule';
 import ShareDialog from './ShareDialog';
 import { usePrompt } from './PromptDialog';
 import { HELP, Help, Tip } from './Onboarding';
-import { useEscape } from './useEscape';
+import { useDialogFocus, useEscape } from './useEscape';
 import { EmptyBlock } from './ListParts';
 import { Alert } from './ui/Alert';
 import { Button } from './ui/Button';
@@ -265,6 +265,8 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
   onSaved: () => void;
 }) {
   useEscape(onClose);
+  const box = useRef<HTMLElement>(null);
+  useDialogFocus(box);
   const dateOf = (a: Anchor) => schedule.anchors.find((x) => x.anchor === a)?.date ?? null;
   // a new item is relative to the main base date when that date is known (설계 §2.3)
   const [form, setForm] = useState<ItemInput>(() => item ? { ...toInput(item, schedule.dependencies), reason: '' } : {
@@ -304,7 +306,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
   return (
     <div className="fixed inset-0 z-50">
       <div onClick={onClose} className="absolute inset-0 bg-black/40" />
-      <aside role="dialog" aria-modal="true" aria-label="일정 항목"
+      <aside role="dialog" aria-modal="true" ref={box} tabIndex={-1} aria-label="일정 항목"
         className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="min-w-0">

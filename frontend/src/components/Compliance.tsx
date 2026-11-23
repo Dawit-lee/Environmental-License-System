@@ -26,7 +26,7 @@ interface Month { month: string; due: number; onTime: number; percent: number | 
 interface PermitRow { permitItemId: number | null; name: string | null; due: number; onTime: number; late: number; percent: number | null }
 interface ProjectSummary { from: string; to: string; operations: boolean; total: Metrics; permits: PermitRow[] }
 
-const card = 'rounded border border-line bg-white p-5 shadow-sm';
+const card = 'rounded border border-line bg-white p-5';
 const th = 'px-3 py-2.5 font-medium';
 const td = 'px-3 py-2.5';
 const pct = (p: number | null) => (p === null ? '해당 없음' : `${p}%`);
@@ -88,7 +88,7 @@ function MonthlyTrend({ months }: { months: Month[] }) {
             <div key={m.month} className="flex h-full min-w-0 flex-1 flex-col justify-end"
               title={`${m.month} — ${m.percent === null ? '기한이 지난 업무 없음' : `기한 내 완료 ${m.onTime}건 / 기한 도래 ${m.due}건 (${m.percent}%)`}`}>
               <span className="mb-1 whitespace-nowrap text-center text-xs text-body">{m.percent === null ? '–' : `${m.percent}%`}</span>
-              <div className="rounded-t bg-[#3B82C4]" style={{ height: `${(m.percent ?? 0) * 0.8}%` }} />
+              <div className="rounded-t bg-brand" style={{ height: `${(m.percent ?? 0) * 0.8}%` }} />
             </div>
           ))}
         </div>
@@ -160,7 +160,7 @@ export function CompanyCompliance({ stageOf }: { stageOf: (projectId: number) =>
               </thead>
               <tbody className="divide-y divide-line">
                 {data.projects.length === 0 && (
-                  <tr><td colSpan={data.operations ? 8 : 7} className="px-3 py-6 text-center text-mute">집계할 프로젝트가 없습니다.</td></tr>
+                  <tr><td colSpan={data.operations ? 8 : 7} className="px-3 py-6 whitespace-normal text-left text-mute">집계할 프로젝트가 없습니다.</td></tr>
                 )}
                 {data.projects.map((p) => {
                   const t = p.metrics.tasks;
@@ -227,7 +227,7 @@ export function ProjectCompliance({ projectId }: { projectId: number }) {
         </thead>
         <tbody>
           {data.permits.length === 0 && (
-            <tr><td colSpan={5} className="text-center text-body">기간 안에 기한이 지난 업무가 없습니다.</td></tr>
+            <tr><td colSpan={5} className="whitespace-normal text-left text-body">기간 안에 기한이 지난 업무가 없습니다.</td></tr>
           )}
           {data.permits.map((p) => {
             const name = p.name ?? '인허가 항목 미지정';

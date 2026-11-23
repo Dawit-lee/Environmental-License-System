@@ -169,7 +169,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                 <button
                   type="button"
                   onClick={() => download(d)}
-                  className="block max-w-full truncate text-left text-sm font-medium text-brand hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30"
+                  className="block max-w-full truncate text-left text-sm font-medium text-brand hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
                   {d.fileName}
                 </button>
@@ -187,7 +187,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                   onClick={() => extract(d)}
                   disabled={!aiOn || runs[d.id]?.status === 'RUNNING'}
                   title={aiOn ? TRANSFER_NOTICE : '회사 설정에서 AI 추출이 꺼져 있습니다'}
-                  className="whitespace-nowrap rounded border border-line px-2 py-1 text-xs font-medium text-brand transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="whitespace-nowrap rounded border border-line px-2 py-1 text-xs font-medium text-brand transition hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {d.supersedesDocumentId != null ? '개정 비교' : 'AI 추출'}
                 </button>
@@ -196,7 +196,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
                 type="button"
                 onClick={() => remove(d)}
                 aria-label={`${d.fileName} 삭제`}
-                className="rounded px-2 py-1 text-xs text-mute transition hover:bg-paper hover:text-danger focus:outline-none focus:ring-2 focus:ring-brand/30"
+                className="rounded px-2 py-1 text-xs text-mute transition hover:bg-paper hover:text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
               >
                 삭제
               </button>
@@ -253,7 +253,7 @@ export default function PermitDocuments({ permit }: { permit: PermitItem }) {
         type="button"
         disabled={busy}
         onClick={() => input.current?.click()}
-        className="w-full rounded border border-line px-3 py-2 text-sm font-medium text-body transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-50"
+        className="w-full rounded border border-line px-3 py-2 text-sm font-medium text-body transition hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:opacity-50"
       >
         {busy ? '올리는 중…' : '문서 올리기'}
       </button>

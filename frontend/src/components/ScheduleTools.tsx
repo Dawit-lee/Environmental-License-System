@@ -1,11 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { addDays, addMonths, differenceInCalendarDays, eachMonthOfInterval, format, parseISO } from 'date-fns';
 import {
   ANCHOR_LABEL, ANCHORS, applyTemplate, confirmBaseline, getDelays, getTemplates, pasteItems, setAnchor, setBase,
   type Anchor, type AnchorChange, type DelayRow, type Discipline, type PasteResult, type Schedule, type Template,
   type TemplateItem,
 } from '../api/schedule';
-import { useEscape } from './useEscape';
+import { useDialogFocus, useEscape } from './useEscape';
 import { Alert as Notice } from './ui/Alert';
 import { Badge } from './ui/Badge';
 import { Table } from './ui/Table';
@@ -24,7 +24,7 @@ export const primary = cn('inline-flex h-10 shrink-0 items-center justify-center
 export const segBtn = (on: boolean) => cn('h-10 min-w-11 px-3 text-[15px]', focusRing, on ? 'bg-brand font-bold text-white' : 'text-ink hover:bg-paper');
 const cell = 'max-w-[220px] truncate px-3 py-2';
 const head = 'px-3 py-2 font-bold';
-const dateInput = 'rounded border border-line bg-white px-2 py-1 text-sm tabular-nums outline-none focus:border-brand';
+const dateInput = 'rounded border border-input bg-white px-2 py-1 text-sm tabular-nums focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 const md = (d: string | null | undefined) => (d ? d.slice(2).replaceAll('-', '.') : '미정');
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -35,9 +35,11 @@ export function Modal({ title, subtitle, onClose, children, footer, wide, size }
   size?: keyof typeof WIDTH;
 }) {
   useEscape(onClose);
+  const box = useRef<HTMLDivElement>(null);
+  useDialogFocus(box);
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-10">
-      <div role="dialog" aria-modal="true" aria-label={title}
+      <div role="dialog" aria-modal="true" ref={box} tabIndex={-1} aria-label={title}
         className={`w-full ${WIDTH[size ?? (wide ? 'lg' : 'md')]} rounded bg-white shadow-xl`}>
         <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
           <div className="min-w-0">
@@ -185,7 +187,7 @@ export function BaseDatesDialog({ projectId, schedule, onClose, onChanged }: {
                 {!projectDate(a) && (
                   <input aria-label={`${ANCHOR_LABEL[a]} 메모`} maxLength={200} value={notes[a]} placeholder="메모" disabled={!dates[a]}
                     onChange={(e) => setNotes({ ...notes, [a]: e.target.value })}
-                    className="w-full min-w-32 rounded border border-line px-2 py-1 text-sm outline-none focus:border-brand disabled:bg-paper" />
+                    className="w-full min-w-32 rounded border border-input px-2 py-1 text-sm focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand disabled:bg-paper" />
                 )}
               </td>
             </tr>
@@ -291,7 +293,7 @@ export function BaselineDialog({ projectId, schedule, onClose, onDone }: {
           <Section title="재확정 사유" hint="필수">
             <input aria-label="재확정 사유" value={reason} maxLength={500} onChange={(e) => setReason(e.target.value)}
               placeholder="예: 발주처 과업 변경 협의 결과 반영"
-              className="w-full rounded border border-line px-3 py-2 text-sm outline-none focus:border-brand" />
+              className="w-full rounded border border-input px-3 py-2 text-sm focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" />
           </Section>
         </>
       ) : (
@@ -407,7 +409,7 @@ export function resolveTemplateItem(i: Pick<TemplateItem, 'kind' | 'offsetDays' 
 function KindMark({ kind, faded }: { kind: TemplateItem['kind']; faded?: boolean }) {
   return kind === 'MILESTONE'
     ? <span className={`inline-block size-2 rotate-45 rounded-[1px] bg-brand ${faded ? 'opacity-25' : ''}`} />
-    : <span className={`inline-block h-1.5 w-3 rounded-sm bg-[#8FA9C2] ${faded ? 'opacity-25' : ''}`} />;
+    : <span className={`inline-block h-1.5 w-3 rounded-sm bg-brand ${faded ? 'opacity-25' : ''}`} />;
 }
 
 interface Lane { name: string; items: { id: number; kind: TemplateItem['kind']; title: string; start: string; end: string; off: boolean }[] }
@@ -442,7 +444,7 @@ function MiniTimeline({ lanes, marks, relative }: { lanes: Lane[]; marks: { labe
     <div className="overflow-x-auto rounded border border-line">
       <div className="relative min-w-[600px] pb-1.5">
         <div className="pointer-events-none absolute inset-y-0 left-28 right-4">
-          {ticks.map(([s]) => <div key={s} className="absolute bottom-1.5 top-6 border-l border-dashed border-[#EEECE6]" style={{ left: pct(s) }} />)}
+          {ticks.map(([s]) => <div key={s} className="absolute bottom-1.5 top-6 border-l border-dashed border-line-soft" style={{ left: pct(s) }} />)}
           {marks.map((m) => (
             <div key={m.label} className="absolute bottom-1.5 top-0 border-l-[1.5px] border-brand" style={{ left: pct(m.date) }}>
               <span className={`absolute top-1.5 whitespace-nowrap bg-white px-1 text-[11px] font-semibold text-brand ${x(m.date) > 0.7 ? 'right-1' : 'left-1'}`}>
@@ -462,7 +464,7 @@ function MiniTimeline({ lanes, marks, relative }: { lanes: Lane[]; marks: { labe
                   className={`absolute top-1/2 size-[9px] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[1px] bg-brand ${i.off ? 'opacity-20' : ''}`}
                   style={{ left: pct(i.end) }} />
                 : <span key={i.id} title={i.title}
-                  className={`absolute top-1/2 h-2 -translate-y-1/2 rounded-sm bg-[#8FA9C2] ${i.off ? 'opacity-20' : ''}`}
+                  className={`absolute top-1/2 h-2 -translate-y-1/2 rounded-sm bg-brand ${i.off ? 'opacity-20' : ''}`}
                   style={{ left: pct(i.start), width: `${((x(i.end) - x(i.start)) * 100).toFixed(2)}%` }} />)}
             </div>
           </div>
@@ -543,7 +545,7 @@ export function TemplateDialog({ projectId, schedule, disciplines, onClose, onCh
             const sel = t.id === chosen;
             return (
               <button key={t.id} type="button" role="radio" aria-checked={sel} onClick={() => choose(t)}
-                className={`grid gap-1.5 rounded border bg-white px-4 py-3.5 text-left ${sel ? 'border-brand ring-1 ring-brand' : 'border-line hover:border-[#B9C6D3]'}`}>
+                className={`grid gap-1.5 rounded border bg-white px-4 py-3.5 text-left ${sel ? 'border-brand ring-1 ring-brand' : 'border-line hover:border-brand'}`}>
                 <span className="flex items-center gap-2 text-sm font-semibold text-ink">
                   <span className={`size-3.5 shrink-0 rounded-full ${sel ? 'border-4 border-brand' : 'border-[1.5px] border-line'}`} />{t.name}
                 </span>
@@ -673,7 +675,7 @@ export function PasteDialog({ projectId, onClose, onChanged }: { projectId: numb
           {PASTE_COLS.map((c) => <span key={c} className="truncate px-2.5 py-1.5">{c}</span>)}
         </div>
         <textarea aria-label="붙여 넣을 표" rows={6} value={text} spellCheck={false} onChange={(e) => setText(e.target.value)}
-          className="block w-full resize-y whitespace-pre rounded-b border border-line px-3 py-2 font-mono text-xs leading-relaxed outline-none focus:border-brand"
+          className="block w-full resize-y whitespace-pre rounded-b border border-input px-3 py-2 font-mono text-xs leading-relaxed focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           placeholder={'공정·기계\tP&ID 2차\t2027-03-02\t2027-04-13\t이가온\t15'} />
       </div>
       <Alert error={error} />

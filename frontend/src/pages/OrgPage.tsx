@@ -15,7 +15,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 // ---------------------------------------------------------------------------
 
 const btn = 'rounded border border-line px-2.5 py-1 text-xs font-medium text-body transition hover:bg-paper';
-const input = 'rounded border border-line px-3 py-1.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const input = 'rounded border border-input px-3 py-1.5 text-sm focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 
 export default function OrgPage() {
   const [ask, promptUi] = usePrompt();
@@ -71,7 +71,7 @@ export default function OrgPage() {
 
         <section className="mt-6 space-y-4">
           {depts.map((d) => (
-            <div key={d.id} className="rounded border border-line bg-white p-5 shadow-sm">
+            <div key={d.id} className="rounded border border-line bg-white p-5">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-semibold text-ink">{d.name}</h2>
                 <button type="button" className={btn} onClick={() => rename(d.name, (n) => renameDepartment(d.id, n))}>이름 변경</button>
@@ -110,7 +110,7 @@ export default function OrgPage() {
           </form>
         </section>
 
-        <section className="mt-8 overflow-x-auto rounded border border-line bg-white shadow-sm">
+        <section className="mt-8 overflow-x-auto rounded border border-line bg-white">
           <table className="w-full whitespace-nowrap text-left text-sm">
             <thead className="bg-paper text-xs text-body">
               <tr><th className="px-4 py-3 font-medium">이름</th><th className="px-4 py-3 font-medium">이메일</th><th className="px-4 py-3 font-medium">부서/팀</th></tr>

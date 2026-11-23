@@ -51,7 +51,7 @@ export default function PermitVersions({ permit }: { permit: PermitItem }) {
             <li key={d.id} className="flex items-center gap-1.5">
               {i > 0 && <span aria-hidden className="text-mute">→</span>}
               <span title={d.fileName}
-                className={`rounded border px-2 py-1 ${i === l.length - 1 ? 'border-brand bg-[#EEF3F8] text-brand' : 'border-line text-body'}`}>
+                className={`rounded border px-2 py-1 ${i === l.length - 1 ? 'border-brand bg-brand-subtle text-brand-text' : 'border-line text-body'}`}>
                 <b>v{i + 1}</b> <span className="text-xs">{d.effectiveDate ? `시행 ${d.effectiveDate}` : d.uploadedAt.slice(0, 10)}</span>
               </span>
             </li>

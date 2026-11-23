@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router';
 import {
   createEvent, deleteEvent, EVENT_KIND_LABEL, EVENT_KINDS, eventWhen, NEEDS_COUNTERPART, toEventInput, updateEvent,
@@ -6,7 +6,7 @@ import {
 } from '../api/events';
 import type { Discipline } from '../api/schedule';
 import type { CalendarEntry } from './ScheduleCalendar';
-import { useEscape } from './useEscape';
+import { useDialogFocus, useEscape } from './useEscape';
 import { Alert } from './ui/Alert';
 
 // ---------------------------------------------------------------------------
@@ -16,7 +16,7 @@ import { Alert } from './ui/Alert';
 
 interface Member { userId: number; name: string }
 
-const field = 'w-full rounded border border-line px-2.5 py-1.5 text-sm outline-none focus:border-brand';
+const field = 'w-full rounded border border-input px-2.5 py-1.5 text-sm focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 const btn = 'rounded border border-line px-3 py-1.5 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
 const row = 'grid grid-cols-[88px_1fr] items-center gap-3';
 const SUBKINDS: Partial<Record<EventKind, string[]>> = {
@@ -28,10 +28,12 @@ function Drawer({ label, sub, title, onClose, children }: {
   label: string; sub: string; title: string; onClose: () => void; children: ReactNode;
 }) {
   useEscape(onClose);
+  const box = useRef<HTMLElement>(null);
+  useDialogFocus(box);
   return (
     <div className="fixed inset-0 z-50">
       <div onClick={onClose} className="absolute inset-0 bg-black/40" />
-      <aside role="dialog" aria-modal="true" aria-label={label}
+      <aside role="dialog" aria-modal="true" ref={box} tabIndex={-1} aria-label={label}
         className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="min-w-0">

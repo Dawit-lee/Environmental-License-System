@@ -25,7 +25,7 @@ function DateList({ items }: { items: Map<string, SharedItem[]> }) {
       {[...items.entries()].map(([group, rows]) => (
         <section key={group}>
           <h2 className="text-sm font-semibold text-ink">{group}</h2>
-          <ul className="divide-y divide-[#F1EFE8]">
+          <ul className="divide-y divide-line-soft">
             {rows.map((r, n) => (
               <li key={n} className="flex items-baseline justify-between gap-3 py-1.5">
                 <span className="min-w-0 truncate" title={r.title}>
@@ -58,7 +58,7 @@ export default function ReadOnlySchedule({ title, subtitle, items, events }: {
   return (
     <div className="print-area space-y-5 rounded border border-line bg-white p-5">
       <div>
-        <h1 className="text-xl font-bold text-brand">{title}</h1>
+        <h1 className="text-2xl font-bold text-ink">{title}</h1>
         {subtitle && <p className="mt-1 text-xs text-mute">{subtitle}</p>}
       </div>
       {items.length > 0 && days.length > 0 && <div className="hidden sm:block print:block"><Bars items={groups} from={new Date(Math.min(...days.map(Number)))}
@@ -111,7 +111,7 @@ function Bars({ items, from, to }: { items: Map<string, SharedItem[]>; from: Dat
             const start = parseISO(r.startDate);
             const end = addDays(parseISO(r.endDate), 1);
             return (
-              <div key={n} className="flex items-center border-b border-[#F1EFE8] py-0.5">
+              <div key={n} className="flex items-center border-b border-line-soft py-0.5">
                 <div className="w-56 shrink-0 truncate pr-2" title={r.title}>
                   {r.title}{r.partnerName && <span className="text-mute"> ({r.partnerName})</span>}
                 </div>

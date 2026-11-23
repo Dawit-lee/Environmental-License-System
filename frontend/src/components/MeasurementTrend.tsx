@@ -15,9 +15,9 @@ interface Measurement {
   limitLower: number | null; limitValue: number | null; warnRatio: number | null; level: Level;
 }
 
-const INPUT = 'rounded border border-line bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
-const NAVY = '#1F4E79';
-const RED = '#991B1B';
+const INPUT = 'rounded border border-input bg-white px-3 py-1.5 text-sm text-body focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
+const NAVY = 'var(--color-brand)';
+const RED = 'var(--color-danger)';
 const W = 720, H = 260, LEFT = 52, RIGHT = 16, TOP = 14, BOTTOM = 28;
 const iso = (d: Date) => d.toLocaleDateString('sv-SE');
 const day = (s: string) => Date.parse(s) / 86_400_000;
@@ -69,7 +69,7 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
 
   return (
     <>
-      <h2 className="mt-8 text-lg font-bold text-brand">측정 추이 · {point.name}</h2>
+      <h2 className="mt-8 text-lg font-bold text-ink">측정 추이 · {point.name}</h2>
       {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
       <div className="mt-3 flex flex-wrap items-end gap-3">
         <label className="text-xs text-mute">항목
@@ -86,25 +86,25 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
         <p className="pb-1.5 text-sm text-mute">{data.length}건 · 한도와 판정은 입력 시점 기준입니다.</p>
       </div>
 
-      <div className="relative mt-3 rounded border border-line bg-white p-3 shadow-sm">
+      <div className="relative mt-3 rounded border border-line bg-white p-3">
         <svg viewBox={`0 0 ${W} ${H}`} className="block w-full" role="img" onMouseMove={move} onMouseLeave={() => setHover(null)}
           aria-label={`${point.name} ${items.find((p) => p.code === code)?.name ?? ''} 측정 추이 ${from} ~ ${to}, ${data.length}건. 값은 아래 표에 있습니다.`}>
           {[0, 0.25, 0.5, 0.75, 1].map((t) => {
             const v = (top / 1.1) * t;
             return (
               <g key={t}>
-                <line x1={LEFT} x2={W - RIGHT} y1={y(v)} y2={y(v)} stroke="#E5E3DC" strokeWidth={t === 0 ? 1.5 : 0.5} />
-                <text x={LEFT - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="#6B7280">{data.length ? num(v) : ''}</text>
+                <line x1={LEFT} x2={W - RIGHT} y1={y(v)} y2={y(v)} stroke="var(--color-line-soft)" strokeWidth={t === 0 ? 1.5 : 0.5} />
+                <text x={LEFT - 6} y={y(v) + 4} textAnchor="end" fontSize="11" fill="var(--color-mute)">{data.length ? num(v) : ''}</text>
               </g>
             );
           })}
-          <text x={LEFT} y={H - 8} fontSize="11" fill="#6B7280">{from}</text>
-          <text x={W - RIGHT} y={H - 8} textAnchor="end" fontSize="11" fill="#6B7280">{to}</text>
-          <text x={LEFT} y={10} fontSize="11" fill="#6B7280">{unit}</text>
+          <text x={LEFT} y={H - 8} fontSize="11" fill="var(--color-mute)">{from}</text>
+          <text x={W - RIGHT} y={H - 8} textAnchor="end" fontSize="11" fill="var(--color-mute)">{to}</text>
+          <text x={LEFT} y={10} fontSize="11" fill="var(--color-mute)">{unit}</text>
           <path d={steps((m) => m.limitValue) + steps((m) => m.limitLower)} stroke={RED} strokeWidth="1.5" fill="none" />
-          <path d={steps((m) => near(m)[1]) + steps((m) => near(m)[0])} stroke="#6B7280" strokeWidth="1.5" strokeDasharray="5 4" fill="none" />
+          <path d={steps((m) => near(m)[1]) + steps((m) => near(m)[0])} stroke="var(--color-mute)" strokeWidth="1.5" strokeDasharray="5 4" fill="none" />
           <polyline points={data.map((m) => `${x(m)},${y(m.value)}`).join(' ')} stroke={NAVY} strokeWidth="1.5" fill="none" />
-          {hover && <line x1={x(hover)} x2={x(hover)} y1={TOP} y2={H - BOTTOM} stroke="#9CA3AF" strokeWidth="1" />}
+          {hover && <line x1={x(hover)} x2={x(hover)} y1={TOP} y2={H - BOTTOM} stroke="var(--color-disabled)" strokeWidth="1" />}
           {data.map((m) => (m.level === 'EXCEEDED'
             ? <circle key={m.id} cx={x(m)} cy={y(m.value)} r="5.5" fill={RED} stroke="#fff" strokeWidth="1.5" />
             : m.level === 'NEAR'
@@ -122,14 +122,14 @@ export default function MeasurementTrend({ point, pollutants, limits, rev }: {
         {data.length === 0 && <p className="absolute inset-0 flex items-center justify-center text-sm text-mute">이 기간에 측정값이 없습니다.</p>}
         <p className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-body">
           <span><svg width="22" height="8" className="mr-1 inline"><line x1="0" x2="22" y1="4" y2="4" stroke={RED} strokeWidth="1.5" /></svg>한도</span>
-          <span><svg width="22" height="8" className="mr-1 inline"><line x1="0" x2="22" y1="4" y2="4" stroke="#6B7280" strokeWidth="1.5" strokeDasharray="5 4" /></svg>근접선</span>
+          <span><svg width="22" height="8" className="mr-1 inline"><line x1="0" x2="22" y1="4" y2="4" stroke="var(--color-mute)" strokeWidth="1.5" strokeDasharray="5 4" /></svg>근접선</span>
           <span><svg width="12" height="12" className="mr-1 inline"><circle cx="6" cy="6" r="3" fill={NAVY} /></svg>정상</span>
           <span><svg width="12" height="12" className="mr-1 inline"><circle cx="6" cy="6" r="4" fill="#fff" stroke={NAVY} strokeWidth="2" /></svg>근접</span>
           <span><svg width="12" height="12" className="mr-1 inline"><circle cx="6" cy="6" r="5" fill={RED} /></svg>초과</span>
         </p>
       </div>
 
-      <div className="mt-3 max-h-[360px] overflow-auto rounded border border-line bg-white shadow-sm">
+      <div className="mt-3 max-h-[360px] overflow-auto rounded border border-line bg-white">
         <table className="w-full min-w-[720px] whitespace-nowrap text-left text-sm">
           <thead className="sticky top-0 bg-paper text-xs text-body">
             <tr>

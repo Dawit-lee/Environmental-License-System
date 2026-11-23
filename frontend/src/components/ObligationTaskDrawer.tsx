@@ -10,7 +10,7 @@ import {
 import type { PermitDocument, PermitItem } from '../types';
 import { monthsBefore } from './ComplianceReportDraft';
 import { LEVEL, levelClass } from './PointMeasurements';
-import { useEscape } from './useEscape';
+import { useDialogFocus, useEscape } from './useEscape';
 import { Alert } from './ui/Alert';
 import { Badge, type Tone } from './ui/Badge';
 import { cn, focusRing } from './ui/cn';
@@ -56,6 +56,8 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
   projectId: number; obligation?: Obligation; corrective?: Task; permit: PermitItem | undefined; onClose: () => void; onChanged: () => void;
 }) {
   useEscape(onClose);
+  const box = useRef<HTMLElement>(null);
+  useDialogFocus(box);
   const permitItemId = obligation?.permitItemId ?? corrective?.permitItemId ?? null;
   const [reason, setReason] = useState('');
   const [cycles, setCycles] = useState<Task[]>([]);
@@ -139,7 +141,7 @@ export default function ObligationTaskDrawer({ projectId, obligation, corrective
   return (
     <div className="fixed inset-0 z-50">
       <div onClick={onClose} className="absolute inset-0 bg-black/40" />
-      <aside role="dialog" aria-modal="true" aria-label="업무 상세"
+      <aside role="dialog" aria-modal="true" ref={box} tabIndex={-1} aria-label="업무 상세"
         className="absolute right-0 top-0 flex h-full w-full max-w-[520px] flex-col bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="min-w-0">
