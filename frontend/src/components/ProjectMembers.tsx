@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { api, sessionUserId } from '../api/client';
 import { getCompanyUsers, type CompanyUser } from '../api/org';
 import { Alert } from './ui/Alert';
+import { Button } from './ui/Button';
+import { Select } from './ui/Field';
+import { Table } from './ui/Table';
+import { cn, focusRing } from './ui/cn';
 
 // ---------------------------------------------------------------------------
 // ProjectMembers — 프로젝트 › 설정: who works on the project and what they may approve.
@@ -51,76 +55,81 @@ export default function ProjectMembers({ projectId }: { projectId: number }) {
   const candidates = people.filter((u) => !members.some((m) => m.userId === u.id));
 
   return (
-    <section className="mt-8 max-w-5xl">
-      <h2 className="text-lg font-bold text-brand">멤버와 권한</h2>
-      <p className="mt-1 text-sm text-mute">
+    <section aria-labelledby="members-title" className="mt-10 max-w-5xl rounded border border-line bg-white p-6">
+      <h2 id="members-title" className="text-[19px] font-bold text-ink">멤버와 권한</h2>
+      <p className="mt-1 break-keep text-[15px] text-body">
         {admin ? '멤버를 추가하고 승인 권한을 정합니다.' : '프로젝트 어드민만 바꿀 수 있습니다.'}
       </p>
-      {error && <Alert tone="danger" className="mt-3">{error}</Alert>}
+      <dl className="mt-3 grid gap-1 text-[15px] sm:grid-cols-[max-content_1fr] sm:gap-x-3">
+        {FLAGS.map((f) => (
+          <div key={f.key} className="contents">
+            <dt className="font-bold text-ink">{f.label}</dt>
+            <dd className="mb-1 text-body sm:mb-0">{f.hint}</dd>
+          </div>
+        ))}
+      </dl>
+      {error && <Alert tone="danger" className="mt-4">{error}</Alert>}
 
-      <div className="mt-4 overflow-x-auto rounded border border-line bg-white shadow-sm">
-        <table className="w-full min-w-[720px] whitespace-nowrap text-left text-sm">
-          <thead className="bg-paper text-xs text-body">
+      <div className="mt-4">
+        <Table caption="프로젝트 멤버와 권한" className="min-w-[720px] whitespace-nowrap">
+          <thead>
             <tr>
-              <th className="px-4 py-3 font-medium">이름</th>
-              <th className="px-4 py-3 font-medium">이메일</th>
+              <th>이름</th>
+              <th>이메일</th>
               {FLAGS.map((f) => (
-                <th key={f.key} className="px-4 py-3 text-center font-medium" title={f.hint}>{f.label}</th>
+                <th key={f.key} className="text-center" title={f.hint}>{f.label}</th>
               ))}
-              <th className="px-4 py-3" />
+              <th aria-label="작업" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-line">
+          <tbody>
             {members.map((m) => (
               <tr key={m.userId}>
-                <td className="px-4 py-2.5 font-medium text-ink">{m.name}</td>
-                <td className="px-4 py-2.5 text-mute">{m.email}</td>
+                <td className="font-bold">{m.name}</td>
+                <td className="text-body">{m.email}</td>
                 {FLAGS.map((f) => (
-                  <td key={f.key} className="px-4 py-2.5 text-center">
+                  <td key={f.key} className="text-center">
                     <input
                       type="checkbox"
                       aria-label={`${m.name} ${f.label}`}
                       checked={m[f.key]}
                       disabled={!admin}
                       onChange={(e) => run(() => api(`${base}/${m.userId}`, { method: 'PATCH', body: JSON.stringify({ [f.key]: e.target.checked }) }))}
-                      className="h-4 w-4 accent-brand"
+                      className={cn('size-5 align-middle accent-brand', focusRing)}
                     />
                   </td>
                 ))}
-                <td className="px-4 py-2.5 text-right">
+                <td className="text-right">
                   {admin && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      aria-label={`${m.name} 멤버에서 빼기`}
                       onClick={() => window.confirm(`${m.name}을(를) 멤버에서 뺄까요?`) && run(() => api(`${base}/${m.userId}`, { method: 'DELETE' }))}
-                      className="text-xs text-mute hover:text-danger"
                     >
                       빼기
-                    </button>
+                    </Button>
                   )}
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </Table>
       </div>
 
       {admin && candidates.length > 0 && (
         <form
-          className="mt-3 flex gap-2"
+          className="mt-4 flex flex-wrap items-end gap-3"
           onSubmit={(e) => {
             e.preventDefault();
             if (adding) run(() => api(base, { method: 'POST', body: JSON.stringify({ userId: Number(adding) }) })).then(() => setAdding(''));
           }}
         >
-          <select aria-label="추가할 사용자" value={adding} onChange={(e) => setAdding(e.target.value)}
-            className="rounded border border-line bg-white px-3 py-1.5 text-sm">
+          <Select label="추가할 사용자" className="w-full sm:w-80" value={adding} onChange={(e) => setAdding(e.target.value)}>
             <option value="">같은 회사 사용자 선택</option>
             {candidates.map((u) => <option key={u.id} value={u.id}>{u.name} ({u.email})</option>)}
-          </select>
-          <button type="submit" disabled={!adding}
-            className="rounded bg-brand px-3.5 py-1.5 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-40">
-            멤버 추가
-          </button>
+          </Select>
+          <Button type="submit" disabled={!adding} className="w-full sm:w-auto">멤버 추가</Button>
         </form>
       )}
     </section>
