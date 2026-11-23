@@ -14,9 +14,15 @@ import { BaseDatesDialog, BaselineDialog, DelayTable, PasteDialog, TemplateDialo
 import ReadOnlySchedule from './ReadOnlySchedule';
 import ShareDialog from './ShareDialog';
 import { usePrompt } from './PromptDialog';
-import { EmptyState, HELP, Help, Tip, primaryBtn, secondaryBtn } from './Onboarding';
+import { HELP, Help, Tip } from './Onboarding';
 import { useEscape } from './useEscape';
+import { EmptyBlock } from './ListParts';
 import { Alert } from './ui/Alert';
+import { Button } from './ui/Button';
+import { Select } from './ui/Field';
+import { SummaryStrip } from './ui/SummaryStrip';
+import { Tabs } from './ui/Tabs';
+import { cn, focusRing } from './ui/cn';
 
 // the Gantt library is large; only this tab loads it
 const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
@@ -30,11 +36,20 @@ const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
 type View = 'gantt' | 'calendar' | 'delays' | 'deadlines' | 'print';
 interface Member { userId: number; name: string }
 
-const btn = 'rounded border border-line px-3 py-1.5 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
-const field = 'w-full rounded border border-line px-2.5 py-1.5 text-sm outline-none focus:border-brand';
+// DESIGN.md: toolbar buttons 40px tertiary; form inputs 48px with the input border
+const btnBase = cn('inline-flex h-10 shrink-0 items-center rounded border bg-white px-3 text-[15px] disabled:cursor-not-allowed disabled:border-transparent disabled:bg-line disabled:text-disabled', focusRing);
+const btn = cn(btnBase, 'border-input text-ink hover:bg-paper');
+const dangerBtn = cn(btnBase, 'ml-auto border-danger text-danger hover:bg-danger-bg');
+const control = cn('rounded border border-input bg-white text-ink placeholder:text-disabled focus:border-brand disabled:bg-line disabled:text-disabled', focusRing);
+const field = cn(control, 'h-12 w-full px-4 text-base');
 /** An item linked to a base date, offsets left out: the server computes them back from its dates. */
 const UNLINK_OFFSETS = { offsetDays: null, offsetMonths: null, durationDays: null };
-const seg = (on: boolean) => `px-3 py-1.5 text-xs font-medium ${on ? 'bg-brand text-white' : 'text-body hover:bg-paper'}`;
+/** 일·주·월 segmented control: the picked one is filled blue. */
+const seg = (on: boolean) => cn('h-10 min-w-11 px-3 text-[15px]', focusRing, on ? 'bg-brand font-bold text-white' : 'text-ink hover:bg-paper');
+const VIEWS: { key: View; label: string; help?: string }[] = [
+  { key: 'gantt', label: '간트' }, { key: 'calendar', label: '달력' }, { key: 'delays', label: '지연 현황', help: HELP.delays.text },
+  { key: 'deadlines', label: '인허가 기한', help: HELP.deadlines.text }, { key: 'print', label: '인쇄본', help: HELP.print.text },
+];
 
 export default function ProjectSchedule({ projectId }: { projectId: number }) {
   const [ask, promptUi] = usePrompt();
@@ -105,51 +120,48 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {promptUi}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex overflow-hidden rounded border border-line bg-white">
-          <button type="button" className={seg(view === 'gantt')} onClick={() => setView('gantt')}>간트</button>
-          <button type="button" className={seg(view === 'calendar')} onClick={() => setView('calendar')}>달력</button>
-          <button type="button" title={HELP.delays.text} className={seg(view === 'delays')} onClick={() => setView('delays')}>지연 현황</button>
-          <button type="button" title={HELP.deadlines.text} className={seg(view === 'deadlines')} onClick={() => setView('deadlines')}>인허가 기한</button>
-          <button type="button" title={HELP.print.text} className={seg(view === 'print')} onClick={() => setView('print')}>인쇄본</button>
-        </div>
-        {view !== 'deadlines' && schedule && (
-          <p className="text-sm text-mute">
-            {schedule.baselineNo ? `기준 ${schedule.baselineNo}차` : <>기준 미확정<Help k="unbaselined" /></>}
-            {schedule.progress && <> · 예정 {schedule.progress.planned}% / 진행 {schedule.progress.actual}%
-              {schedule.progress.weightTotal !== 100 && <span className="text-danger"> (보할 합 {schedule.progress.weightTotal})</span>}</>}
-            {' · '}항목 {schedule.items.length}건
-            {' · '}<span className={overdue ? 'text-danger' : ''}>기한 경과 {overdue}건</span><Help k="overdue" />
-            {schedule.baselineNo > 0 && <>{' · '}<span className={schedule.delayCount ? 'text-danger' : ''}>일정 지연 {schedule.delayCount}건</span><Help k="slip" /></>}
-          </p>
-        )}
-        {view !== 'deadlines' && schedule && (
-          <div className="ml-auto flex items-center gap-2">
-            <Tip k="base"><button type="button" className={btn} onClick={() => setTool('base')}>기준일</button></Tip>
-            <Tip k="baseline"><button type="button" className={btn} disabled={!schedule.items.length} onClick={() => setTool('baseline')}>
+      <Tabs label="일정 보기" value={view} onChange={(k) => setView(k as View)}
+        tabs={VIEWS.map((v) => ({ key: v.key, label: <span title={v.help}>{v.label}</span> }))} />
+      {view !== 'deadlines' && schedule && (
+        <>
+          <SummaryStrip items={[
+            { label: <>기준 회차{!schedule.baselineNo && <Help k="unbaselined" />}</>, value: schedule.baselineNo ? `${schedule.baselineNo}차` : '미확정' },
+            ...(schedule.progress ? [{
+              label: <>공정률 (예정 / 진행){schedule.progress.weightTotal !== 100 && <span className="text-danger"> · 보할 합 {schedule.progress.weightTotal}</span>}</>,
+              value: `${schedule.progress.planned} / ${schedule.progress.actual}`, unit: '%',
+            }] : []),
+            { label: '항목', value: schedule.items.length, unit: '건' },
+            { label: <>기한 경과<Help k="overdue" /></>, value: overdue, unit: '건', tone: overdue ? 'danger' as const : undefined, alert: overdue > 0 },
+            ...(schedule.baselineNo > 0 ? [{
+              label: <>일정 지연<Help k="slip" /></>, value: schedule.delayCount, unit: '건', tone: schedule.delayCount ? 'warning' as const : undefined,
+            }] : []),
+          ]} />
+          {/* 도구 막대: 기준·템플릿·붙여넣기·공유 */}
+          <div className="flex flex-wrap items-center gap-2">
+            <Tip k="base" align="left"><button type="button" className={btn} onClick={() => setTool('base')}>기준일</button></Tip>
+            <Tip k="baseline" align="left"><button type="button" className={btn} disabled={!schedule.items.length} onClick={() => setTool('baseline')}>
               {schedule.baselineNo ? '기준 재확정' : '기준 확정'}</button></Tip>
             <Tip k="template"><button type="button" className={btn} onClick={() => setTool('template')}>템플릿</button></Tip>
             <Tip k="paste"><button type="button" className={btn} onClick={() => setTool('paste')}>붙여넣기</button></Tip>
             <Tip k="share"><button type="button" className={btn} onClick={() => setTool('share')}>공유</button></Tip>
           </div>
-        )}
-      </div>
+        </>
+      )}
 
       {view === 'delays' && <DelayTable key={loads} projectId={projectId} baselined={!!schedule?.baselineNo} />}
 
       {view === 'deadlines' && <CalendarPage projectId={projectId} />}
       {view === 'print' && schedule && (
         <>
-          <div className="flex items-center gap-2">
-            <select aria-label="분야 필터" className="rounded border border-line bg-white px-2 py-1.5 text-xs"
-              value={filter.discipline} onChange={(e) => setFilter({ ...filter, discipline: e.target.value })}>
-              <option value="">분야 전체</option>
+          <div className="flex flex-wrap items-end gap-3">
+            <Select label="분야" className="w-full sm:w-44" value={filter.discipline} onChange={(e) => setFilter({ ...filter, discipline: e.target.value })}>
+              <option value="">전체</option>
               <option value="0">공통(미지정)</option>
               {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-            <button type="button" className={btn} onClick={() => window.print()}>인쇄 · PDF</button>
+            </Select>
+            <Button variant="tertiary" onClick={() => window.print()}>인쇄 · PDF</Button>
           </div>
           <ReadOnlySchedule title="공정표"
             subtitle={`${schedule.today} 기준${filter.discipline ? ` · ${filter.discipline === '0' ? '공통' : disciplines.find((d) => String(d.id) === filter.discipline)?.name ?? ''}` : ''}`}
@@ -165,39 +177,37 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
 
       {view === 'gantt' && (
         <>
-          <div className="flex flex-wrap items-center gap-2">
-            <select aria-label="분야 필터" className="rounded border border-line bg-white px-2 py-1.5 text-xs"
-              value={filter.discipline} onChange={(e) => setFilter({ ...filter, discipline: e.target.value })}>
-              <option value="">분야 전체</option>
+          {/* 필터 줄: 분야·담당·기한 경과 + 오른쪽 축척·항목 추가 */}
+          <div className="flex flex-wrap items-end gap-3">
+            <Select label="분야" className="w-full sm:w-44" value={filter.discipline} onChange={(e) => setFilter({ ...filter, discipline: e.target.value })}>
+              <option value="">전체</option>
               <option value="0">공통(미지정)</option>
               {disciplines.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-            <select aria-label="담당 필터" className="rounded border border-line bg-white px-2 py-1.5 text-xs"
-              value={filter.owner} onChange={(e) => setFilter({ ...filter, owner: e.target.value })}>
-              <option value="">담당 전체</option>
+            </Select>
+            <Select label="담당" className="w-full sm:w-44" value={filter.owner} onChange={(e) => setFilter({ ...filter, owner: e.target.value })}>
+              <option value="">전체</option>
               <option value="0">미지정</option>
               {members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
-            </select>
-            <label className="flex items-center gap-1.5 text-xs text-body">
-              <input type="checkbox" checked={filter.delayedOnly}
+            </Select>
+            <label className="flex h-12 items-center gap-2 text-[15px] text-ink">
+              <input type="checkbox" checked={filter.delayedOnly} className={cn('size-5 accent-brand', focusRing)}
                 onChange={(e) => setFilter({ ...filter, delayedOnly: e.target.checked })} />
               기한 경과만
             </label>
-            <div className="ml-auto flex items-center gap-2">
-              <div className="inline-flex overflow-hidden rounded border border-line bg-white">
-                <button type="button" className={seg(scale === 'day')} onClick={() => setScale('day')}>일</button>
-                <button type="button" className={seg(scale === 'week')} onClick={() => setScale('week')}>주</button>
-                <button type="button" className={seg(scale === 'month')} onClick={() => setScale('month')}>월</button>
+            <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+              <div role="group" aria-label="간트 축척" className="inline-flex overflow-hidden rounded border border-input bg-white">
+                <button type="button" aria-pressed={scale === 'day'} className={seg(scale === 'day')} onClick={() => setScale('day')}>일</button>
+                <button type="button" aria-pressed={scale === 'week'} className={cn(seg(scale === 'week'), 'border-x border-input')} onClick={() => setScale('week')}>주</button>
+                <button type="button" aria-pressed={scale === 'month'} className={seg(scale === 'month')} onClick={() => setScale('month')}>월</button>
               </div>
-              <button type="button" onClick={() => setEditing('new')}
-                className="rounded bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover">+ 항목</button>
+              <Button size="sm" className="ml-auto sm:ml-0" onClick={() => setEditing('new')}>+ 항목 추가</Button>
             </div>
           </div>
 
           {error && <Alert tone="danger">{error}</Alert>}
 
           {dated.length < visible.length && (
-            <p className="text-sm text-mute">날짜 미정 {visible.length - dated.length}건: 기준일이 정해지면 간트에 나타납니다. [기준일]에서 날짜를 넣으세요.</p>
+            <p className="break-keep text-[15px] text-body">날짜 미정 {visible.length - dated.length}건: 기준일이 정해지면 간트에 나타납니다. [기준일]에서 날짜를 넣으세요.</p>
           )}
           {schedule && dated.length > 0 && (
             <Suspense fallback={<div className="h-[600px] rounded border border-line bg-white" />}>
@@ -207,14 +217,18 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
             </Suspense>
           )}
           {schedule && visible.length === 0 && schedule.items.length > 0 && (
-            <p className="rounded border border-dashed border-line bg-white px-6 py-12 text-center text-sm text-mute">조건에 맞는 항목이 없습니다.</p>
+            <EmptyBlock title="조건에 맞는 항목이 없습니다." action={(
+              <Button variant="tertiary" onClick={() => setFilter({ discipline: '', owner: '', delayedOnly: false })}>필터 모두 지우기</Button>
+            )} />
           )}
           {schedule && schedule.items.length === 0 && (
-            <EmptyState text="분야별 작업과 마일스톤을 간트로 관리합니다. 템플릿으로 시작하면 자주 쓰는 공정이 한 번에 들어갑니다.">
-              <button type="button" className={primaryBtn} onClick={() => setTool('template')}>템플릿으로 시작</button>
-              <button type="button" className={secondaryBtn} onClick={() => setTool('paste')}>엑셀 붙여넣기</button>
-              <button type="button" className={secondaryBtn} onClick={() => setEditing('new')}>+ 항목 직접 추가</button>
-            </EmptyState>
+            <EmptyBlock title="등록된 일정 항목이 없습니다." description="분야별 작업과 마일스톤을 간트로 관리합니다. 템플릿으로 시작하면 자주 쓰는 공정이 한 번에 들어갑니다." action={(
+              <div className="flex flex-wrap justify-center gap-2">
+                <Button variant="tertiary" onClick={() => setEditing('new')}>항목 직접 추가</Button>
+                <Button variant="tertiary" onClick={() => setTool('paste')}>엑셀 붙여넣기</Button>
+                <Button onClick={() => setTool('template')}>템플릿으로 시작</Button>
+              </div>
+            )} />
           )}
         </>
       )}
@@ -284,7 +298,8 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
     }
   };
   const num = (v: string) => (v ? Number(v) : null);
-  const row = 'grid grid-cols-[88px_1fr] items-center gap-3';
+  // DESIGN.md 입력: label above the control (15px 700)
+  const row = 'flex flex-col gap-2';
 
   return (
     <div className="fixed inset-0 z-50">
@@ -293,35 +308,35 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
         className="absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-xl">
         <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-4">
           <div className="min-w-0">
-            <p className="truncate text-xs text-mute">
+            <p className="truncate text-[15px] text-body">
               {item ? `${STATUS_LABEL[item.status]}${item.delayDays > 0 ? ` ${item.delayDays}일` : ''}` : '새 항목'}
               {item?.baselineEnd && ` · 원래 ${item.baselineEnd} → 지금 ${item.endDate ?? '미정'}`}
               {!!item?.slipDays && item.slipDays > 0 && <span className="text-danger"> (+{item.slipDays}일)</span>}
             </p>
-            <h2 className="mt-1 truncate text-lg font-semibold text-ink">{item?.title ?? '일정 항목 추가'}</h2>
+            <h2 className="mt-1 truncate text-[19px] font-bold text-ink">{item?.title ?? '일정 항목 추가'}</h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-mute hover:text-body">×</button>
+          <button type="button" onClick={onClose} aria-label="닫기" className={cn('-mr-3 -mt-2 flex size-11 shrink-0 items-center justify-center rounded text-2xl leading-none text-body hover:bg-paper', focusRing)}>×</button>
         </div>
 
-        <form className="flex-1 space-y-3 overflow-y-auto px-6 py-5" onSubmit={(e) => {
+        <form className="flex-1 space-y-5 overflow-y-auto px-6 py-6" onSubmit={(e) => {
           e.preventDefault();
           run(() => item ? updateItem(projectId, item.id, form) : createItem(projectId, form));
         }}>
           {error && <Alert tone="danger">{error}</Alert>}
-          <label className={row}><span className="text-sm text-mute">항목명</span>
+          <label className={row}><span className="text-[15px] font-bold text-ink">항목명</span>
             <input required maxLength={200} className={field} value={form.title} onChange={(e) => set({ title: e.target.value })} /></label>
-          <label className={row}><span className="text-sm text-mute">종류</span>
+          <label className={row}><span className="text-[15px] font-bold text-ink">종류</span>
             <select className={field} value={form.kind} onChange={(e) => set({ kind: e.target.value as ItemInput['kind'] })}>
               <option value="TASK">작업(기간)</option><option value="MILESTONE">마일스톤(하루)</option>
             </select></label>
           {form.kind === 'MILESTONE' && (
-            <label className={row}><span className="text-sm text-mute">제출·보고</span>
-              <span className="flex items-center gap-1.5 text-sm text-body">
-                <input type="checkbox" checked={!!form.submission} onChange={(e) => set({ submission: e.target.checked })} />
+            <div className={row}><span className="text-[15px] font-bold text-ink">제출·보고</span>
+              <label className="flex min-h-11 items-center gap-2 text-[15px] text-ink">
+                <input type="checkbox" className={cn('size-5 shrink-0 accent-brand', focusRing)} checked={!!form.submission} onChange={(e) => set({ submission: e.target.checked })} />
                 발주처 제출·보고 마일스톤 (Google 동기화 대상)
-              </span></label>
+              </label></div>
           )}
-          <label className={row}><span className="text-sm text-mute">분야</span>
+          <label className={row}><span className="text-[15px] font-bold text-ink">분야</span>
             <select className={field} value={form.disciplineId ?? ''} onChange={(e) => set({ disciplineId: num(e.target.value) })}>
               <option value="">공통(미지정)</option>
               {disciplines.filter((d) => d.active || d.id === form.disciplineId)
@@ -329,48 +344,48 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
             </select></label>
           {/* exact days for linked items too: a picked date drops the offsets, the server computes them back (as a drag does) */}
           {form.kind === 'TASK' && (
-            <label className={row}><span className="text-sm text-mute">시작</span>
+            <label className={row}><span className="text-[15px] font-bold text-ink">시작</span>
               <input type="date" required className={field} value={form.startDate ?? ''}
                 onChange={(e) => set({ startDate: e.target.value, ...(relative ? UNLINK_OFFSETS : {}) })} /></label>
           )}
-          <label className={row}><span className="text-sm text-mute">{form.kind === 'TASK' ? '종료' : '날짜'}</span>
+          <label className={row}><span className="text-[15px] font-bold text-ink">{form.kind === 'TASK' ? '종료' : '날짜'}</span>
             <input type="date" required className={field} value={form.endDate ?? ''}
               onChange={(e) => set({ endDate: e.target.value, ...(relative ? UNLINK_OFFSETS : {}) })} /></label>
-          <label className={row}><span className="text-sm text-mute">담당</span>
+          <label className={row}><span className="text-[15px] font-bold text-ink">담당</span>
             <select className={field} value={form.ownerUserId ?? ''} onChange={(e) => set({ ownerUserId: num(e.target.value) })}>
               <option value="">미지정</option>
               {members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
             </select></label>
           {item?.baselineEnd && (
-            <label className={row}><span className="text-sm text-mute">연기 사유</span>
+            <label className={row}><span className="text-[15px] font-bold text-ink">연기 사유</span>
               <input maxLength={500} className={field} placeholder="기준보다 늦출 때 필수" value={form.reason ?? ''}
                 onChange={(e) => set({ reason: e.target.value })} /></label>
           )}
-          {item?.delayReason && <p className="truncate text-xs text-mute" title={item.delayReason}>마지막 연기 사유: {item.delayReason}</p>}
+          {item?.delayReason && <p className="truncate text-[15px] text-body" title={item.delayReason}>마지막 연기 사유: {item.delayReason}</p>}
           {/* 기본 칸만 먼저: 기준일 연결·진행률·선행은 접어 둔다 */}
-          <details open={advancedOpen} className="rounded border border-line px-3 py-2">
-            <summary className="cursor-pointer text-sm text-body">고급 (기준일 연결 · 진행률 · 선행 항목)</summary>
-            <div className="mt-3 space-y-3">
-          <label className={row}><span className="text-sm text-mute">묶음</span>
+          <details open={advancedOpen} className="rounded border border-line px-4 py-3">
+            <summary className={cn('min-h-6 cursor-pointer rounded-sm text-[15px] font-bold text-ink', focusRing)}>고급 (기준일 연결 · 진행률 · 선행 항목)</summary>
+            <div className="mt-4 space-y-5">
+          <label className={row}><span className="text-[15px] font-bold text-ink">묶음</span>
             <select className={field} value={form.parentId ?? ''} disabled={hasChildren} onChange={(e) => set({ parentId: num(e.target.value) })}>
               <option value="">없음</option>
               {others.filter((i) => i.parentId === null).map((i) => <option key={i.id} value={i.id}>{i.title}</option>)}
             </select></label>
-          <label className={row}><span className="text-sm text-mute">날짜 기준</span>
+          <label className={row}><span className="text-[15px] font-bold text-ink">날짜 기준</span>
             <select className={field} value={form.anchor ?? ''}
               onChange={(e) => set({ anchor: (e.target.value || null) as Anchor | null, offsetDays: null, offsetMonths: null, durationDays: null })}>
               <option value="">고정일</option>
               {ANCHORS.map((a) => <option key={a} value={a}>{ANCHOR_LABEL[a]} ({dateOf(a) ?? '미정'})</option>)}
             </select></label>
           {form.anchor && (
-            <div className={row}><span className="text-sm text-mute">{form.kind === 'TASK' ? '종료일까지' : '기준일로부터'}</span>
+            <div className={row}><span className="text-[15px] font-bold text-ink">{form.kind === 'TASK' ? '종료일까지' : '기준일로부터'}</span>
               <div className="flex gap-2">
                 <input type="number" aria-label="기준일로부터" className={field} placeholder="비우면 아래 날짜로 계산" value={offset ?? ''}
                   onChange={(e) => {
                     const v = e.target.value === '' ? null : Number(e.target.value);
                     set(unit === 'month' ? { offsetMonths: v, offsetDays: null } : { offsetDays: v, offsetMonths: null });
                   }} />
-                <select aria-label="단위" className="rounded border border-line px-2 text-sm" value={unit} onChange={(e) => {
+                <select aria-label="단위" className={cn(control, 'h-12 w-28 shrink-0 px-3 text-base')} value={unit} onChange={(e) => {
                   const u = e.target.value as 'day' | 'month';
                   setUnit(u);
                   set(u === 'month' ? { offsetMonths: offset, offsetDays: null } : { offsetDays: offset, offsetMonths: null });
@@ -379,31 +394,31 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
             </div>
           )}
           {relative && form.kind === 'TASK' && (
-            <label className={row}><span className="text-sm text-mute">기간(일)</span>
+            <label className={row}><span className="text-[15px] font-bold text-ink">기간(일)</span>
               <input type="number" min={1} required className={field} value={form.durationDays ?? ''}
                 onChange={(e) => set({ durationDays: num(e.target.value) })} /></label>
           )}
           {relative && (
-            <p className="text-xs text-mute">
+            <p className="break-keep text-[15px] text-body">
               {offsetLabel({ anchor: form.anchor, offsetDays: form.offsetDays, offsetMonths: form.offsetMonths })} · 기준일이 바뀌면 함께 이동합니다.
               {' '}위에서 날짜를 고르면 그 날짜에 맞춰 다시 계산합니다.
             </p>
           )}
-          <label className={row}><span className="text-sm text-mute">협력사</span>
+          <label className={row}><span className="text-[15px] font-bold text-ink">협력사</span>
             <input maxLength={100} className={field} placeholder="예: 가온구조" value={form.partnerName ?? ''}
               onChange={(e) => set({ partnerName: e.target.value || null })} /></label>
-          <label className={row}><span className="text-sm text-mute">진행 %</span>
+          <label className={row}><span className="text-[15px] font-bold text-ink">진행 %</span>
             <input type="number" min={0} max={100} className={field} value={form.progress}
               onChange={(e) => set({ progress: Number(e.target.value) })} /></label>
-          <label className={row}><span className="text-sm text-mute">보할 %</span>
+          <label className={row}><span className="text-[15px] font-bold text-ink">보할 %</span>
             <input type="number" min={0} max={100} step="0.01" className={field} placeholder="공정률 계산용(선택)" value={form.weight ?? ''}
               onChange={(e) => set({ weight: num(e.target.value) })} /></label>
-          <div className={`${row} items-start`}><span className="pt-1 text-sm text-mute">먼저 끝낼 항목</span>
-            <div className="max-h-36 space-y-1 overflow-y-auto rounded border border-line px-2.5 py-1.5">
-              {others.length === 0 && <p className="text-xs text-mute">다른 항목이 없습니다.</p>}
+          <div className={row}><span className="text-[15px] font-bold text-ink">먼저 끝낼 항목</span>
+            <div className="max-h-44 space-y-1 overflow-y-auto rounded border border-input px-3 py-2">
+              {others.length === 0 && <p className="text-[15px] text-body">다른 항목이 없습니다.</p>}
               {others.map((i) => (
-                <label key={i.id} className="flex items-center gap-2 truncate text-sm" title={i.title}>
-                  <input type="checkbox" checked={form.predecessorIds.includes(i.id)} onChange={(e) => set({
+                <label key={i.id} className="flex min-h-10 items-center gap-2 truncate text-[15px] text-ink" title={i.title}>
+                  <input type="checkbox" className={cn('size-5 shrink-0 accent-brand', focusRing)} checked={form.predecessorIds.includes(i.id)} onChange={(e) => set({
                     predecessorIds: e.target.checked ? [...form.predecessorIds, i.id] : form.predecessorIds.filter((p) => p !== i.id),
                   })} />
                   <span className="truncate">{i.title}</span>
@@ -414,24 +429,23 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
             </div>
           </details>
           <div className="sticky bottom-0 -mx-6 flex justify-end border-t border-line bg-white px-6 py-3">
-            <button type="submit" disabled={busy}
-              className="rounded bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-40">저장</button>
+            <Button type="submit" disabled={busy}>저장</Button>
           </div>
         </form>
 
         {item && (
-          <div className="space-y-3 border-t border-line px-6 py-4">
+          <div className="flex flex-wrap items-center gap-2 border-t border-line px-6 py-4">
             {item.actualEnd ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-body">완료 · 실적 종료일 {item.actualEnd}</span>
+              <div className="flex w-full flex-wrap items-center gap-2">
+                <span className="text-[15px] text-body">완료 · 실적 종료일 {item.actualEnd}</span>
                 <button type="button" disabled={busy} className={btn}
                   onClick={() => window.confirm(`'${item.title}'의 완료를 취소할까요?`) && run(() => reopenItem(projectId, item.id))}>완료 취소</button>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-mute">실적 종료일</span>
+              <div className="flex w-full flex-wrap items-center gap-2">
+                <span className="text-[15px] font-bold text-ink">실적 종료일</span>
                 <input type="date" aria-label="실적 종료일" max={schedule.today} value={actualEnd}
-                  onChange={(e) => setActualEnd(e.target.value)} className="rounded border border-line px-2 py-1.5 text-sm" />
+                  onChange={(e) => setActualEnd(e.target.value)} className={cn(control, 'h-10 px-3 text-[15px]')} />
                 <button type="button" disabled={busy || !actualEnd} className={btn}
                   onClick={() => run(() => completeItem(projectId, item.id, actualEnd))}>완료 처리</button>
               </div>
@@ -448,7 +462,7 @@ function ItemDrawer({ projectId, item, schedule, disciplines, members, onClose, 
                 onClick={() => run(() => updateItem(projectId, item.id, { ...toInput(item, schedule.dependencies), anchor: schedule.base }))}>
                 {ANCHOR_LABEL[schedule.base]}에 연결</button>
             )}{' '}
-            <button type="button" disabled={busy} className={`${btn} hover:!border-danger hover:!text-danger`}
+            <button type="button" disabled={busy} className={dangerBtn}
               onClick={() => window.confirm(`'${item.title}'${hasChildren ? '과 하위 항목' : ''}을 삭제할까요? 이력은 남습니다.`)
                 && run(() => deleteItem(projectId, item.id))}>삭제</button>
           </div>

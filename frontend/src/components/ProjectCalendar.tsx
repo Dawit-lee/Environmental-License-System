@@ -5,6 +5,8 @@ import type { Discipline } from '../api/schedule';
 import { EntryDetail, EventForm } from './EventPanels';
 import type { CalendarEntry } from './ScheduleCalendar';
 import { Alert } from './ui/Alert';
+import { Button } from './ui/Button';
+import { cn, focusRing } from './ui/cn';
 
 // FullCalendar is large; only the calendar views load it
 const ScheduleCalendar = lazy(() => import('./ScheduleCalendar'));
@@ -40,13 +42,12 @@ export default function ProjectCalendar({ projectId, disciplines, members, onOpe
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-1.5 text-xs text-body">
-          <input type="checkbox" checked={showDeadlines} onChange={(e) => setShowDeadlines(e.target.checked)} />
+        <label className="flex h-10 items-center gap-2 text-[15px] text-ink">
+          <input type="checkbox" className={cn('size-5 accent-brand', focusRing)} checked={showDeadlines} onChange={(e) => setShowDeadlines(e.target.checked)} />
           인허가 기한 표시
         </label>
-        <p className="text-xs text-mute">이벤트 {data.events.length}건 · 마일스톤 {data.milestones.length}건</p>
-        <button type="button" onClick={() => setEditing('new')}
-          className="ml-auto rounded bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover">+ 이벤트</button>
+        <p className="text-[15px] tabular-nums text-body">이벤트 {data.events.length}건 · 마일스톤 {data.milestones.length}건</p>
+        <Button size="sm" className="ml-auto" onClick={() => setEditing('new')}>+ 이벤트 추가</Button>
       </div>
       {error && <Alert tone="danger">{error}</Alert>}
       <Suspense fallback={<div className="h-[640px] rounded border border-line bg-white" />}>

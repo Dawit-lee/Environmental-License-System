@@ -7,6 +7,9 @@ import {
 } from '../api/schedule';
 import { useEscape } from './useEscape';
 import { Alert as Notice } from './ui/Alert';
+import { Badge } from './ui/Badge';
+import { Table } from './ui/Table';
+import { cn, focusRing } from './ui/cn';
 
 // ---------------------------------------------------------------------------
 // ScheduleTools — the 일정 tab's design-schedule/03 pieces: base dates (with the move preview), 기준 확정,
@@ -14,11 +17,13 @@ import { Alert as Notice } from './ui/Alert';
 // header (title + one line), sections, and a footer with a summary on the left and the action that says what it does.
 // ---------------------------------------------------------------------------
 
-export const btn = 'rounded border border-line bg-white px-3 py-1.5 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
-export const primary = 'rounded bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40';
-export const segBtn = (on: boolean) => `px-3 py-1.5 text-xs ${on ? 'bg-brand font-semibold text-white' : 'text-body hover:bg-paper'}`;
+// DESIGN.md 버튼 sm (40px) for dialogs and toolbars: tertiary, primary, and a segmented pick
+const disabled = 'disabled:cursor-not-allowed disabled:border-transparent disabled:bg-line disabled:text-disabled';
+export const btn = cn('inline-flex h-10 shrink-0 items-center justify-center rounded border border-input bg-white px-3 text-[15px] text-ink hover:bg-paper', disabled, focusRing);
+export const primary = cn('inline-flex h-10 shrink-0 items-center justify-center rounded border border-transparent bg-brand px-3 text-[15px] font-bold text-white hover:bg-brand-hover', disabled, focusRing);
+export const segBtn = (on: boolean) => cn('h-10 min-w-11 px-3 text-[15px]', focusRing, on ? 'bg-brand font-bold text-white' : 'text-ink hover:bg-paper');
 const cell = 'max-w-[220px] truncate px-3 py-2';
-const head = 'px-3 py-2 font-medium';
+const head = 'px-3 py-2 font-bold';
 const dateInput = 'rounded border border-line bg-white px-2 py-1 text-sm tabular-nums outline-none focus:border-brand';
 const md = (d: string | null | undefined) => (d ? d.slice(2).replaceAll('-', '.') : '미정');
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
@@ -36,10 +41,11 @@ export function Modal({ title, subtitle, onClose, children, footer, wide, size }
         className={`w-full ${WIDTH[size ?? (wide ? 'lg' : 'md')]} rounded bg-white shadow-xl`}>
         <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-ink">{title}</h2>
-            {subtitle && <p className="mt-0.5 text-xs text-mute">{subtitle}</p>}
+            <h2 className="break-keep text-[19px] font-bold text-ink">{title}</h2>
+            {subtitle && <p className="mt-1 break-keep text-[15px] text-body">{subtitle}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-mute hover:text-body">×</button>
+          <button type="button" onClick={onClose} aria-label="닫기"
+            className={cn('-mr-3 -mt-2 flex size-11 shrink-0 items-center justify-center rounded text-2xl leading-none text-body hover:bg-paper', focusRing)}>×</button>
         </div>
         <div className="space-y-5 px-6 py-5">{children}</div>
         {footer && (
@@ -52,13 +58,13 @@ export function Modal({ title, subtitle, onClose, children, footer, wide, size }
 
 /** Left side of a dialog footer. */
 export const Summary = ({ children }: { children?: ReactNode }) =>
-  <span className="mr-auto text-sm tabular-nums text-mute">{children}</span>;
+  <span className="mr-auto text-[15px] tabular-nums text-body">{children}</span>;
 
 export function Section({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
   return (
     <section className="space-y-2.5">
-      <h3 className="flex items-baseline gap-2 text-sm font-semibold text-ink">
-        {title}{hint && <span className="text-xs font-normal text-mute">{hint}</span>}
+      <h3 className="flex flex-wrap items-baseline gap-2 text-[17px] font-bold text-ink">
+        {title}{hint && <span className="text-[15px] font-normal text-body">{hint}</span>}
       </h3>
       {children}
     </section>
@@ -330,40 +336,40 @@ export function DelayTable({ projectId, baselined }: { projectId: number; baseli
   if (!rows) return null;
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-mute">기준 계획보다 늦은 항목 {rows.length}건 · 지연 일수 순</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[15px] text-body">기준 계획보다 늦은 항목 <span className="font-bold tabular-nums text-ink">{rows.length}</span>건 · 지연 일수 순</p>
         <button type="button" className={btn} disabled={!rows.length} onClick={copy}>{copied ? '복사됨' : '주간보고용 복사'}</button>
       </div>
       {rows.length === 0 ? (
-        <p className="rounded border border-dashed border-line bg-white px-6 py-12 text-center text-sm text-mute">
-          {baselined ? '지연된 항목이 없습니다.' : '기준을 확정하면 기준보다 늦어진 항목이 여기에 나옵니다. 계획 종료일이 지난 항목은 간트의 "기한 경과"로 봅니다.'}</p>
-      ) : (
-        <div className="overflow-x-auto rounded border border-line bg-white">
-          <table className="w-full whitespace-nowrap text-left text-sm">
-            <thead className="bg-paper text-xs text-body">
-              <tr>
-                <th className={head}>분야</th><th className={head}>항목</th><th className={head}>담당</th>
-                <th className={head}>기준 종료</th><th className={head}>현재 종료</th><th className={head}>실적</th>
-                <th className={`${head} text-right`}>지연</th><th className={head}>사유</th><th className={`${head} text-right`}>후행</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line">
-              {rows.map((r) => (
-                <tr key={r.id}>
-                  <td className={cell}>{r.disciplineName ?? '공통'}</td>
-                  <td className={cell} title={r.title}>{r.title}</td>
-                  <td className={cell}>{r.ownerName ?? '—'}</td>
-                  <td className="px-3 py-2 text-mute">{r.baselineEnd ?? '—'}</td>
-                  <td className="px-3 py-2">{r.endDate}</td>
-                  <td className="px-3 py-2 text-mute">{r.actualEnd ?? '—'}</td>
-                  <td className="px-3 py-2 text-right text-danger">+{r.delayDays}일</td>
-                  <td className={cell} title={r.reason ?? ''}>{r.reason ?? '—'}</td>
-                  <td className="px-3 py-2 text-right">{r.successors || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="rounded border border-line bg-white px-6 py-12 text-center">
+          <p className="break-keep text-[17px] font-bold text-ink">{baselined ? '지연된 항목이 없습니다.' : '아직 기준이 확정되지 않았습니다.'}</p>
+          {!baselined && <p className="mt-1 break-keep text-[15px] text-body">기준을 확정하면 기준보다 늦어진 항목이 여기에 나옵니다. 계획 종료일이 지난 항목은 간트의 "기한 경과"로 봅니다.</p>}
         </div>
+      ) : (
+        <Table density="compact" caption="지연 현황" className="min-w-[880px] whitespace-nowrap">
+          <thead>
+            <tr>
+              <th scope="col">항목</th><th scope="col">지연</th><th scope="col">분야</th><th scope="col">담당</th>
+              <th scope="col" className="text-right">기준 종료</th><th scope="col" className="text-right">현재 종료</th><th scope="col" className="text-right">실적</th>
+              <th scope="col">사유</th><th scope="col" className="text-right">후행</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td className="max-w-[220px] truncate font-bold" title={r.title}>{r.title}</td>
+                <td><Badge tone="danger" className="tabular-nums">+{r.delayDays}일</Badge></td>
+                <td className="text-body">{r.disciplineName ?? '공통'}</td>
+                <td className="max-w-[220px] truncate text-body">{r.ownerName ?? '—'}</td>
+                <td className="text-right tabular-nums text-body">{r.baselineEnd ?? '—'}</td>
+                <td className="text-right tabular-nums">{r.endDate}</td>
+                <td className="text-right tabular-nums text-body">{r.actualEnd ?? '—'}</td>
+                <td className="max-w-[220px] truncate text-body" title={r.reason ?? ''}>{r.reason ?? '—'}</td>
+                <td className="text-right tabular-nums text-body">{r.successors || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </Table>
       )}
     </div>
   );

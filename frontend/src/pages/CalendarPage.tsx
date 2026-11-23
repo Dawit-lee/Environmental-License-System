@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { getDeadlines, ymd, type Deadline } from '../api/notifications';
+import { focusRing } from '../components/ui/cn';
 
 // ---------------------------------------------------------------------------
 // CalendarPage — month grid of permit due-dates; each day lists up to 3 titles with a color-coded dot
@@ -89,7 +90,7 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
         {!projectId && <h1 className="text-2xl font-bold text-brand">인허가 캘린더</h1>}
 
         {/* Legend */}
-        <div className="mt-4 flex flex-wrap items-center gap-4 rounded border border-line bg-white px-4 py-2.5 text-sm">
+        <div className="mt-4 flex flex-wrap items-center gap-4 rounded border border-line bg-white px-4 py-3 text-[15px]">
           {(Object.keys(TONE_LABEL) as DotTone[]).map((tone) => (
             <span key={tone} className="flex items-center gap-2 text-body">
               <span className={`h-2.5 w-2.5 rounded-full ${TONE_DOT[tone]}`} />
@@ -104,30 +105,30 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
             type="button"
             onClick={prevMonth}
             aria-label="이전 달"
-            className="rounded px-3 py-1.5 text-lg text-body transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
+            className={`flex size-11 items-center justify-center rounded text-2xl text-body hover:bg-white ${focusRing}`}
           >
             ‹
           </button>
-          <h2 className="text-lg font-semibold text-ink">
+          <h2 className="text-[19px] font-bold tabular-nums text-ink">
             {year}년 {month}월
           </h2>
           <button
             type="button"
             onClick={nextMonth}
             aria-label="다음 달"
-            className="rounded px-3 py-1.5 text-lg text-body transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-brand/30"
+            className={`flex size-11 items-center justify-center rounded text-2xl text-body hover:bg-white ${focusRing}`}
           >
             ›
           </button>
         </div>
 
-        {error && <p className="mt-4 text-center text-sm text-danger">{error}</p>}
+        {error && <p role="alert" className="mt-4 text-center text-[15px] text-danger">{error}</p>}
 
         {/* Calendar grid */}
-        <div className="mt-4 overflow-hidden rounded border border-line bg-white shadow-sm">
-          <div className="grid grid-cols-7 border-b border-line bg-paper text-center text-xs font-medium text-body">
+        <div className="mt-4 overflow-hidden rounded border border-line bg-white">
+          <div className="grid grid-cols-7 border-b border-line bg-paper text-center text-[15px] font-bold text-ink">
             {WEEKDAYS.map((w, i) => (
-              <div key={w} className={`py-2 ${i === 0 ? 'text-danger' : i === 6 ? 'text-brand' : ''}`}>
+              <div key={w} className={`py-2 ${i === 0 ? 'text-danger' : i === 6 ? 'text-brand-text' : ''}`}>
                 {w}
               </div>
             ))}
@@ -135,33 +136,33 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
           <div className="grid grid-cols-7">
             {cells.map((day, idx) => {
               if (day === null) {
-                return <div key={`b-${idx}`} className="min-h-[104px] border-b border-r border-line bg-paper/40" />;
+                return <div key={`b-${idx}`} className="min-h-[104px] border-b border-r border-line-soft bg-paper" />;
               }
               const key = dateKey(day);
               const items = byDate[key] ?? [];
               const isOpen = openDay === key;
               return (
-                <div key={key} className="relative min-h-[104px] border-b border-r border-line p-1.5">
+                <div key={key} className="relative min-h-[104px] border-b border-r border-line-soft p-1.5">
                   <button
                     type="button"
                     onClick={() => setOpenDay(isOpen ? null : key)}
                     disabled={items.length === 0}
-                    className={`flex h-full w-full flex-col items-start rounded p-1 text-left transition focus:outline-none ${
+                    className={`flex h-full w-full flex-col items-start rounded p-1 text-left ${focusRing} ${
                       items.length > 0
-                        ? 'cursor-pointer hover:bg-paper focus:ring-2 focus:ring-brand/30'
+                        ? 'cursor-pointer hover:bg-paper'
                         : 'cursor-default'
-                    } ${isOpen ? 'bg-brand/5 ring-2 ring-brand/30' : ''}`}
+                    } ${isOpen ? 'bg-brand-subtle' : ''}`}
                   >
-                    <span className="text-sm text-body">{day}</span>
+                    <span className="text-[15px] tabular-nums text-ink">{day}</span>
                     {items.length > 0 && (
                       <span className="mt-1 flex w-full min-w-0 flex-col gap-0.5">
                         {items.slice(0, 3).map((it) => (
-                          <span key={it.id} className="flex w-full min-w-0 items-start gap-1 text-[11px] leading-4 text-body" title={`${it.projectName} — ${it.title}`}>
-                            <span className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
+                          <span key={it.id} className="flex w-full min-w-0 items-start gap-1 text-[13px] leading-[18px] text-body" title={`${it.projectName} — ${it.title}`}>
+                            <span className={`mt-[6px] h-1.5 w-1.5 shrink-0 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
                             <span className="line-clamp-2 break-all">{it.title}</span>
                           </span>
                         ))}
-                        {items.length > 3 && <span className="text-[11px] text-mute">+{items.length - 3}건 더</span>}
+                        {items.length > 3 && <span className="text-[13px] text-body">+{items.length - 3}건 더</span>}
                       </span>
                     )}
                   </button>
@@ -170,7 +171,7 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
                   {isOpen && items.length > 0 && (
                     <div className="absolute left-1/2 top-full z-20 mt-1 w-64 -translate-x-1/2 rounded border border-line bg-white p-3 shadow-lg">
                       <div className="mb-2 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-ink">{month}월 {day}일</span>
+                        <span className="text-[15px] font-bold text-ink">{month}월 {day}일</span>
                         <button
                           type="button"
                           onClick={() => setOpenDay(null)}
@@ -183,11 +184,11 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
                       <ul className="space-y-2">
                         {items.map((it) => (
                           <li key={it.id}>
-                            <Link to={`/projects/${it.projectId}`} className="flex items-start gap-2 rounded text-sm hover:bg-paper">
+                            <Link to={`/projects/${it.projectId}`} className={`flex items-start gap-2 rounded text-[15px] hover:bg-paper ${focusRing}`}>
                               <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${TONE_DOT[tone(it.dDay)]}`} />
                               <div>
-                                <p className="font-medium text-ink">{it.title}</p>
-                                <p className="text-xs text-mute">{it.projectName}</p>
+                                <p className="font-bold text-ink">{it.title}</p>
+                                <p className="text-[13px] text-body">{it.projectName}</p>
                               </div>
                             </Link>
                           </li>
