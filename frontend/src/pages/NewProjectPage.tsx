@@ -20,6 +20,8 @@ import { ANCHOR_LABEL, setAnchor } from '../api/schedule';
 import type { FacilityType, Project, ProjectStatus } from '../types';
 import { usePrompt } from '../components/PromptDialog';
 import { Alert } from '../components/ui/Alert';
+import { Button } from '../components/ui/Button';
+import { cn, focusRing } from '../components/ui/cn';
 
 // ---------------------------------------------------------------------------
 // NewProjectPage — two-step wizard.
@@ -78,8 +80,11 @@ const BASE_FIELDS = ['facility_type', 'capacity_tpd', 'sido', 'address', 'propon
   'existing_capacity_tpd', 'waste_types', 'construction_start'];
 
 const law = (name: string) => `https://www.law.go.kr/법령/${name.replace(/\s/g, '')}`;
-const input =
-  'w-full rounded border border-line bg-white px-3 py-2 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
+// DESIGN.md 입력: 48px, 16px 글자, 도움말은 아래 15px.
+const input = cn('h-12 w-full rounded border border-input bg-white px-4 text-base text-ink placeholder:text-disabled focus:border-brand', focusRing);
+const hint = 'text-[15px] text-body';
+const warnHint = 'text-[15px] text-warn';
+const choice = cn('size-5 shrink-0 accent-brand', focusRing);
 
 /**
  * New project wizard. With `projectId` it is the project's 설정 tab: the same form prefilled from the project and its
@@ -357,23 +362,21 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
           <StepDot index={2} label="인허가 자동 도출" active={step >= 2} current={step === 2} />
         </ol>
 
-        {error && (
-          <p role="alert" className="mb-4 rounded border border-danger/30 bg-red-50 px-4 py-3 text-sm text-danger">
-            {error}
-          </p>
-        )}
+        {error && <Alert tone="danger" className="mb-4">{error}</Alert>}
 
         {step === 1 ? (
-          <section className="rounded border border-line bg-white p-6 shadow-sm sm:p-8">
-            <h1 className="text-2xl font-bold text-brand">{editId ? '프로젝트 정보' : '프로젝트 정보 입력'}</h1>
-            <p className="mt-1 text-sm text-mute">
+          <section className="rounded border border-line bg-white p-6 sm:p-8">
+            {editId
+              ? <h2 className="text-[19px] font-bold text-ink">프로젝트 정보</h2>
+              : <h1 className="text-2xl font-bold text-ink">프로젝트 정보 입력</h1>}
+            <p className="mt-1 break-keep text-[15px] text-body">
               {editId
                 ? '정보를 고친 뒤 저장합니다. 사업 속성을 바꿨다면 인허가를 다시 도출하세요. 바뀐 판정만 검토 목록에 새로 올라갑니다.'
                 : '사업 속성을 입력하면 다음 단계에서 필요한 인허가가 자동으로 도출됩니다.'}
             </p>
 
-            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-              <Field label="프로젝트명" required className="md:col-span-2">
+            <FormGroup title="기본 정보">
+              <Field label="프로젝트명" required>
                 <input
                   type="text"
                   value={name}
@@ -383,144 +386,30 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 />
               </Field>
 
-              <Field label="시설유형" required>
-                <select value={facilityType} onChange={(e) => setFacilityType(e.target.value as FacilityType)} className={input}>
-                  {FACILITY_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-                {facilityType !== 'INCINERATION' && (
-                  <p className="mt-1 text-xs text-warn">자동 도출은 현재 소각시설만 지원합니다</p>
-                )}
-              </Field>
-
-              <Field label="추진주체" required>
-                <select value={proponent} onChange={(e) => setProponent(e.target.value)} className={input}>
-                  {PROPONENTS.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="사업부지 시·도" required>
-                <select value={sido} onChange={(e) => setSido(e.target.value)} className={input}>
-                  <option value="">선택</option>
-                  {SIDO.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <Field label="사업부지 지번" required>
-                <input
-                  type="text"
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                  placeholder="지번 또는 도로명 주소"
-                  className={input}
-                />
-              </Field>
-
-              <Field label="처리대상폐기물" className="md:col-span-2">
-                <div className="flex flex-wrap gap-2">
-                  {WASTE_OPTIONS.map((waste) => {
-                    const checked = wasteTypes.includes(waste.value);
-                    return (
-                      <label
-                        key={waste.value}
-                        className={`flex cursor-pointer items-center gap-2 rounded border px-3 py-2 text-sm transition hover:border-brand focus-within:ring-2 focus-within:ring-brand/20 ${
-                          checked
-                            ? 'border-brand bg-brand/5 text-brand'
-                            : 'border-line text-body'
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleWaste(waste.value)}
-                          aria-label={waste.label}
-                          className="h-4 w-4 accent-brand"
-                        />
-                        {waste.label}
-                      </label>
-                    );
-                  })}
-                </div>
-              </Field>
-
-              <Field label="사업구분" required>
-                <div className="flex gap-4 py-2 text-sm text-body">
-                  {(['NEW', 'EXPANSION'] as const).map((k) => (
-                    <label key={k} className="flex cursor-pointer items-center gap-2">
-                      <input
-                        type="radio"
-                        name="projectKind"
-                        checked={projectKind === k}
-                        onChange={() => setProjectKind(k)}
-                        aria-label={k === 'NEW' ? '신설' : '증설'}
-                        className="h-4 w-4 accent-brand"
-                      />
-                      {k === 'NEW' ? '신설' : '증설'}
-                    </label>
-                  ))}
-                </div>
-              </Field>
-
-              <Field label="시설용량" required>
-                <div className="flex items-center gap-2">
-                  <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="0" className={input} />
-                  <span className="shrink-0 text-sm text-mute">톤/일</span>
-                </div>
-                <p className={`mt-1 text-xs ${Number(capacity) >= 100 ? 'text-warn' : 'text-mute'}`}>100톤/일 이상 시 설치승인 대상</p>
-              </Field>
-
-              {projectKind === 'EXPANSION' && (
-                <Field label="기존 용량" required>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min={0}
-                      value={existingCapacity}
-                      onChange={(e) => setExistingCapacity(e.target.value)}
-                      placeholder="0"
-                      className={input}
-                    />
-                    <span className="shrink-0 text-sm text-mute">톤/일</span>
-                  </div>
-                  <p className="mt-1 text-xs text-mute">증설은 변경승인·변경신고(30% 이상) 판정에 필요합니다</p>
+              <div className="grid gap-6 sm:grid-cols-2">
+                <Field label="시설유형" required>
+                  <select value={facilityType} onChange={(e) => setFacilityType(e.target.value as FacilityType)} className={input}>
+                    {FACILITY_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                  {facilityType !== 'INCINERATION' && (
+                    <p className={warnHint}>자동 도출은 현재 소각시설만 지원합니다</p>
+                  )}
                 </Field>
-              )}
 
-              <Field label="착수일">
-                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} />
-                <p className="mt-1 text-xs text-mute">설계를 시작하는 날입니다. 일정의 착수일 기준이 됩니다.</p>
-              </Field>
-
-              <Field label="착공예정일">
-                <input type="date" value={constructionStartDate} onChange={(e) => setConstructionStartDate(e.target.value)} className={input} />
-                <p className="mt-1 text-xs text-mute">공사를 시작하는 날입니다. 인허가 판정과 일정의 착공일 기준에 씁니다.</p>
-              </Field>
-
-              {editId && (
-                <>
-                  <Field label="준공예정일">
-                    <input type="date" value={expectedEndDate} onChange={(e) => setExpectedEndDate(e.target.value)} className={input} />
-                  </Field>
-                  <Field label="진행 상태">
-                    <select value={status} onChange={(e) => setStatus(e.target.value as ProjectStatus)} className={input}>
-                      <option value="IN_PROGRESS">진행중</option>
-                      <option value="COMPLETED">완료</option>
-                      <option value="ON_HOLD">보류</option>
-                    </select>
-                  </Field>
-                </>
-              )}
+                <Field label="추진주체" required>
+                  <select value={proponent} onChange={(e) => setProponent(e.target.value)} className={input}>
+                    {PROPONENTS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              </div>
 
               <Field label="부서/팀">
                 <select value={teamId ?? ''} onChange={(e) => setTeamId(e.target.value ? Number(e.target.value) : null)} className={input}>
@@ -533,7 +422,7 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                 </select>
               </Field>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid gap-6 sm:grid-cols-2">
                 <Field label="PM">
                   <PersonSelect people={people} value={pmUserId} onChange={setPmUserId} />
                 </Field>
@@ -541,33 +430,152 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
                   <PersonSelect people={people} value={emUserId} onChange={setEmUserId} />
                 </Field>
               </div>
-            </div>
 
-            <div className="mt-8 flex items-center justify-end gap-3">
-              {saved && <span role="status" className="text-sm text-ok">저장했습니다</span>}
               {editId && (
-                <button
-                  type="button"
-                  disabled={!canSave || busy}
-                  onClick={() => handleNext(false)}
-                  className="rounded border border-line px-5 py-2.5 text-sm font-semibold text-body transition hover:bg-paper disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  저장
-                </button>
+                <Field label="진행 상태" className="sm:max-w-[calc(50%-12px)]">
+                  <select value={status} onChange={(e) => setStatus(e.target.value as ProjectStatus)} className={input}>
+                    <option value="IN_PROGRESS">진행중</option>
+                    <option value="COMPLETED">완료</option>
+                    <option value="ON_HOLD">보류</option>
+                  </select>
+                </Field>
               )}
-              <button
-                type="button"
-                disabled={!canProceed || busy}
-                onClick={() => handleNext()}
-                className="rounded bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40 disabled:cursor-not-allowed disabled:opacity-40"
-              >
+            </FormGroup>
+
+            <FormGroup title="사업 속성">
+              <div className="grid gap-6 sm:grid-cols-[12rem_1fr]">
+                <Field label="사업부지 시·도" required>
+                  <select value={sido} onChange={(e) => setSido(e.target.value)} className={input}>
+                    <option value="">선택</option>
+                    {SIDO.map((s) => (
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
+                <Field label="사업부지 지번" required>
+                  <input
+                    type="text"
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="지번 또는 도로명 주소"
+                    className={input}
+                  />
+                </Field>
+              </div>
+
+              <Field label="처리대상폐기물" as="fieldset">
+                <div className="flex flex-wrap gap-2">
+                  {WASTE_OPTIONS.map((waste) => {
+                    const checked = wasteTypes.includes(waste.value);
+                    return (
+                      <label
+                        key={waste.value}
+                        className={`flex min-h-12 cursor-pointer items-center gap-2 rounded border px-4 text-base transition-colors hover:border-brand ${
+                          checked
+                            ? 'border-brand bg-brand-subtle text-ink'
+                            : 'border-input bg-white text-ink'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleWaste(waste.value)}
+                          aria-label={waste.label}
+                          className={choice}
+                        />
+                        {waste.label}
+                      </label>
+                    );
+                  })}
+                </div>
+              </Field>
+
+              <Field label="사업구분" required as="fieldset">
+                <div className="flex gap-6 text-base text-ink">
+                  {(['NEW', 'EXPANSION'] as const).map((k) => (
+                    <label key={k} className="flex min-h-12 cursor-pointer items-center gap-2">
+                      <input
+                        type="radio"
+                        name="projectKind"
+                        checked={projectKind === k}
+                        onChange={() => setProjectKind(k)}
+                        aria-label={k === 'NEW' ? '신설' : '증설'}
+                        className={choice}
+                      />
+                      {k === 'NEW' ? '신설' : '증설'}
+                    </label>
+                  ))}
+                </div>
+              </Field>
+
+              <div className="grid gap-6 sm:grid-cols-2">
+                <Field label="시설용량" required>
+                  <div className="flex items-center gap-2">
+                    <input type="number" min={0} value={capacity} onChange={(e) => setCapacity(e.target.value)} placeholder="0" className={input} />
+                    <span className="shrink-0 text-[15px] text-body">톤/일</span>
+                  </div>
+                  <p className={Number(capacity) >= 100 ? warnHint : hint}>100톤/일 이상 시 설치승인 대상</p>
+                </Field>
+
+                {projectKind === 'EXPANSION' && (
+                  <Field label="기존 용량" required>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={existingCapacity}
+                        onChange={(e) => setExistingCapacity(e.target.value)}
+                        placeholder="0"
+                        className={input}
+                      />
+                      <span className="shrink-0 text-[15px] text-body">톤/일</span>
+                    </div>
+                    <p className={hint}>증설은 변경승인·변경신고(30% 이상) 판정에 필요합니다</p>
+                  </Field>
+                )}
+              </div>
+            </FormGroup>
+
+            <FormGroup title="일정">
+              <div className="grid gap-6 sm:grid-cols-2">
+                <Field label="착수일">
+                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={input} />
+                  <p className={hint}>설계를 시작하는 날입니다. 일정의 착수일 기준이 됩니다.</p>
+                </Field>
+
+                <Field label="착공예정일">
+                  <input type="date" value={constructionStartDate} onChange={(e) => setConstructionStartDate(e.target.value)} className={input} />
+                  <p className={hint}>공사를 시작하는 날입니다. 인허가 판정과 일정의 착공일 기준에 씁니다.</p>
+                </Field>
+
+                {editId && (
+                  <Field label="준공예정일">
+                    <input type="date" value={expectedEndDate} onChange={(e) => setExpectedEndDate(e.target.value)} className={input} />
+                  </Field>
+                )}
+              </div>
+            </FormGroup>
+
+            <div className="mt-8 flex flex-wrap items-center justify-end gap-3 border-t border-line pt-6">
+              {saved && <span role="status" className="text-[15px] text-ok">저장했습니다</span>}
+              {editId && (
+                <Button variant="tertiary" disabled={!canSave || busy} onClick={() => handleNext(false)}>
+                  저장
+                </Button>
+              )}
+              <Button disabled={!canProceed || busy} onClick={() => handleNext()}>
                 {busy ? phase || '처리 중…' : editId ? '저장 후 인허가 다시 도출 →' : '다음: 인허가 자동 도출 →'}
-              </button>
+              </Button>
             </div>
           </section>
         ) : (
-          <section className="rounded border border-line bg-white p-6 shadow-sm sm:p-8">
-            <h1 className="text-2xl font-bold text-brand">인허가 자동 도출</h1>
+          <section className="rounded border border-line bg-white p-6 sm:p-8">
+            {editId
+              ? <h2 className="text-[19px] font-bold text-ink">인허가 자동 도출</h2>
+              : <h1 className="text-2xl font-bold text-ink">인허가 자동 도출</h1>}
             <p className="mt-1 text-sm text-mute">
               규칙표로 판정했습니다. 해당·판정 보류 항목은 검토 목록에 대기 중이며, 승인해야 인허가 항목이 됩니다.
             </p>
@@ -799,21 +807,9 @@ export default function NewProjectPage({ projectId: editId, onSaved }: { project
               </div>
             )}
 
-            <div className="mt-8 flex items-center justify-between">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="rounded border border-line px-5 py-2.5 text-sm font-semibold text-body transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20"
-              >
-                ← 이전
-              </button>
-              <button
-                type="button"
-                onClick={() => (editId ? setStep(1) : navigate(`/projects/${projectId}`))}
-                className="rounded bg-brand px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-brand-hover focus:outline-none focus:ring-2 focus:ring-brand/40"
-              >
-                완료
-              </button>
+            <div className="mt-8 flex items-center justify-between gap-3 border-t border-line pt-6">
+              <Button variant="tertiary" onClick={() => setStep(1)}>← 이전</Button>
+              <Button onClick={() => (editId ? setStep(1) : navigate(`/projects/${projectId}`))}>완료</Button>
             </div>
           </section>
         )}
@@ -906,25 +902,40 @@ function StepDot({
   );
 }
 
+/** Label above (15px 700) with "(필수)" in words; hints are passed as children below the control. */
 function Field({
   label,
   required,
   className,
+  as: Tag = 'div',
   children,
 }: {
   label: string;
   required?: boolean;
   className?: string;
+  /** fieldset for a group of checkboxes or radios: the label becomes its legend */
+  as?: 'div' | 'fieldset';
   children: ReactNode;
 }) {
+  const Label = Tag === 'fieldset' ? 'legend' : 'label';
   return (
-    <div className={className}>
-      <label className="mb-1.5 block text-sm font-medium text-body">
+    <Tag className={cn('flex min-w-0 flex-col gap-2', className)}>
+      <Label className="text-[15px] font-bold text-ink">
         {label}
-        {required && <span className="ml-0.5 text-danger">*</span>}
-      </label>
+        {required && <span className="ml-1 font-normal text-body">(필수)</span>}
+      </Label>
       {children}
-    </div>
+    </Tag>
+  );
+}
+
+/** One titled block of the form (구역 제목 + fields stacked in one column). */
+function FormGroup({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="mt-8 flex max-w-3xl flex-col gap-6 border-t border-line pt-6">
+      <h3 className="text-[17px] font-bold text-ink">{title}</h3>
+      {children}
+    </section>
   );
 }
 
