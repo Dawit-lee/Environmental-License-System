@@ -98,7 +98,7 @@ export const listMyTasks = () => api<Task[]>('/api/tasks/mine');
 /** Who gets the cycles opened from now on; null falls back to the project EM, then PM. */
 export const setDefaultAssignee = (obligationId: number, defaultAssigneeId: number | null) =>
   api<unknown>(`/api/obligations/${obligationId}`, { method: 'PATCH', body: JSON.stringify({ defaultAssigneeId }) });
-export interface ProjectMember { userId: number; name: string }
+export interface ProjectMember { userId: number; name: string; isAdmin?: boolean }
 export const listProjectMembers = (pid: number) => api<ProjectMember[]>(`/api/projects/${pid}/members`);
 
 const docs = (pid: number, permitId: number) => `/api/projects/${pid}/permits/${permitId}/documents`;

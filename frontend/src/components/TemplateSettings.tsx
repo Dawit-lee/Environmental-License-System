@@ -10,7 +10,7 @@ import { Alert } from './ui/Alert';
 // date and offset are edited in place and saved on [저장], [삭제] removes it, and the last row adds one.
 // ---------------------------------------------------------------------------
 
-const input = 'rounded border border-line px-2 py-1 text-sm outline-none focus:border-brand';
+const input = 'rounded border border-input px-2 py-1 text-sm focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 const head = 'px-3 py-2 font-medium';
 
 export default function TemplateSettings() {
@@ -30,7 +30,7 @@ export default function TemplateSettings() {
       {templates.map((t) => (
         <div key={t.id}>
           <h2 className="mb-2 text-sm font-semibold text-ink">{t.name}</h2>
-          <div className="overflow-x-auto rounded border border-line bg-white shadow-sm">
+          <div className="overflow-x-auto rounded border border-line bg-white">
             <table className="w-full whitespace-nowrap text-left text-sm">
               <thead className="bg-paper text-xs text-body">
                 <tr>
@@ -135,7 +135,7 @@ function NewRow({ templateId, disciplines, onError, onSaved }: {
   const task = form.kind === 'TASK';
 
   return (
-    <tr className="bg-[#FBFAF7]">
+    <tr className="bg-paper">
       <td className="px-3 py-1.5">
         <select aria-label="새 항목 종류" className={input} value={form.kind}
           onChange={(e) => setForm({ ...form, kind: e.target.value as ItemKind, submission: false })}>

@@ -61,7 +61,7 @@ export default function GuidePage() {
             <li key={s.title} className="relative flex gap-4 pb-6 last:pb-0">
               {i < FLOW.length - 1 && <span aria-hidden className="absolute left-[15px] top-8 h-[calc(100%-2rem)] w-px bg-brand/20" />}
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">{i + 1}</span>
-              <div className="min-w-0 flex-1 rounded border border-line bg-white px-4 py-3 shadow-sm">
+              <div className="min-w-0 flex-1 rounded border border-line bg-white px-4 py-3">
                 <h2 className="text-base font-semibold text-ink">{s.title}</h2>
                 <p className="text-xs text-mute">{s.where}</p>
                 <ul className="mt-2 space-y-0.5 text-sm text-body">

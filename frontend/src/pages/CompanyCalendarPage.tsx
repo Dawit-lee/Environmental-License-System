@@ -146,6 +146,8 @@ function PeopleWeeks({ events, nextMonday }: { events: ProjectEvent[]; nextMonda
   return (
     <section>
       <h2 className="mb-3 text-[19px] font-bold text-ink">사람별 이번 주·다음 주</h2>
+      {/* empty: a plain box, so the hint is not cut by the table's phone-width scroll */}
+      {rows.length === 0 ? <p className="rounded border border-line bg-white px-4 py-6 text-center text-[15px] text-body">이번 주·다음 주에 참석자가 지정된 일정이 없습니다. 프로젝트 › 일정 › 달력에서 출장·회의를 넣고 참석자를 지정하세요.</p> : (
       <Table caption="사람별 이번 주·다음 주 일정" className="min-w-[640px] table-fixed whitespace-nowrap">
         <thead>
           <tr>
@@ -155,7 +157,6 @@ function PeopleWeeks({ events, nextMonday }: { events: ProjectEvent[]; nextMonda
           </tr>
         </thead>
         <tbody>
-          {rows.length === 0 && <tr><td colSpan={3} className="whitespace-normal py-6 text-center text-body">이번 주·다음 주에 참석자가 지정된 일정이 없습니다. 프로젝트 › 일정 › 달력에서 출장·회의를 넣고 참석자를 지정하세요.</td></tr>}
           {rows.map(([name, r]) => (
             <tr key={name}>
               <td className="truncate font-bold" title={name}>{name}</td>
@@ -165,6 +166,7 @@ function PeopleWeeks({ events, nextMonday }: { events: ProjectEvent[]; nextMonda
           ))}
         </tbody>
       </Table>
+      )}
     </section>
   );
 }

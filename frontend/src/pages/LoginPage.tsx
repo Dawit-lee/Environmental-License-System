@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router';
 import { login, type Session } from '../api/auth';
 import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Field';
 
 // Public demo build only (VITE_DEMO_LOGIN=true): a read-only account whose password is public on purpose.
 const DEMO = import.meta.env.VITE_DEMO_LOGIN === 'true' ? { email: 'demo@envpermit.local', password: 'demo1234!' } : null;
@@ -35,44 +36,39 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
     }
   };
 
-  const inputClasses =
-    'w-full rounded border border-line px-3 py-2.5 text-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/20';
-
   return (
-    <div className="flex min-h-screen items-center justify-center bg-paper px-4" style={{ fontFamily: 'system-ui, sans-serif' }}>
+    <div className="flex min-h-screen items-center justify-center bg-paper px-4">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <div className="text-3xl">🌿</div>
-          <h1 className="mt-2 text-xl font-bold text-brand">환경시설 인허가 관리</h1>
-          <p className="mt-1 text-sm text-mute">로그인 후 이용하실 수 있습니다</p>
+          <h1 className="text-2xl font-bold text-ink">환경시설 인허가 관리</h1>
+          <p className="mt-1 text-[15px] text-body">로그인 후 이용하실 수 있습니다</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="rounded border border-line bg-white p-6 shadow-sm"
+          className="flex flex-col gap-4 rounded border border-line bg-white p-6"
         >
-          <label className="mb-1.5 block text-sm font-medium text-body">이메일</label>
-          <input
+          <Input
+            label="이메일"
             type="email"
             value={email}
             onChange={(e) => { setEmail(e.target.value); setError(''); }}
             placeholder="you@example.com"
-            className={inputClasses}
             autoFocus
           />
 
-          <label className="mb-1.5 mt-4 block text-sm font-medium text-body">비밀번호</label>
-          <input
+          <Input
+            label="비밀번호"
             type="password"
+            autoComplete="current-password"
             value={password}
             onChange={(e) => { setPassword(e.target.value); setError(''); }}
             placeholder="••••••••"
-            className={inputClasses}
           />
 
-          {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
+          {error && <p role="alert" className="text-[15px] text-danger">{error}</p>}
 
-          <Button type="submit" disabled={submitting} className="mt-5 w-full">
+          <Button type="submit" disabled={submitting} className="w-full">
             {submitting ? '로그인 중…' : '로그인'}
           </Button>
 
@@ -82,18 +78,18 @@ export default function LoginPage({ onLogin }: { onLogin: (session: Session) => 
                 variant="secondary"
                 disabled={submitting}
                 onClick={() => { setError(''); void signIn(DEMO.email, DEMO.password); }}
-                className="mt-2 w-full"
+                className="-mt-2 w-full"
               >
                 데모 계정으로 둘러보기
               </Button>
-              <p className="mt-1.5 text-center text-xs text-mute">
+              <p className="-mt-2 text-center text-[13px] text-mute">
                 ID {DEMO.email} · PW {DEMO.password} (조회만 가능)
               </p>
             </>
           )}
 
-          <p className="mt-4 text-center text-sm text-mute">
-            계정이 없나요? <Link to="/signup" className="font-medium text-brand hover:underline">회원가입</Link>
+          <p className="text-center text-[15px] text-body">
+            계정이 없나요? <Link to="/signup" className="font-bold text-brand-text underline-offset-2 hover:underline">회원가입</Link>
           </p>
         </form>
       </div>

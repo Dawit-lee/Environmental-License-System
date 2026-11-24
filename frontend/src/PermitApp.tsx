@@ -183,9 +183,13 @@ export default function PermitApp() {
 /** Header "?" menu: the guide and a way back to the dismissed 시작하기 checklist. */
 function HelpMenu() {
   const close = (e: MouseEvent) => e.currentTarget.closest('details')?.removeAttribute('open');
-  const item = 'block whitespace-nowrap px-4 py-2 text-sm text-body hover:bg-paper';
+  const item = `block whitespace-nowrap px-4 py-2 text-sm text-body hover:bg-paper ${focusRing} focus-visible:-outline-offset-2`;
   return (
-    <details className="relative">
+    <details className="relative" onKeyDown={(e) => {
+      if (e.key !== 'Escape' || !e.currentTarget.open) return;
+      e.currentTarget.removeAttribute('open');
+      e.currentTarget.querySelector('summary')?.focus();
+    }}>
       <summary aria-label="도움말" title="도움말"
         className={`flex h-10 w-10 cursor-pointer list-none items-center justify-center rounded text-base font-bold text-inverse-subtle hover:bg-white/10 hover:text-white ${focusRing} [&::-webkit-details-marker]:hidden`}>
         ?

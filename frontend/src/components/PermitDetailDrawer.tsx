@@ -1,11 +1,11 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { PermitCategory, PermitHistory, PermitItem, PermitStatus } from '../types';
 import { api } from '../api/client';
 import PermitDocuments from './PermitDocuments';
 import PermitLawLinks from './PermitLawLinks';
 import PermitVersions from './PermitVersions';
 import { Help } from './Onboarding';
-import { useEscape } from './useEscape';
+import { useDialogFocus, useEscape } from './useEscape';
 
 // ---------------------------------------------------------------------------
 // PermitDetailDrawer — slide-in panel (480px) showing a single permit's
@@ -71,6 +71,8 @@ export default function PermitDetailDrawer({
 
   const open = permit !== null;
   useEscape(onClose, open);
+  const box = useRef<HTMLElement>(null);
+  useDialogFocus(box, open);
 
   return (
     <div
@@ -87,7 +89,7 @@ export default function PermitDetailDrawer({
 
       {/* Drawer */}
       <aside
-        role="dialog"
+        role="dialog" ref={box} tabIndex={-1}
         aria-modal="true"
         aria-label="인허가 상세"
         className={`absolute right-0 top-0 flex h-full w-full max-w-[480px] flex-col bg-white shadow-xl transition-transform duration-300 ${
@@ -108,7 +110,7 @@ export default function PermitDetailDrawer({
                 type="button"
                 onClick={onClose}
                 aria-label="닫기"
-                className="rounded p-1.5 text-mute transition hover:bg-paper hover:text-ink focus:outline-none focus:ring-2 focus:ring-brand/30"
+                className="rounded p-1.5 text-mute transition hover:bg-paper hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
               >
                 <span className="block h-5 w-5 text-center text-lg leading-5">✕</span>
               </button>
@@ -149,7 +151,7 @@ export default function PermitDetailDrawer({
                     href={permit.authorityUrl ?? undefined}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-sm font-medium text-brand transition hover:underline focus:outline-none focus:ring-2 focus:ring-brand/30"
+                    className="text-sm font-medium text-brand transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   >
                     {permit.authority} 바로가기 →
                   </a>
@@ -191,7 +193,7 @@ export default function PermitDetailDrawer({
                     href={permit.nextActionUrl ?? undefined}
                     target="_blank"
                     rel="noreferrer"
-                    className="mt-3 inline-flex rounded bg-warn px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-warn-hover focus:outline-none focus:ring-2 focus:ring-warn/40"
+                    className="mt-3 inline-flex rounded bg-warn px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-warn-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   >
                     {permit.authority} 바로가기
                   </a>
@@ -218,7 +220,7 @@ export default function PermitDetailDrawer({
                 <button
                   type="button"
                   onClick={() => setHistoryOpen((v) => !v)}
-                  className="flex w-full items-center justify-between rounded border border-line px-3 py-2.5 text-sm text-body transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/20"
+                  className="flex w-full items-center justify-between rounded border border-line px-3 py-2.5 text-sm text-body transition hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
                   <span>이력 {history.length}건</span>
                   <span aria-hidden className={`transition-transform ${historyOpen ? 'rotate-180' : ''}`}>
@@ -290,13 +292,13 @@ function PermitDates({ permit, onSaved }: { permit: PermitItem; onSaved: (p: Per
         <label key={f.key} className="flex items-center gap-3 text-sm">
           <span className="w-16 shrink-0 text-mute">{f.label}</span>
           <input type="date" value={draft[f.key]} onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
-            className="min-w-0 flex-1 rounded border border-line px-3 py-1.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20" />
+            className="min-w-0 flex-1 rounded border border-input px-3 py-1.5 text-ink focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand" />
         </label>
       ))}
       <label className="flex items-center gap-3 text-sm">
         <span className="w-16 shrink-0 text-mute">상태</span>
         <select value={draft.status} onChange={(e) => setDraft({ ...draft, status: e.target.value as PermitStatus })}
-          className="min-w-0 flex-1 rounded border border-line px-3 py-1.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20">
+          className="min-w-0 flex-1 rounded border border-input px-3 py-1.5 text-ink focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
           <option value="NOT_APPLIED">미신청</option>
           <option value="IN_PROGRESS">진행중</option>
           <option value="COMPLETED">취득완료</option>
@@ -306,7 +308,7 @@ function PermitDates({ permit, onSaved }: { permit: PermitItem; onSaved: (p: Per
       <div className="flex items-center justify-end gap-3">
         {message && <span className="text-xs text-mute">{message}</span>}
         <button type="button" onClick={save} disabled={!dirty || busy}
-          className="rounded bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40">
+          className="rounded bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-40">
           저장
         </button>
       </div>
@@ -361,7 +363,7 @@ function ReportNotes({ permit, onSaved }: { permit: PermitItem; onSaved?: (p: Pe
             placeholder={f.hint}
             readOnly={!onSaved}
             onChange={(e) => setDraft({ ...draft, [f.key]: e.target.value })}
-            className="min-w-0 flex-1 rounded border border-line px-3 py-1.5 text-ink outline-none focus:border-brand focus:ring-2 focus:ring-brand/20"
+            className="min-w-0 flex-1 rounded border border-input px-3 py-1.5 text-ink focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           />
         </label>
       ))}
@@ -372,7 +374,7 @@ function ReportNotes({ permit, onSaved }: { permit: PermitItem; onSaved?: (p: Pe
             type="button"
             onClick={save}
             disabled={!dirty || busy}
-            className="rounded bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-[#173d5f] disabled:opacity-40"
+            className="rounded bg-brand px-3 py-1.5 text-sm font-medium text-white transition hover:bg-brand-hover disabled:opacity-40"
           >
             저장
           </button>

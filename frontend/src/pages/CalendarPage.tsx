@@ -87,7 +87,7 @@ export default function CalendarPage({ projectId }: { projectId?: number }) {
   return (
     <div className="min-h-full bg-paper">
       <div className={projectId ? '' : 'py-8'}>
-        {!projectId && <h1 className="text-2xl font-bold text-brand">인허가 캘린더</h1>}
+        {!projectId && <h1 className="text-2xl font-bold text-ink">인허가 캘린더</h1>}
 
         {/* Legend */}
         <div className="mt-4 flex flex-wrap items-center gap-4 rounded border border-line bg-white px-4 py-3 text-[15px]">

@@ -9,7 +9,7 @@ import { Help } from './Onboarding';
 // Schedule widgets (설계 §6.5): dashboard "이번 주 이벤트" and "지연 항목(분야별)", overview "일정" card.
 // ---------------------------------------------------------------------------
 
-const card = 'rounded border border-line bg-white p-5 shadow-sm';
+const card = 'rounded border border-line bg-white p-5';
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
 /** Events overlapping this week (Mon–Sun) in my calendar scope, one line each. */
@@ -36,7 +36,7 @@ export function WeekEvents() {
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
-            {events?.length === 0 && <tr><td colSpan={4} className="px-3 py-6 text-center text-mute">이번 주 이벤트가 없습니다.</td></tr>}
+            {events?.length === 0 && <tr><td colSpan={4} className="px-3 py-6 whitespace-normal text-left text-mute">이번 주 이벤트가 없습니다.</td></tr>}
             {events?.map((e) => (
               <tr key={e.id} className="hover:bg-paper">
                 <td className="truncate px-3 py-2.5 text-body">{eventWhen(e)}</td>

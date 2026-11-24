@@ -187,7 +187,7 @@ export default function ScheduleSuggestionReview({ projectId, readOnly = false }
                 </tr>
               );
             })}
-            {!rows.length && <tr><td colSpan={7} className="px-3 py-6 text-center text-sm text-mute">검토할 일정 제안이 없습니다.</td></tr>}
+            {!rows.length && <tr><td colSpan={7} className="px-3 py-6 whitespace-normal text-left text-sm text-mute">검토할 일정 제안이 없습니다.</td></tr>}
           </tbody>
         </table>
       </div>

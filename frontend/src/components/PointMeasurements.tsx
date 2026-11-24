@@ -47,7 +47,7 @@ interface Measurement {
 
 const RECENT = 20;
 const today = () => new Date().toLocaleDateString('sv-SE');
-const INPUT = 'rounded border border-line bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const INPUT = 'rounded border border-input bg-white px-3 py-1.5 text-sm text-body focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 const BTN = 'rounded border border-line px-3 py-1 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
 const PRIMARY = 'rounded bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
 
@@ -128,7 +128,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
 
   return (
     <>
-      <h2 className="mt-8 text-lg font-bold text-brand">측정값 입력 · {point.name}</h2>
+      <h2 className="mt-8 text-lg font-bold text-ink">측정값 입력 · {point.name}</h2>
       {taskId && task && (
         <p className="mt-3 flex flex-wrap items-center gap-3 rounded bg-paper px-3 py-2 text-sm text-body">
           <span className="min-w-0 truncate" title={task.title}>
@@ -150,7 +150,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
             측정일에 유효한 한도 항목이 행으로 나옵니다.{point.medium === 'AIR' ? ' 대기 농도는 표준산소농도 보정 후 값을 넣습니다.' : ''}
           </p>
         </div>
-        <div className="mt-3 overflow-x-auto rounded border border-line bg-white shadow-sm">
+        <div className="mt-3 overflow-x-auto rounded border border-line bg-white">
           <table className="w-full min-w-[820px] whitespace-nowrap text-left text-sm">
             <thead className="bg-paper text-xs text-body">
               <tr>
@@ -204,7 +204,7 @@ export default function PointMeasurements({ projectId, point, limits, rev, onCha
       <h3 className="mt-8 text-sm font-semibold text-ink">
         최근 측정 {recent.length > RECENT ? `(최근 ${RECENT}건 / 전체 ${recent.length}건)` : `(${recent.length})`}
       </h3>
-      <div className="mt-2 overflow-x-auto rounded border border-line bg-white shadow-sm">
+      <div className="mt-2 overflow-x-auto rounded border border-line bg-white">
         <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
           <thead className="bg-paper text-xs text-body">
             <tr>

@@ -200,7 +200,7 @@ export function UpcomingDeadlines({ deadlines, error }: { deadlines: Deadline[];
           <tbody>
             {error && <tr><td colSpan={5} className="text-center text-danger">{error}</td></tr>}
             {!error && rows.length === 0 && (
-              <tr><td colSpan={5} className="text-center text-mute">{DUE_SOON_DAYS}일 안에 닥치는 기한이 없습니다.</td></tr>
+              <tr><td colSpan={5} className="whitespace-normal text-left text-mute">{DUE_SOON_DAYS}일 안에 닥치는 기한이 없습니다.</td></tr>
             )}
             {rows.map((d) => {
               const b = dueBadge(d.dDay);

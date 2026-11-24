@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react';
 import { Modal } from './ScheduleTools';
-
-const btn = 'rounded border border-line px-3 py-1.5 text-xs font-medium text-body hover:border-brand hover:text-brand';
-const primary = 'rounded bg-brand px-3.5 py-1.5 text-xs font-semibold text-white hover:bg-brand-hover';
+import { Button } from './ui/Button';
+import { cn, focusRing } from './ui/cn';
 
 /**
  * window.prompt in the app's Modal: `const [ask, promptUi] = usePrompt()`, render `{promptUi}`,
@@ -25,12 +24,13 @@ export function usePrompt() {
   const ui = q && (
     <Modal title={q.label} onClose={() => close(null)}>
       <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); close(q.value); }}>
+        {/* the dialog title already shows the label */}
         <input autoFocus aria-label={q.label} maxLength={500} value={q.value}
           onChange={(e) => setQ({ ...q, value: e.target.value })}
-          className="w-full rounded border border-line px-3 py-2 text-sm focus:border-brand focus:outline-none" />
+          className={cn('h-12 w-full rounded border border-input bg-white px-4 text-base text-ink focus:border-brand', focusRing)} />
         <div className="flex justify-end gap-2">
-          <button type="button" className={btn} onClick={() => close(null)}>취소</button>
-          <button type="submit" className={primary}>확인</button>
+          <Button variant="tertiary" onClick={() => close(null)}>취소</Button>
+          <Button type="submit">확인</Button>
         </div>
       </form>
     </Modal>

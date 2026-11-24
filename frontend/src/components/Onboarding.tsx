@@ -3,9 +3,10 @@ import { DUE_SOON_DAYS } from '../terms';
 import { Link } from 'react-router';
 import { api, sessionUserId } from '../api/client';
 import { getSchedule } from '../api/schedule';
-import { listProjectMembers } from '../api/tasks';
+import { listProjectMembers, type ProjectMember } from '../api/tasks';
 import { getShareLinks } from '../api/share';
 import type { PermitItem, Project } from '../types';
+import { focusRing } from './ui/cn';
 
 // ---------------------------------------------------------------------------
 // Onboarding — 시작하기 checklist (dashboard), hover help for confusing controls,
@@ -55,7 +56,7 @@ export function Help({ k, align = 'left' }: { k: HelpKey; align?: 'left' | 'righ
   return (
     <Tip k={k} align={align}>
       <button type="button" aria-label={`${HELP[k].term} 설명: ${HELP[k].text}`}
-        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-line text-[10px] font-semibold leading-none text-mute hover:border-brand hover:text-brand focus:outline-none focus:ring-2 focus:ring-brand/30">
+        className={`ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full border border-line text-[10px] font-semibold leading-none text-mute hover:border-brand hover:text-brand ${focusRing}`}>
         ?
       </button>
     </Tip>
@@ -118,11 +119,16 @@ export function GettingStarted({ projects, permits }: { projects: Project[]; per
   useEffect(() => {
     if (!target || dismissed) return;
     const zero = <T,>(p: Promise<T[]>) => p.then((l) => l.length, () => 0); // a failed lookup just leaves the step open
+    const me = sessionUserId();
+    const members = listProjectMembers(target.id).catch(() => [] as ProjectMember[]);
+    // share links are the PM·EM·project admin's (server 403s anyone else), so don't ask for them otherwise
+    const manager = members.then((ms) => me !== null && (me === target.pmUserId || me === target.emUserId
+      || ms.some((m) => m.userId === me && m.isAdmin)));
     Promise.all([
       getSchedule(target.id).then((s) => [s.items.length, s.anchors.filter((a) => a.date).length], () => [0, 0]),
-      zero(listProjectMembers(target.id)),
+      members.then((ms) => ms.length),
       zero(api<unknown[]>(`/api/projects/${target.id}/documents`)),
-      zero(getShareLinks(target.id)),
+      manager.then((ok) => (ok ? zero(getShareLinks(target.id)) : 0)),
     ]).then(([[items, anchors], members, docs, shares]) => setFacts({ items, anchors, members, docs, shares }));
   }, [target?.id, dismissed]);
 
@@ -185,7 +191,7 @@ export function GettingStarted({ projects, permits }: { projects: Project[]; per
           return (
             <li key={s.label}>
               {s.to ? (
-                <Link to={s.to} className={`${cls} transition hover:bg-paper focus:outline-none focus:ring-2 focus:ring-brand/30`}>{body}</Link>
+                <Link to={s.to} className={`${cls} transition hover:bg-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand`}>{body}</Link>
               ) : (
                 <div className={`${cls} opacity-50`} title="먼저 프로젝트를 만드세요">{body}</div>
               )}

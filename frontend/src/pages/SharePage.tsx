@@ -3,6 +3,8 @@ import { useParams } from 'react-router';
 import { getShared, webcal, type SharedSchedule } from '../api/share';
 import ReadOnlySchedule from '../components/ReadOnlySchedule';
 import { Alert } from '../components/ui/Alert';
+import { Button } from '../components/ui/Button';
+import { cn, focusRing } from '../components/ui/cn';
 
 // ---------------------------------------------------------------------------
 // SharePage — /share/:token, no login (설계 §6.3). Read-only schedule for a partner, plus the .ics subscription.
@@ -23,7 +25,7 @@ export default function SharePage() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-paper px-4 py-8" style={{ fontFamily: 'system-ui, sans-serif' }}>
+    <div className="min-h-screen bg-paper px-4 py-8">
       <div className="mx-auto max-w-5xl space-y-3">
         {error && <Alert tone="danger">{error}</Alert>}
         {data === null && (
@@ -33,10 +35,12 @@ export default function SharePage() {
         )}
         {data && (
           <>
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-mute">읽기 전용 · {data.expiresAt.slice(0, 10)}까지 열림</span>
-              <a href={webcal(`/share/${token}.ics`)} className="ml-auto rounded border border-line bg-white px-3 py-1.5 font-medium text-body hover:border-brand">달력 구독(.ics)</a>
-              <button type="button" onClick={() => window.print()} className="rounded border border-line bg-white px-3 py-1.5 font-medium text-body hover:border-brand">인쇄 · PDF</button>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="mr-auto text-[15px] text-body">읽기 전용 · {data.expiresAt.slice(0, 10)}까지 열림</span>
+              <div className="flex gap-2">
+                <a href={webcal(`/share/${token}.ics`)} className={cn('inline-flex h-10 items-center rounded border border-input bg-white px-3 text-[15px] text-ink hover:bg-paper', focusRing)}>달력 구독(.ics)</a>
+                <Button variant="tertiary" size="sm" onClick={() => window.print()}>인쇄 · PDF</Button>
+              </div>
             </div>
             <ReadOnlySchedule title={`${data.projectName} 일정`} items={data.items} events={data.events} />
           </>

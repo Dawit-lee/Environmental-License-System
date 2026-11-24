@@ -14,7 +14,7 @@ interface PasteRow {
   unit: string | null; limitLower: number | null; limitValue: number | null; level: Level | null; error: string | null;
 }
 
-const INPUT = 'rounded border border-line bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const INPUT = 'rounded border border-input bg-white px-3 py-1.5 text-sm text-body focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 const BTN = 'rounded border border-line px-3 py-1 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
 const PRIMARY = 'rounded bg-brand px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-hover disabled:opacity-40';
 
@@ -58,7 +58,7 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
 
   return (
     <>
-      <h2 className="mt-8 text-lg font-bold text-brand">엑셀 붙여넣기 · {point.name}</h2>
+      <h2 className="mt-8 text-lg font-bold text-ink">엑셀 붙여넣기 · {point.name}</h2>
       <p className="mt-2 text-sm text-mute">
         엑셀에서 측정일·항목·값 3열을 복사해 붙여넣습니다. 첫 행이 제목이면 건너뜁니다. 항목은 코드(CO)나 이름(일산화탄소) 모두 되고, 최대 500행입니다.
       </p>
@@ -79,7 +79,7 @@ export default function MeasurementPaste({ point, onSaved }: { point: { id: numb
       </div>
 
       {rows && (
-        <div className="mt-3 max-h-[420px] overflow-auto rounded border border-line bg-white shadow-sm">
+        <div className="mt-3 max-h-[420px] overflow-auto rounded border border-line bg-white">
           <table className="w-full min-w-[900px] whitespace-nowrap text-left text-sm">
             <thead className="sticky top-0 bg-paper text-xs text-body">
               <tr>

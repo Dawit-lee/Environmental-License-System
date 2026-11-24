@@ -15,7 +15,7 @@ interface Sheet { name: string; note: string; headers: string[]; rows: Cell[][] 
 interface Report { fileName: string; from: string; to: string; sheets: Sheet[] }
 interface Point { id: number; permitItemId: number | null; name: string }
 
-const INPUT = 'rounded border border-line bg-white px-3 py-1.5 text-sm text-body outline-none focus:border-brand focus:ring-2 focus:ring-brand/20';
+const INPUT = 'rounded border border-input bg-white px-3 py-1.5 text-sm text-body focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 const BTN = 'rounded border border-line px-3 py-1.5 text-xs font-medium text-body hover:border-brand hover:text-brand disabled:opacity-40';
 /** Only these two are coloured; every other status is plain text. */
 const ALERT = new Set<Cell>(['초과', '기한 경과']);
@@ -77,7 +77,7 @@ export default function ComplianceReportDraft({ projectId, permits, initial, onC
   });
 
   return (
-    <section className="mt-4 rounded border border-line bg-white p-4 shadow-sm">
+    <section className="mt-4 rounded border border-line bg-white p-4">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-ink">이행 보고서 초안</h3>
         <button type="button" onClick={onClose} aria-label="닫기" className="text-xl leading-none text-mute hover:text-body">×</button>

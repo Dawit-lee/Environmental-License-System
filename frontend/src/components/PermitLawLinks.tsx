@@ -107,7 +107,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
       setLinks((prev) => prev.filter((l) => l.id !== id));
     });
 
-  const input = 'w-full rounded border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/30';
+  const input = 'w-full rounded border border-line px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand';
 
   return (
     <div className="space-y-3">
@@ -231,7 +231,7 @@ export default function PermitLawLinks({ permitId }: { permitId: number }) {
               type="button"
               onClick={link}
               disabled={busy}
-              className="rounded bg-brand px-3.5 py-2 text-sm font-semibold text-white hover:bg-[#173b5c] disabled:opacity-50"
+              className="rounded bg-brand px-3.5 py-2 text-sm font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
             >
               연결
             </button>
