@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { api } from '../api/client';
+import { api, isDemo } from '../api/client';
 import {
   ANCHOR_LABEL, ANCHORS, completeItem, reopenItem, createItem, deleteItem, getDisciplines, getSchedule,
   needsReason, offsetLabel, STATUS_LABEL, toInput, updateItem,
@@ -13,6 +13,7 @@ import type { Scale } from './ScheduleGantt';
 import { BaseDatesDialog, BaselineDialog, DelayTable, PasteDialog, TemplateDialog } from './ScheduleTools';
 import ReadOnlySchedule from './ReadOnlySchedule';
 import ShareDialog from './ShareDialog';
+import ScheduleTable from './ScheduleTable';
 import { usePrompt } from './PromptDialog';
 import { HELP, Help, Tip } from './Onboarding';
 import { useDialogFocus, useEscape } from './useEscape';
@@ -28,12 +29,12 @@ import { cn, focusRing } from './ui/cn';
 const ScheduleGantt = lazy(() => import('./ScheduleGantt'));
 
 // ---------------------------------------------------------------------------
-// ProjectSchedule — 프로젝트 › 일정 tab: view switch [간트] [달력] [지연 현황] [인허가 기한] [인쇄본], a summary line (기준 회차,
+// ProjectSchedule — 프로젝트 › 일정 tab: view switch [표] [간트] [달력] [지연 현황] [인허가 기한] [인쇄본], a summary line (기준 회차,
 // 공정률, 지연 N건) and the base-date / baseline / template / paste tools. Clicking a row opens the item form;
-// dragging a bar saves (a slip past the baseline asks for the reason first).
+// a date typed in the table or a dragged bar saves (a slip past the baseline asks for the reason first).
 // ---------------------------------------------------------------------------
 
-type View = 'gantt' | 'calendar' | 'delays' | 'deadlines' | 'print';
+type View = 'table' | 'gantt' | 'calendar' | 'delays' | 'deadlines' | 'print';
 interface Member { userId: number; name: string }
 
 // DESIGN.md: toolbar buttons 40px tertiary; form inputs 48px with the input border
@@ -47,13 +48,13 @@ const UNLINK_OFFSETS = { offsetDays: null, offsetMonths: null, durationDays: nul
 /** 일·주·월 segmented control: the picked one is filled blue. */
 const seg = (on: boolean) => cn('h-10 min-w-11 px-3 text-[15px]', focusRing, on ? 'bg-brand font-bold text-white' : 'text-ink hover:bg-paper');
 const VIEWS: { key: View; label: string; help?: string }[] = [
-  { key: 'gantt', label: '간트' }, { key: 'calendar', label: '달력' }, { key: 'delays', label: '지연 현황', help: HELP.delays.text },
+  { key: 'table', label: '표' }, { key: 'gantt', label: '간트' }, { key: 'calendar', label: '달력' }, { key: 'delays', label: '지연 현황', help: HELP.delays.text },
   { key: 'deadlines', label: '인허가 기한', help: HELP.deadlines.text }, { key: 'print', label: '인쇄본', help: HELP.print.text },
 ];
 
 export default function ProjectSchedule({ projectId }: { projectId: number }) {
   const [ask, promptUi] = usePrompt();
-  const [view, setView] = useState<View>('gantt');
+  const [view, setView] = useState<View>('table');
   const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [disciplines, setDisciplines] = useState<Discipline[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -61,6 +62,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState<Scale>('week');
   const [filter, setFilter] = useState({ discipline: '', owner: '', delayedOnly: false });
+  const [shift, setShift] = useState(true); // 뒤 일정 같이 밀기
   const [editing, setEditing] = useState<ScheduleItem | 'new' | null>(null);
   const [events, setEvents] = useState<ProjectEvent[]>([]); // the Gantt's 이벤트 row
   type Tool = 'base' | 'baseline' | 'template' | 'paste' | 'share';
@@ -100,7 +102,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
   const dated = visible.filter((i) => i.endDate);
   const submission = schedule?.base === 'SUBMISSION' ? schedule.anchors.find((a) => a.anchor === 'SUBMISSION')?.date ?? null : null;
 
-  const move = async (id: number, dates: { startDate: string; endDate: string }) => {
+  const move = async (id: number, dates: { startDate: string; endDate: string }, shiftSuccessors = false) => {
     const item = schedule?.items.find((i) => i.id === id);
     if (!item || (item.startDate === dates.startDate && item.endDate === dates.endDate)) return;
     let reason: string | null = null;
@@ -112,7 +114,7 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
     try {
       // a relative item stays on its base date: no offsets = computed back from the dragged dates
       const relative = item.anchor ? UNLINK_OFFSETS : {};
-      await updateItem(projectId, id, { ...toInput(item, schedule!.dependencies), ...dates, ...relative, reason });
+      await updateItem(projectId, id, { ...toInput(item, schedule!.dependencies), ...dates, ...relative, reason }, shiftSuccessors);
     } catch (e) {
       setError((e as Error).message);
     }
@@ -175,9 +177,9 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
           onOpenItem={(id) => setEditing(schedule?.items.find((i) => i.id === id) ?? null)} />
       )}
 
-      {view === 'gantt' && (
+      {(view === 'table' || view === 'gantt') && (
         <>
-          {/* 필터 줄: 분야·담당·기한 경과 + 오른쪽 축척·항목 추가 */}
+          {/* 필터 줄: 분야·담당·기한 경과 + 오른쪽 (표) 뒤 일정 같이 밀기 / (간트) 축척, 항목 추가 */}
           <div className="flex flex-wrap items-end gap-3">
             <Select label="분야" className="w-full sm:w-44" value={filter.discipline} onChange={(e) => setFilter({ ...filter, discipline: e.target.value })}>
               <option value="">전체</option>
@@ -195,21 +197,36 @@ export default function ProjectSchedule({ projectId }: { projectId: number }) {
               기한 경과만
             </label>
             <div className="flex w-full items-center gap-2 sm:ml-auto sm:w-auto">
+              {view === 'table' ? (
+                <label className="flex h-10 items-center gap-2 text-[15px] text-ink">
+                  <input type="checkbox" checked={shift} className={cn('size-5 accent-brand', focusRing)} onChange={(e) => setShift(e.target.checked)} />
+                  뒤 일정 같이 밀기
+                </label>
+              ) : (
               <div role="group" aria-label="간트 축척" className="inline-flex overflow-hidden rounded border border-input bg-white">
                 <button type="button" aria-pressed={scale === 'day'} className={seg(scale === 'day')} onClick={() => setScale('day')}>일</button>
                 <button type="button" aria-pressed={scale === 'week'} className={cn(seg(scale === 'week'), 'border-x border-input')} onClick={() => setScale('week')}>주</button>
                 <button type="button" aria-pressed={scale === 'month'} className={seg(scale === 'month')} onClick={() => setScale('month')}>월</button>
               </div>
+              )}
               <Button size="sm" className="ml-auto sm:ml-0" onClick={() => setEditing('new')}>+ 항목 추가</Button>
             </div>
           </div>
 
           {error && <Alert tone="danger">{error}</Alert>}
 
-          {dated.length < visible.length && (
+          {view === 'table' && visible.length > 0 && !isDemo() && (
+            <p className="break-keep text-[15px] text-body">날짜를 누르면 바로 고칠 수 있습니다. 달력에서 고르거나 26.11.19처럼 입력하고 Enter를 누르세요. 기간을 바꾸면 종료일이 따라 바뀝니다.</p>
+          )}
+          {view === 'table' && schedule && visible.length > 0 && (
+            <ScheduleTable items={visible} all={schedule.items} dependencies={schedule.dependencies} disciplines={disciplines}
+              canEdit={!isDemo()} shift={shift} onSave={(id, dates, s) => move(id, dates, s)}
+              onOpen={(id) => setEditing(schedule.items.find((i) => i.id === id) ?? null)} />
+          )}
+          {view === 'gantt' && dated.length < visible.length && (
             <p className="break-keep text-[15px] text-body">날짜 미정 {visible.length - dated.length}건: 기준일이 정해지면 간트에 나타납니다. [기준일]에서 날짜를 넣으세요.</p>
           )}
-          {schedule && dated.length > 0 && (
+          {view === 'gantt' && schedule && dated.length > 0 && (
             <Suspense fallback={<div className="h-[600px] rounded border border-line bg-white" />}>
             <ScheduleGantt key={`${scale}:${loads}`} items={dated} dependencies={schedule.dependencies} events={events}
               disciplines={disciplines} today={schedule.today} scale={scale} submission={submission}

@@ -126,8 +126,9 @@ const base = (projectId: number) => `/api/projects/${projectId}/schedule`;
 export const getSchedule = (projectId: number) => api<Schedule>(base(projectId));
 export const createItem = (projectId: number, input: ItemInput) =>
   api<ScheduleItem>(`${base(projectId)}/items`, send('POST', input));
-export const updateItem = (projectId: number, id: number, input: ItemInput) =>
-  api<ScheduleItem>(`${base(projectId)}/items/${id}`, send('PATCH', input));
+/** shiftSuccessors: an end moved later also pushes the FS successors the same days, in the same request. */
+export const updateItem = (projectId: number, id: number, input: ItemInput, shiftSuccessors = false) =>
+  api<ScheduleItem>(`${base(projectId)}/items/${id}${shiftSuccessors ? '?shiftSuccessors=true' : ''}`, send('PATCH', input));
 export const completeItem = (projectId: number, id: number, actualEnd: string) =>
   api<ScheduleItem>(`${base(projectId)}/items/${id}/complete`, send('POST', { actualEnd }));
 export const reopenItem = (projectId: number, id: number) =>
