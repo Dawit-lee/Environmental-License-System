@@ -25,9 +25,12 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -197,10 +200,43 @@ class ScheduleController {
     @PatchMapping("/api/projects/{pid}/schedule/items/{id}")
     @Transactional
     ItemView update(@AuthenticationPrincipal Jwt jwt, @PathVariable long pid, @PathVariable long id,
-                    @Valid @RequestBody ItemRequest req) {
+                    @RequestParam(defaultValue = "false") boolean shiftSuccessors, @Valid @RequestBody ItemRequest req) {
         access.member(pid, jwt);
+        LocalDate oldEnd = find(pid, id).endDate();
         update(pid, id, userId(jwt), req);
-        return find(pid, id);
+        ItemView moved = find(pid, id);
+        if (shiftSuccessors) shiftSuccessors(pid, moved, oldEnd, userId(jwt));
+        return moved;
+    }
+
+    /**
+     * [뒤 일정 같이 밀기]: an end moved later pushes every open FS successor, transitively, by the same days (same
+     * transaction). Each move goes through the PATCH rules with its own history; a completed item stops the chain.
+     */
+    private void shiftSuccessors(long pid, ItemView moved, LocalDate oldEnd, Long actor) {
+        if (oldEnd == null || moved.endDate() == null) return;
+        long days = ChronoUnit.DAYS.between(oldEnd, moved.endDate());
+        if (days <= 0) return;
+        String reason = "선행 항목 '%s' %d일 연기".formatted(moved.title(), days);
+        Set<Long> seen = new HashSet<>(Set.of(moved.id()));
+        ArrayDeque<Long> next = new ArrayDeque<>(successorsOf(moved.id()));
+        while (!next.isEmpty()) {
+            long s = next.poll();
+            if (!seen.add(s)) continue;
+            ItemView v = find(pid, s);
+            if (v.actualEnd() != null || v.endDate() == null) continue;
+            LocalDate start = Objects.requireNonNullElse(v.startDate(), v.endDate());
+            // anchor kept, offsets left out: the server computes them back from the new dates (as a drag does)
+            update(pid, s, actor, requestOf(pid, s).withDates(start.plusDays(days), v.endDate().plusDays(days),
+                    v.anchor(), null, null, null, reason));
+            next.addAll(successorsOf(s));
+        }
+    }
+
+    private List<Long> successorsOf(long id) {
+        return jdbc.queryForList(
+                "SELECT successor_id FROM schedule_item_dependency WHERE predecessor_id = ? ORDER BY successor_id",
+                Long.class, id);
     }
 
     /** The PATCH rules (lock, reason on a slip past the baseline, history) for a caller that checked membership. */

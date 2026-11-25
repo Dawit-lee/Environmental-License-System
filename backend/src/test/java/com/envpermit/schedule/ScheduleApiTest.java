@@ -169,6 +169,37 @@ class ScheduleApiTest extends IntegrationTest {
     }
 
     @Test
+    void shift_successors_moves_the_whole_fs_chain_by_the_same_days_in_one_request() throws Exception {
+        long a = item("{\"kind\":\"TASK\",\"title\":\"공정 계획\",\"startDate\":\"2026-01-05\",\"endDate\":\"2026-01-20\"}");
+        long b = item("{\"kind\":\"TASK\",\"title\":\"배치 계획\",\"startDate\":\"2026-01-21\",\"endDate\":\"2026-02-10\",\"predecessorIds\":[" + a + "]}");
+        long c = item("{\"kind\":\"MILESTONE\",\"title\":\"중간보고\",\"endDate\":\"2026-02-15\",\"predecessorIds\":[" + b + "]}");
+        long other = item("{\"kind\":\"TASK\",\"title\":\"따로\",\"startDate\":\"2026-01-21\",\"endDate\":\"2026-01-25\"}");
+
+        // without the flag only the item moves
+        call(lee, json(patch(items() + "/" + a), """
+                {"kind":"TASK","title":"공정 계획","startDate":"2026-01-05","endDate":"2026-01-21"}"""))
+                .andExpect(status().isOk());
+        call(lee, get(schedule())).andExpect(jsonPath("$.items[?(@.id == %d)].startDate".formatted(b)).value("2026-01-21"));
+
+        // +3 days on the end: b and c (through b) move 3 days, the unrelated item stays
+        call(lee, json(patch(items() + "/" + a + "?shiftSuccessors=true"), """
+                {"kind":"TASK","title":"공정 계획","startDate":"2026-01-05","endDate":"2026-01-24","predecessorIds":[]}"""))
+                .andExpect(status().isOk());
+        call(lee, get(schedule()))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].startDate".formatted(b)).value("2026-01-24"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].endDate".formatted(b)).value("2026-02-13"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].endDate".formatted(c)).value("2026-02-18"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].startDate".formatted(c)).value("2026-02-18"))
+                .andExpect(jsonPath("$.items[?(@.id == %d)].startDate".formatted(other)).value("2026-01-21"));
+
+        // pulling earlier moves nothing behind it
+        call(lee, json(patch(items() + "/" + a + "?shiftSuccessors=true"), """
+                {"kind":"TASK","title":"공정 계획","startDate":"2026-01-05","endDate":"2026-01-20"}"""))
+                .andExpect(status().isOk());
+        call(lee, get(schedule())).andExpect(jsonPath("$.items[?(@.id == %d)].startDate".formatted(b)).value("2026-01-24"));
+    }
+
+    @Test
     void status_and_delay_days_follow_the_clock() throws Exception {
         long late = item("{\"kind\":\"TASK\",\"title\":\"토목 기본도\",\"startDate\":\"2025-12-01\",\"endDate\":\"2026-01-02\"}");
         item("{\"kind\":\"TASK\",\"title\":\"오늘 마감\",\"startDate\":\"2025-12-20\",\"endDate\":\"2026-01-05\"}");
