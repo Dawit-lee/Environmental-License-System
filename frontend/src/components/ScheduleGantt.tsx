@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Gantt, Willow, type IApi, type ITask, type ILink } from '@svar-ui/react-gantt';
 import '@svar-ui/react-gantt/all.css';
 import './ScheduleGantt.css';
@@ -96,6 +96,16 @@ export function fromGantt(task: ITask, kind: ScheduleItem['kind']): { startDate:
   return { startDate: start, endDate: kind === 'MILESTONE' ? start : format(subDays(task.end as Date, 1), 'yyyy-MM-dd') };
 }
 
+/** Dates under a bar while it is dragged: SVAR only moves pixels until the drop, so round them to days like it does. */
+export function dragDates(x: number, w: number, scaleStart: Date, dayWidth: number, kind: ScheduleItem['kind'])
+  : { startDate: string; endDate: string } {
+  const startDay = addDays(scaleStart, Math.round(x / dayWidth));
+  const days = Math.max(1, Math.round(w / dayWidth));
+  return fromGantt({ start: startDay, end: addDays(startDay, days) } as ITask, kind);
+}
+
+const dayLabel = (iso: string) => format(parseISO(iso), 'M월 d일') + `(${'일월화수목금토'[parseISO(iso).getDay()]})`;
+
 const DelayCell = ({ row }: { row: ITask }) =>
   row.delayDays > 0 ? <span className="text-danger">+{row.delayDays}일</span> : null;
 
@@ -183,6 +193,8 @@ export default function ScheduleGantt({ items, dependencies, disciplines, events
     ? [...SCALES[scale].scales, { unit: scale, step: 1, format: (d: Date) => dDay(parseISO(submission), d) }]
     : SCALES[scale].scales;
 
+  const [dragging, setDragging] = useState<{ startDate: string; endDate: string } | null>(null);
+
   const init = (api: IApi) => {
     // edits go through our own form and API; the Gantt only drags bars
     for (const action of ['show-editor', 'add-task', 'delete-task', 'copy-task', 'move-task', 'add-link', 'delete-link'] as const) {
@@ -194,8 +206,17 @@ export default function ScheduleGantt({ items, dependencies, disciplines, events
       if (!isGroup(ev.id)) onOpen(ev.id as number);
       return false;
     });
+    // show the dates the bar would land on, so a day can be hit even in 주/월 보기
+    api.on('drag-task', (ev) => {
+      if (isGroup(ev.id)) return;
+      if (ev.inProgress === false) { setDragging(null); return; }
+      const task = api.getTask(ev.id) as ITask & { $x: number; $w: number };
+      const { _scales } = api.getState() as unknown as { _scales: { start: Date; lengthUnitWidth: number } };
+      setDragging(dragDates(task.$x, task.$w, _scales.start, _scales.lengthUnitWidth, kinds.get(ev.id as number) ?? 'TASK'));
+    });
     api.on('update-task', (ev) => {
       if (ev.inProgress || isGroup(ev.id)) return;
+      setDragging(null);
       const task = api.getTask(ev.id);
       onMove(ev.id as number, fromGantt(task, kinds.get(ev.id as number) ?? 'TASK'));
     });
@@ -204,6 +225,11 @@ export default function ScheduleGantt({ items, dependencies, disciplines, events
   return (
     <div className="schedule-gantt overflow-hidden rounded border border-line bg-white">
       <style>{TODAY_CSS}</style>
+      <p aria-live="polite" className={`border-b border-line px-3 py-2 text-[15px] tabular-nums ${dragging ? 'bg-brand-subtle font-bold text-brand-text' : 'text-muted-foreground'}`}>
+        {dragging
+          ? `옮기는 중: ${dayLabel(dragging.startDate)}${dragging.endDate !== dragging.startDate ? ` ~ ${dayLabel(dragging.endDate)}` : ''}`
+          : '막대를 끌면 날짜가 여기에 하루 단위로 표시됩니다. 날짜를 직접 입력하려면 막대를 누르세요.'}
+      </p>
       <Willow fonts={false}>
         <Gantt
           init={init}
