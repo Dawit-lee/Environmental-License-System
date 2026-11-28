@@ -193,7 +193,7 @@ cd backend && ./gradlew test     # Docker가 켜져 있어야 함
 | **골든 하네스 (자동 도출)** | 규칙 세트를 실제 사업의 인허가 목록과 대조해 재현율·정밀도·보류를 잽니다. 저장소에는 지어낸 사례만 있고, 실제 사례는 `GOLDEN_DIR`이 가리키는 레포 밖 폴더에서만 읽습니다 → [golden-accuracy.md](docs/golden-accuracy.md) |
 | **추출 품질 평가 (수동)** | 공개 협의내용 문서와 정답표로 3사 추출 재현율·정밀도를 잽니다. 비용이 들어 CI에서는 돌지 않습니다 → [방법](docs/EXTRACTION_EVAL.md), [결과](docs/EXTRACTION_EVAL_RESULTS.md) |
 
-프론트엔드는 Vitest 단위 테스트 12개(`cd frontend && npm test`)가 있습니다.
+프론트엔드는 Vitest 단위 테스트(`cd frontend && npm test`)가 있습니다.
 CI는 PR마다 타입 검사(`tsc`), ESLint, Vitest, `vite build`를 돌립니다. 화면 동작은 브라우저로 확인합니다.
 
 ---
